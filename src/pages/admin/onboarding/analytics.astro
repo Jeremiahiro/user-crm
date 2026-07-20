@@ -222,6 +222,7 @@ const chartData = yearStats.map(s => ({
 <div id="chart-data" data-chart={JSON.stringify(chartData)} style="display:none;"></div>
 
 <script is:inline>
+  (function() {
   var raw = document.getElementById('chart-data')
   if (!raw) { return }
   var data = JSON.parse(raw.getAttribute('data-chart') || '[]')
@@ -262,4 +263,5 @@ const chartData = yearStats.map(s => ({
     colEl.appendChild(yearLabel)
     container.appendChild(colEl)
   })
+  })()
 </script>
