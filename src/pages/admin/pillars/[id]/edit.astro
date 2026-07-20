@@ -76,7 +76,6 @@ if (Astro.request.method === 'POST') {
     </form>
 
     {pillar.is_active ? (
-      <!-- Archive zone -->
       <div style="background: white; border: 1px solid var(--color-danger-200); border-radius: var(--radius-lg); padding: 24px;">
         <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--color-danger-700); margin: 0 0 8px;">
           Archive pillar
@@ -90,7 +89,6 @@ if (Astro.request.method === 'POST') {
         </button>
       </div>
     ) : (
-      <!-- Unarchive zone -->
       <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
         <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--color-neutral-700); margin: 0 0 8px;">
           Restore pillar
