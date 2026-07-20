@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Navy background with rounded corners -->
+  <rect width="32" height="32" rx="7" fill="#1A1A2E"/>
+  <!-- Gold top accent bar -->
+  <rect x="4" y="4" width="24" height="3" rx="1.5" fill="#C9A84C"/>
+  <!-- "100" text -->
+  <text
+    x="16"
+    y="23"
+    font-family="'Arial Black', 'Helvetica Neue', Arial, sans-serif"
+    font-weight="900"
+    font-size="13"
+    fill="white"
+    text-anchor="middle"
+    letter-spacing="-0.5"
+  >100</text>
+</svg>

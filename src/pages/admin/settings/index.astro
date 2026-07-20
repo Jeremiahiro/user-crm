@@ -1,0 +1,285 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const isSuperAdmin = Astro.locals.user.roles?.includes('Super Admin') ?? false
+if (!isSuperAdmin) return Astro.redirect('/dashboard')
+
+type SettingRow = {
+  key: string
+  value: string
+  label: string | null
+  description: string | null
+  updated_at: string
+}
+
+const { data: rows } = await supabaseAdmin
+  .from('org_settings')
+  .select('key, value, label, description, updated_at')
+  .order('key')
+
+const settings = (rows ?? []) as SettingRow[]
+const settingMap = Object.fromEntries(settings.map(s => [s.key, s]))
+
+let successMessage = ''
+let errorMessage = ''
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  const updates: { key: string; value: string }[] = []
+
+  // Iterate over the known set of form-editable keys (not just DB rows)
+  // so new settings are upserted even if no row exists yet.
+  const FORM_SETTING_KEYS = [
+    'dbs_validity_years',
+    'dbs_warn_days',
+    'allow_member_praise',
+    'allow_teamlead_remove_member',
+  ]
+  for (const key of FORM_SETTING_KEYS) {
+    // Hidden+checkbox pattern: getAll returns last value wins
+    const vals = form.getAll(key)
+    const val = vals[vals.length - 1]
+    if (typeof val === 'string' && val.trim() !== '') {
+      updates.push({ key, value: val.trim() })
+    }
+  }
+
+  const failed: string[] = []
+  for (const update of updates) {
+    const res = await fetch(new URL('/api/settings', Astro.url), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: Astro.request.headers.get('cookie') ?? '' },
+      body: JSON.stringify(update),
+    })
+    if (!res.ok) failed.push(update.key)
+  }
+
+  if (failed.length > 0) {
+    errorMessage = `Failed to save: ${failed.join(', ')}`
+  } else {
+    successMessage = 'Settings saved successfully.'
+  }
+
+  // Reload fresh values
+  const { data: freshRows } = await supabaseAdmin
+    .from('org_settings')
+    .select('key, value, label, description, updated_at')
+    .order('key')
+  const fresh = (freshRows ?? []) as SettingRow[]
+  settings.splice(0, settings.length, ...fresh)
+  settingMap.dbs_validity_years = fresh.find(s => s.key === 'dbs_validity_years') ?? settingMap.dbs_validity_years
+  settingMap.dbs_warn_days = fresh.find(s => s.key === 'dbs_warn_days') ?? settingMap.dbs_warn_days
+}
+
+const dbsValidityYears = settingMap['dbs_validity_years']?.value ?? '3'
+const dbsWarnDays = settingMap['dbs_warn_days']?.value ?? '60'
+const logoUrl = settingMap['logo_url']?.value ?? ''
+const allowMemberPraise = (settingMap['allow_member_praise']?.value ?? 'true') === 'true'
+const allowTeamleadRemoveMember = (settingMap['allow_teamlead_remove_member']?.value ?? 'true') === 'true'
+const lastUpdated = settingMap['dbs_validity_years']?.updated_at
+  ? new Date(settingMap['dbs_validity_years'].updated_at).toLocaleDateString('en-GB', {
+      day: 'numeric', month: 'long', year: 'numeric',
+    })
+  : null
+
+let logoError = ''
+let logoSuccess = ''
+---
+
+<DashboardLayout title="Settings">
+  <div>
+    <div style="margin-bottom: 28px;">
+      <h1 style="font-family: var(--font-heading); font-size: 26px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Organisation Settings</h1>
+      <p style="color: var(--color-neutral-500); font-size: 14px; margin: 0;">Configure chapter-wide defaults. Changes take effect immediately.</p>
+    </div>
+
+    {successMessage && (
+      <div style="background-color: #f0fdf4; border: 1px solid #86efac; border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; color: #166534; font-size: 14px; font-family: var(--font-body);">
+        {successMessage}
+      </div>
+    )}
+    {errorMessage && (
+      <div style="background-color: #fef2f2; border: 1px solid #fca5a5; border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; color: #991b1b; font-size: 14px; font-family: var(--font-body);">
+        {errorMessage}
+      </div>
+    )}
+
+    <!-- Two-column layout: main settings left, sidebar right -->
+    <div style="display: grid; grid-template-columns: 1fr 300px; gap: 24px; align-items: start;">
+
+      <!-- ── Left column: editable settings ── -->
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+
+        <!-- Logo -->
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
+          <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Organisation Logo</h2>
+          <p style="color: var(--color-neutral-500); font-size: 13px; margin: 0 0 16px;">Shown in the portal header. PNG, JPG, SVG or WebP, max 5 MB.</p>
+
+          {logoUrl && (
+            <div style="margin-bottom: 14px; display: flex; align-items: center; gap: 12px;">
+              <img src={logoUrl} alt="Organisation logo" style="max-height: 40px; max-width: 160px; object-fit: contain; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); padding: 6px;" />
+              <span style="font-size: 12px; color: var(--color-neutral-400);">Current logo</span>
+            </div>
+          )}
+
+          <div id="logo-error" style={`display:${logoError ? 'block' : 'none'}; background:#fef2f2; border:1px solid #fca5a5; border-radius:var(--radius-md); padding:8px 12px; margin-bottom:10px; color:#991b1b; font-size:13px;`}>{logoError}</div>
+          <div id="logo-success" style={`display:${logoSuccess ? 'block' : 'none'}; background:#f0fdf4; border:1px solid #86efac; border-radius:var(--radius-md); padding:8px 12px; margin-bottom:10px; color:#166534; font-size:13px;`}>{logoSuccess}</div>
+
+          <form id="logo-form" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <input type="file" name="logo" id="logo-file" accept="image/png,image/jpeg,image/svg+xml,image/webp"
+              style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);" />
+            <button type="submit" id="logo-btn"
+              style="padding: 7px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+              Upload
+            </button>
+          </form>
+        </div>
+
+        <form method="POST" style="display: contents;">
+
+          <!-- DBS Compliance -->
+          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
+            <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">DBS Compliance</h2>
+            <p style="color: var(--color-neutral-500); font-size: 13px; margin: 0 0 20px;">Controls how DBS certificate validity and expiry warnings are calculated.</p>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+              <div>
+                <label for="dbs_validity_years" style="display: block; font-size: 13px; font-weight: 600; color: var(--color-neutral-800); margin-bottom: 4px;">Validity (years)</label>
+                <p style="font-size: 12px; color: var(--color-neutral-500); margin: 0 0 8px;">How long a certificate is valid from its clearance date.</p>
+                <input id="dbs_validity_years" name="dbs_validity_years" type="number" min="1" max="10" value={dbsValidityYears} required
+                  style="width: 100px; padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-size: 14px; font-family: var(--font-body);" />
+              </div>
+              <div>
+                <label for="dbs_warn_days" style="display: block; font-size: 13px; font-weight: 600; color: var(--color-neutral-800); margin-bottom: 4px;">Warning window (days)</label>
+                <p style="font-size: 12px; color: var(--color-neutral-500); margin: 0 0 8px;">Days before expiry to flag a certificate as "expiring soon".</p>
+                <input id="dbs_warn_days" name="dbs_warn_days" type="number" min="7" max="365" value={dbsWarnDays} required
+                  style="width: 100px; padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-size: 14px; font-family: var(--font-body);" />
+              </div>
+            </div>
+            {lastUpdated && (
+              <p style="font-size: 12px; color: var(--color-neutral-400); margin: 16px 0 0;">Last updated {lastUpdated}</p>
+            )}
+          </div>
+
+          <!-- Member Permissions -->
+          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
+            <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Member Permissions</h2>
+            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0 0 20px;">Control what members and team leads can do in the portal.</p>
+
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+              <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer; padding: 14px; background: var(--color-neutral-50); border-radius: var(--radius-md); border: 1px solid var(--color-neutral-200);">
+                <input type="hidden" name="allow_member_praise" value="false" />
+                <input type="checkbox" name="allow_member_praise" value="true" checked={allowMemberPraise}
+                  style="width: 16px; height: 16px; margin-top: 2px; accent-color: var(--color-brand-navy); flex-shrink: 0;" />
+                <div>
+                  <span style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-neutral-800); display: block;">Members can give praise</span>
+                  <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); display: block; margin-top: 2px;">When off, only admins can give praise.</span>
+                </div>
+              </label>
+
+              <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer; padding: 14px; background: var(--color-neutral-50); border-radius: var(--radius-md); border: 1px solid var(--color-neutral-200);">
+                <input type="hidden" name="allow_teamlead_remove_member" value="false" />
+                <input type="checkbox" name="allow_teamlead_remove_member" value="true" checked={allowTeamleadRemoveMember}
+                  style="width: 16px; height: 16px; margin-top: 2px; accent-color: var(--color-brand-navy); flex-shrink: 0;" />
+                <div>
+                  <span style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-neutral-800); display: block;">Team leads can remove members</span>
+                  <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); display: block; margin-top: 2px;">Admins can always remove regardless of this setting.</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <button type="submit"
+              style="padding: 10px 24px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-size: 14px; font-weight: 600; font-family: var(--font-body); cursor: pointer;">
+              Save settings
+            </button>
+          </div>
+
+        </form>
+      </div>
+
+      <!-- ── Right sidebar ── -->
+      <div style="display: flex; flex-direction: column; gap: 16px; position: sticky; top: 80px;">
+
+        <!-- Data Management -->
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px;">
+          <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px; text-transform: uppercase; letter-spacing: 0.04em;">Data Management</h2>
+          <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0 0 14px;">Manage lookup tables and reference data.</p>
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <a href="/admin/document-types"
+              style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: var(--radius-md); text-decoration: none; color: var(--color-neutral-800); font-family: var(--font-body); font-size: 13px; font-weight: 500;">
+              <span>Document Types</span>
+              <span style="color: var(--color-neutral-400); font-size: 12px;">→</span>
+            </a>
+            <a href="/admin/roles"
+              style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: var(--radius-md); text-decoration: none; color: var(--color-neutral-800); font-family: var(--font-body); font-size: 13px; font-weight: 500;">
+              <span>Roles</span>
+              <span style="color: var(--color-neutral-400); font-size: 12px;">→</span>
+            </a>
+            <a href="/admin/positions"
+              style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: var(--radius-md); text-decoration: none; color: var(--color-neutral-800); font-family: var(--font-body); font-size: 13px; font-weight: 500;">
+              <span>Elected Positions</span>
+              <span style="color: var(--color-neutral-400); font-size: 12px;">→</span>
+            </a>
+            <a href="/admin/email-templates"
+              style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: var(--radius-md); text-decoration: none; color: var(--color-neutral-800); font-family: var(--font-body); font-size: 13px; font-weight: 500;">
+              <span>Email Templates</span>
+              <span style="color: var(--color-neutral-400); font-size: 12px;">→</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Audit log -->
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px;">
+          <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px; text-transform: uppercase; letter-spacing: 0.04em;">Logs & History</h2>
+          <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0 0 14px;">Track all changes made in the portal.</p>
+          <a href="/admin/audit"
+            style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); text-decoration: none; color: var(--color-neutral-700); font-family: var(--font-body); font-size: 13px; font-weight: 500; background: var(--color-neutral-50);">
+            View Audit Log →
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('logo-form') as HTMLFormElement
+    const btn = document.getElementById('logo-btn') as HTMLButtonElement
+    const errBox = document.getElementById('logo-error') as HTMLDivElement
+    const okBox = document.getElementById('logo-success') as HTMLDivElement
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const input = document.getElementById('logo-file') as HTMLInputElement
+      if (!input.files?.length) { errBox.textContent = 'Please select a file.'; errBox.style.display = 'block'; return }
+
+      btn.textContent = 'Uploading…'
+      btn.disabled = true
+      errBox.style.display = 'none'
+      okBox.style.display = 'none'
+
+      const fd = new FormData()
+      fd.append('logo', input.files[0])
+
+      const res = await fetch('/api/settings/logo', { method: 'POST', body: fd })
+      const json = await res.json() as { data?: { logo_url: string }; error?: string }
+
+      btn.textContent = 'Upload'
+      btn.disabled = false
+
+      if (res.ok && json.data) {
+        okBox.textContent = 'Logo updated. Reload the page to see it in the header.'
+        okBox.style.display = 'block'
+        input.value = ''
+      } else {
+        errBox.textContent = json.error ?? 'Upload failed.'
+        errBox.style.display = 'block'
+      }
+    })
+  </script>
+</DashboardLayout>

@@ -1,0 +1,85 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import Input from '@/components/ui/Input.astro'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+let errors: Record<string, string> = {}
+let values: Record<string, string> = {}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  values = Object.fromEntries(form.entries()) as Record<string, string>
+
+  const res = await fetch(`${Astro.url.origin}/api/pillars`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: Astro.request.headers.get('cookie') ?? '',
+    },
+    body: JSON.stringify({
+      name: values.name,
+      description: values.description || undefined,
+      display_order: values.display_order ? Number(values.display_order) : undefined,
+    }),
+  })
+
+  if (res.ok) {
+    return Astro.redirect('/admin/pillars')
+  } else {
+    const body = await res.json() as { issues?: { fieldErrors?: Record<string, string[]> } }
+    const fieldErrors = body.issues?.fieldErrors ?? {}
+    errors = Object.fromEntries(
+      Object.entries(fieldErrors).map(([k, v]) => [k, v[0] ?? ''])
+    )
+  }
+}
+---
+
+<DashboardLayout title="Add Pillar">
+  <div style="max-width: 600px;">
+    <Breadcrumb crumbs={[{ label: 'Pillars', href: '/admin/pillars' }, { label: 'New Pillar' }]} />
+
+    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">
+      Add Pillar
+    </h1>
+
+    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+      <Input
+        label="Name *"
+        name="name"
+        value={values.name}
+        error={errors.name}
+        required
+        placeholder="e.g. Education"
+      />
+      <Input
+        label="Description"
+        name="description"
+        value={values.description}
+        error={errors.description}
+        placeholder="Brief description of this pillar"
+      />
+      <Input
+        label="Display order"
+        name="display_order"
+        type="number"
+        value={values.display_order}
+        error={errors.display_order}
+        placeholder="1"
+      />
+
+      <div style="display: flex; gap: 12px; padding-top: 8px;">
+        <button type="submit"
+          style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          Save pillar
+        </button>
+        <a href="/admin/pillars"
+          style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</DashboardLayout>

@@ -1,0 +1,393 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+const user = Astro.locals.user
+if (!user) return Astro.redirect('/login')
+
+const personId = user.person_id ?? ''
+const pageParam = parseInt(Astro.url.searchParams.get('page') ?? '1', 10)
+const tagParam  = Astro.url.searchParams.get('tag') ?? 'all'
+const PAGE_SIZE = 40
+
+// ── Tag → notification type mapping ──────────────────────────────────────────
+const TAG_TYPES: Record<string, string[]> = {
+  teams:    ['team_join_request', 'team_join_approved', 'team_join_rejected', 'team_member_removed'],
+  praise:   ['praise_received', 'praise_broadcast'],
+  awards:   ['award_broadcast', 'award_received'],
+  buddy:    ['buddy_assigned', 'buddy_ended'],
+  birthday: ['birthday_personal', 'birthday_broadcast'],
+  dues:     ['dues_submitted', 'dues_approved', 'dues_rejected'],
+}
+// Everything not in any tag bucket → "general"
+const ALL_TAGGED_TYPES = Object.values(TAG_TYPES).flat()
+
+const TAG_LABELS: Record<string, string> = {
+  all:      'All',
+  teams:    'Teams',
+  praise:   'Praise',
+  awards:   'Awards',
+  buddy:    'Buddy',
+  birthday: 'Birthday',
+  dues:     'Dues',
+  general:  'General',
+}
+
+// ── Type metadata ─────────────────────────────────────────────────────────────
+type NotificationRow = {
+  id: string; type: string; title: string
+  body: string | null; link: string | null
+  is_read: boolean; created_at: string
+}
+
+const TYPE_ICONS: Record<string, string> = {
+  team_join_request: '👥', team_join_approved: '✅', team_join_rejected: '❌',
+  praise_received: '⭐', praise_broadcast: '⭐',
+  award_broadcast: '🏆', award_received: '🏆',
+  team_member_removed: '🚪',
+  buddy_assigned: '🤝', buddy_ended: '👋',
+  birthday_personal: '🎂', birthday_broadcast: '🎉',
+  dues_submitted: '💰', dues_approved: '💷', dues_rejected: '🚫',
+}
+function iconFor(type: string) { return TYPE_ICONS[type] ?? '🔔' }
+
+// Strip leading emoji from title so the card icon doesn't duplicate what's in the text
+function cleanTitle(title: string): string {
+  return title.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*/u, '')
+}
+
+function tagFor(type: string): string {
+  for (const [tag, types] of Object.entries(TAG_TYPES)) {
+    if (types.includes(type)) return tag
+  }
+  return 'general'
+}
+
+// ── Fetch (server-side tag filter via type array) ─────────────────────────────
+let countQ = supabaseAdmin.from('notifications')
+  .select('id', { count: 'exact', head: true })
+if (personId) countQ = countQ.eq('recipient_id', personId)
+if (tagParam !== 'all') {
+  const types = tagParam === 'general'
+    ? [] // handled below
+    : (TAG_TYPES[tagParam] ?? [])
+  if (tagParam === 'general') {
+    countQ = countQ.not('type', 'in', `(${ALL_TAGGED_TYPES.map(t => `"${t}"`).join(',')})`)
+  } else if (types.length) {
+    countQ = countQ.in('type', types)
+  }
+}
+
+let mainQ = supabaseAdmin.from('notifications')
+  .select('*')
+  .order('created_at', { ascending: false })
+if (personId) mainQ = mainQ.eq('recipient_id', personId)
+if (tagParam !== 'all') {
+  if (tagParam === 'general') {
+    mainQ = mainQ.not('type', 'in', `(${ALL_TAGGED_TYPES.map(t => `"${t}"`).join(',')})`)
+  } else {
+    const types = TAG_TYPES[tagParam] ?? []
+    if (types.length) mainQ = mainQ.in('type', types)
+  }
+}
+
+const { count: totalCount } = personId ? await countQ : { count: 0 }
+const totalPages = Math.max(1, Math.ceil((totalCount ?? 0) / PAGE_SIZE))
+const page = Math.min(Math.max(1, pageParam), totalPages)
+mainQ = mainQ.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1)
+
+const { data: notifications } = personId ? await mainQ : { data: [] }
+const rows = (notifications ?? []) as NotificationRow[]
+const unreadCount = rows.filter(n => !n.is_read).length
+
+// Count per tag for badges
+const { data: allTypesData } = personId
+  ? await supabaseAdmin.from('notifications').select('type').eq('recipient_id', personId)
+  : { data: [] }
+const tagCounts: Record<string, number> = { all: (allTypesData ?? []).length }
+for (const row of (allTypesData ?? []) as { type: string }[]) {
+  const t = tagFor(row.type)
+  tagCounts[t] = (tagCounts[t] ?? 0) + 1
+}
+
+function timeAgo(d: string): string {
+  const diff = Date.now() - new Date(d).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  if (days < 7) return `${days}d ago`
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
+function pageUrl(p: number) {
+  const base = tagParam !== 'all' ? `/notifications?tag=${tagParam}` : '/notifications'
+  return `${base}${base.includes('?') ? '&' : '?'}page=${p}`
+}
+---
+
+<DashboardLayout title="Notifications">
+  <style>
+    .tag-chip {
+      padding: 5px 14px;
+      border-radius: 99px;
+      border: 1px solid var(--color-neutral-300);
+      background: white;
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-neutral-600);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.1s, border-color 0.1s;
+      white-space: nowrap;
+    }
+    .tag-chip:hover { background: var(--color-neutral-100); }
+    .tag-chip.active {
+      background: var(--color-brand-navy);
+      color: white;
+      border-color: var(--color-brand-navy);
+    }
+    .tag-chip .chip-count {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 99px;
+      background: rgba(0,0,0,0.12);
+    }
+    .tag-chip.active .chip-count { background: rgba(255,255,255,0.25); }
+
+    .notif-card {
+      background: white;
+      border: 1px solid var(--color-neutral-200);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      break-inside: avoid;
+      margin-bottom: 12px;
+    }
+    .notif-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 16px;
+      position: relative;
+      border-bottom: 1px solid var(--color-neutral-100);
+      text-decoration: none;
+      color: inherit;
+    }
+    .notif-item:last-child { border-bottom: none; }
+    .notif-item:hover { background: var(--color-neutral-50); }
+    .notif-item.unread { background: #eff6ff; }
+    .notif-item.unread:hover { background: #dbeafe; }
+  </style>
+
+  <div style="max-width: 1100px;">
+
+    <!-- Header -->
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">
+          Notifications
+          {unreadCount > 0 && (
+            <span id="unread-badge" style="display: inline-flex; align-items: center; justify-content: center; background: var(--color-danger-600); color: white; border-radius: 99px; font-size: 12px; font-weight: 700; min-width: 22px; height: 22px; padding: 0 6px; margin-left: 8px; vertical-align: middle;">
+              {unreadCount}
+            </span>
+          )}
+        </h1>
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+          {totalCount ?? 0} notification{(totalCount ?? 0) !== 1 ? 's' : ''}{tagParam !== 'all' ? ` · ${TAG_LABELS[tagParam] ?? tagParam}` : ''}{unreadCount > 0 ? ` · ${unreadCount} unread` : ''}
+        </p>
+      </div>
+      {unreadCount > 0 && (
+        <button id="mark-all-btn"
+          style="padding: 6px 14px; background: var(--color-neutral-100); color: var(--color-neutral-700); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
+          Mark all as read
+        </button>
+      )}
+    </div>
+
+    <!-- Tag filter chips -->
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;">
+      {Object.keys(TAG_LABELS).map(tag => {
+        const count = tagCounts[tag] ?? 0
+        const isActive = tagParam === tag
+        if (tag !== 'all' && count === 0) return null
+        return (
+          <a href={tag === 'all' ? '/notifications' : `/notifications?tag=${tag}`}
+             class={`tag-chip${isActive ? ' active' : ''}`}>
+            {TAG_LABELS[tag]}
+            {count > 0 && <span class="chip-count">{count}</span>}
+          </a>
+        )
+      })}
+    </div>
+
+    {rows.length === 0 ? (
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 64px 32px; text-align: center;">
+        <p style="font-size: 36px; margin: 0 0 12px;">🔔</p>
+        <p style="font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 6px;">No notifications here</p>
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+          {tagParam !== 'all' ? `No ${TAG_LABELS[tagParam] ?? tagParam} notifications yet.` : 'Nothing yet.'}
+        </p>
+      </div>
+    ) : (
+      <>
+        <!-- Two-column masonry via CSS columns -->
+        <div style="column-count: 2; column-gap: 12px;">
+          {rows.map(n => {
+            const tag = tagFor(n.type)
+            const inner = (
+              <div
+                id={`notif-${n.id}`}
+                data-id={n.id}
+                data-read={n.is_read ? 'true' : 'false'}
+                class={`notif-item${!n.is_read ? ' unread' : ''}`}>
+
+                {!n.is_read && (
+                  <span class="unread-dot" style="position: absolute; left: 5px; top: 50%; transform: translateY(-50%); width: 6px; height: 6px; border-radius: 50%; background: #3b82f6; flex-shrink: 0;"></span>
+                )}
+
+                <span style="font-size: 20px; flex-shrink: 0; margin-top: 1px;">{iconFor(n.type)}</span>
+
+                <div style="flex: 1; min-width: 0;">
+                  <p style={`font-family: var(--font-body); font-size: 13px; color: var(--color-brand-navy); margin: 0 0 2px; ${!n.is_read ? 'font-weight: 700;' : 'font-weight: 500;'} white-space: nowrap; overflow: hidden; text-overflow: ellipsis;`}>
+                    {cleanTitle(n.title)}
+                  </p>
+                  {n.body && (
+                    <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); margin: 0 0 4px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                      {n.body}
+                    </p>
+                  )}
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <p style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); margin: 0;">{timeAgo(n.created_at)}</p>
+                    <span style="font-family: var(--font-body); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-neutral-400);">{TAG_LABELS[tag] ?? tag}</span>
+                  </div>
+                </div>
+
+                {!n.is_read && (
+                  <button
+                    class="mark-one-btn"
+                    data-notif-id={n.id}
+                    onclick="event.preventDefault(); event.stopPropagation(); markOneRead(this)"
+                    title="Mark as read"
+                    style="flex-shrink: 0; background: none; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); padding: 2px 8px; font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-500); cursor: pointer; align-self: flex-start;">
+                    ✓
+                  </button>
+                )}
+              </div>
+            )
+
+            return (
+              <div class="notif-card">
+                {n.link ? (
+                  <a href={n.link} class="notif-item-link" data-id={n.id} style="display: block; text-decoration: none; color: inherit;"
+                     onmouseover="this.querySelector('.notif-item') && (this.querySelector('.notif-item').style.background='')"
+                     onclick={`markAsReadOnClick('${n.id}')`}>
+                    {inner}
+                  </a>
+                ) : (
+                  inner
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        <!-- Pagination -->
+        {totalPages > 1 && (
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 20px;">
+            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0;">
+              Page {page} of {totalPages}
+            </p>
+            <div style="display: flex; gap: 6px;">
+              {page > 1 && (
+                <a href={pageUrl(page - 1)}
+                  style="padding: 6px 14px; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); text-decoration: none;">
+                  ← Prev
+                </a>
+              )}
+              {page < totalPages && (
+                <a href={pageUrl(page + 1)}
+                  style="padding: 6px 14px; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); text-decoration: none;">
+                  Next →
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+      </>
+    )}
+  </div>
+</DashboardLayout>
+
+<script is:inline>
+  function markOneRead(btn) {
+    var id = btn ? btn.dataset.notifId : null
+    if (!id) return
+    var inner = document.getElementById('notif-' + id)
+    if (!inner || inner.dataset.read === 'true') return
+    var dot = inner.querySelector('.unread-dot')
+    if (dot) dot.remove()
+    inner.classList.remove('unread')
+    var title = inner.querySelector('p')
+    if (title) title.style.fontWeight = '500'
+    inner.dataset.read = 'true'
+    if (btn && btn.classList.contains('mark-one-btn')) btn.remove()
+    updateBadge(-1)
+    fetch('/api/notifications/mark-read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id }),
+    }).catch(function() {})
+  }
+  window.markOneRead = markOneRead
+
+  window.markAsReadOnClick = function(id) {
+    var inner = document.getElementById('notif-' + id)
+    if (!inner || inner.dataset.read === 'true') return
+    var fakeBtn = { dataset: { notifId: id }, classList: { contains: function() { return false } }, remove: function() {} }
+    markOneRead(fakeBtn)
+  }
+
+  var markAllBtn = document.getElementById('mark-all-btn')
+  if (markAllBtn) {
+    markAllBtn.addEventListener('click', function() {
+      markAllBtn.disabled = true
+      markAllBtn.textContent = 'Marking…'
+      fetch('/api/notifications/mark-read', { method: 'POST' })
+        .then(function() {
+          document.querySelectorAll('.unread-dot').forEach(function(el) { el.remove() })
+          document.querySelectorAll('[id^="notif-"]').forEach(function(el) {
+            el.classList.remove('unread')
+            el.dataset.read = 'true'
+            var title = el.querySelector('p')
+            if (title) title.style.fontWeight = '500'
+          })
+          var badge = document.getElementById('unread-badge')
+          if (badge) badge.remove()
+          markAllBtn.remove()
+        })
+        .catch(function() {
+          markAllBtn.disabled = false
+          markAllBtn.textContent = 'Mark all as read'
+        })
+    })
+  }
+
+  function updateBadge(delta) {
+    var badge = document.getElementById('unread-badge')
+    if (!badge) return
+    var current = parseInt(badge.textContent, 10) + delta
+    if (current <= 0) {
+      badge.remove()
+      var btn = document.getElementById('mark-all-btn')
+      if (btn) btn.remove()
+    } else {
+      badge.textContent = String(current)
+    }
+  }
+</script>

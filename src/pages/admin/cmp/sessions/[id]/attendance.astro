@@ -1,0 +1,493 @@
+---
+/**
+ * Attendance marking page for a CMP session.
+ *
+ * Four sections:
+ *   Mentors  — people from the people table, added by search/select
+ *   Mentees  — auto-populated from the programme year
+ *   Parents  — ad-hoc names (visitor_name column, role='parent')
+ *   Visitors — ad-hoc names (visitor_name column, role='visitor')
+ *
+ * Each click fires POST /api/cmp/attendance (upsert).
+ * Parents and visitors are added inline then removed via DELETE.
+ */
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const { id } = Astro.params
+
+// Load session + programme year
+const { data: session } = await supabaseAdmin
+  .from('cmp_sessions')
+  .select('id, title, session_date, programme_year_id, cmp_programme_years(id, name)')
+  .eq('id', id ?? '')
+  .single()
+
+if (!session) return Astro.redirect('/admin/cmp/years')
+
+const programmeYearId = session.programme_year_id as string | null
+const programmeYear = (session as unknown as { cmp_programme_years: { id: string; name: string } | null }).cmp_programme_years
+
+// All active people — for mentor selector
+const { data: allPeople } = await supabaseAdmin
+  .from('people')
+  .select('id, full_name, person_types')
+  .eq('is_archived', false)
+  .in('status', ['active', 'approved'])
+  .order('full_name', { ascending: true })
+
+// Mentees in this programme year
+const { data: mentees } = programmeYearId
+  ? await supabaseAdmin
+      .from('mentees')
+      .select('id, full_name, school, year_group')
+      .eq('programme_year_id', programmeYearId)
+      .eq('is_archived', false)
+      .order('full_name', { ascending: true })
+  : { data: [] }
+
+// Existing attendance for this session
+const { data: existingAttendance } = await supabaseAdmin
+  .from('cmp_attendance')
+  .select('id, status, role, mentee_id, person_id, visitor_name')
+  .eq('session_id', id ?? '')
+
+type AttRow = { id: string; status: string; role: string; mentee_id: string | null; person_id: string | null; visitor_name: string | null }
+const existing = (existingAttendance ?? []) as AttRow[]
+
+// Build lookups by role
+const menteeAtt   = new Map<string, AttRow>(existing.filter(a => a.mentee_id).map(a => [a.mentee_id!, a]))
+const mentorAtt   = new Map<string, AttRow>(existing.filter(a => a.person_id && a.role === 'mentor').map(a => [a.person_id!, a]))
+const parentRows  = existing.filter(a => a.role === 'parent')
+const visitorRows = existing.filter(a => a.role === 'visitor')
+
+// Mentors already on the attendance list (from people table)
+const mentorIdsOnList = new Set(mentorAtt.keys())
+
+const menteeRows  = mentees ?? []
+const peopleRows  = allPeople ?? []
+
+function formatDate(d: string | null) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+}
+---
+
+<DashboardLayout title={`Attendance — ${session.title as string}`}>
+  <Breadcrumb crumbs={[{ label: 'CMP', href: '/admin/cmp' }, { label: session.title as string, href: `/admin/cmp/sessions/${id}` }, { label: 'Attendance' }]} />
+
+  <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px;">
+    <div>
+      <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">
+        Mark Attendance
+      </h1>
+      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+        {session.title as string} · {formatDate(session.session_date as string | null)}
+      </p>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div id="save-status" style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400);"></div>
+      <a href={`/admin/cmp/sessions/${id}`}
+        style="padding: 8px 16px; background: white; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); text-decoration: none;">
+        Done
+      </a>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div style="display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap;">
+    {[
+      { label: 'Present', bg: 'var(--color-success-100)', color: 'var(--color-success-700)' },
+      { label: 'Absent',  bg: 'var(--color-neutral-100)', color: 'var(--color-neutral-600)' },
+      { label: 'Apology', bg: 'var(--color-warning-100)', color: 'var(--color-warning-700)' },
+    ].map(item => (
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style={`display: inline-block; width: 12px; height: 12px; border-radius: 3px; background-color: ${item.bg};`}></span>
+        <span style={`font-family: var(--font-body); font-size: 13px; color: ${item.color};`}>{item.label}</span>
+      </div>
+    ))}
+  </div>
+
+  <!-- ── Mentors ─────────────────────────────────────────────────────────── -->
+  <div style="margin-bottom: 28px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+      <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-500); margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">
+        Mentors (<span id="mentor-count">{mentorAtt.size}</span>)
+      </h2>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <select id="mentor-select" style="padding: 7px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); background: white; max-width: 240px;">
+          <option value="">— Select a mentor —</option>
+          {peopleRows.filter(p => !mentorIdsOnList.has(p.id as string)).map(p => (
+            <option value={p.id as string}>{p.full_name as string}</option>
+          ))}
+        </select>
+        <button id="add-mentor-btn"
+          style="padding: 7px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+          Add
+        </button>
+      </div>
+    </div>
+
+    <div id="mentor-list" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+      {mentorAtt.size === 0 && (
+        <div id="mentor-empty" style="padding: 20px; text-align: center;">
+          <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No mentors added yet. Use the selector above.</p>
+        </div>
+      )}
+      {Array.from(mentorAtt.entries()).map(([personId, att], i) => {
+        const person = peopleRows.find(p => p.id === personId)
+        return (
+          <div class="att-row mentor-row" id={`mentor-row-${personId}`}
+            style={`display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}`}
+            data-att-id={att.id}
+            data-person-id={personId}>
+            <p style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-800); margin: 0;">
+              {person?.full_name ?? 'Unknown'}
+            </p>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              {(['present', 'absent', 'apology'] as const).map(s => (
+                <button
+                  class={`att-btn${att.status === s ? ' active' : ''}`}
+                  data-status={s}
+                  data-session-id={id}
+                  data-person-id={personId}
+                  data-role="mentor"
+                  style={`padding: 6px 14px; border: 1.5px solid ${s === 'present' ? 'var(--color-success-300)' : s === 'apology' ? 'var(--color-warning-300)' : 'var(--color-neutral-300)'}; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; background: ${att.status === s ? (s === 'present' ? 'var(--color-success-100)' : s === 'apology' ? 'var(--color-warning-100)' : 'var(--color-neutral-200)') : 'white'}; color: ${att.status === s ? (s === 'present' ? 'var(--color-success-700)' : s === 'apology' ? 'var(--color-warning-700)' : 'var(--color-neutral-700)') : 'var(--color-neutral-600)'};`}>
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </button>
+              ))}
+              <button class="remove-btn" data-att-id={att.id} data-row-id={`mentor-row-${personId}`}
+                style="margin-left: 8px; padding: 4px 8px; border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); background: white; color: var(--color-danger-500); font-family: var(--font-body); font-size: 12px; cursor: pointer;">
+                ✕
+              </button>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  </div>
+
+  <!-- ── Mentees ────────────────────────────────────────────────────────── -->
+  {menteeRows.length > 0 && (
+    <div style="margin-bottom: 28px;">
+      <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-500); margin: 0 0 12px; text-transform: uppercase; letter-spacing: 0.05em;">
+        Mentees ({menteeRows.length})
+      </h2>
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+        {menteeRows.map((mentee, i) => {
+          const att = menteeAtt.get(mentee.id as string)
+          return (
+            <div style={`display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}`}
+              data-mentee-id={mentee.id as string}
+              data-att-id={att?.id ?? ''}>
+              <div>
+                <p style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-800); margin: 0 0 2px;">{mentee.full_name as string}</p>
+                {(mentee.school || mentee.year_group) && (
+                  <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">
+                    {[mentee.school, mentee.year_group].filter(Boolean).join(' · ')}
+                  </p>
+                )}
+              </div>
+              <div style="display: flex; gap: 6px;" class="status-buttons">
+                {(['present', 'absent', 'apology'] as const).map(s => (
+                  <button
+                    class={`att-btn${att?.status === s ? ' active' : ''}`}
+                    data-status={s}
+                    data-session-id={id}
+                    data-mentee-id={mentee.id as string}
+                    data-role="mentee"
+                    style={`padding: 6px 14px; border: 1.5px solid ${s === 'present' ? 'var(--color-success-300)' : s === 'apology' ? 'var(--color-warning-300)' : 'var(--color-neutral-300)'}; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; background: ${att?.status === s ? (s === 'present' ? 'var(--color-success-100)' : s === 'apology' ? 'var(--color-warning-100)' : 'var(--color-neutral-200)') : 'white'}; color: ${att?.status === s ? (s === 'present' ? 'var(--color-success-700)' : s === 'apology' ? 'var(--color-warning-700)' : 'var(--color-neutral-700)') : 'var(--color-neutral-600)'};`}>
+                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )}
+
+  <!-- ── Parents ────────────────────────────────────────────────────────── -->
+  <div style="margin-bottom: 28px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+      <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-500); margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">
+        Parents (<span id="parent-count">{parentRows.length}</span>)
+      </h2>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <input id="parent-name-input" type="text" placeholder="Parent name"
+          style="padding: 7px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; width: 200px;" />
+        <button id="add-parent-btn"
+          style="padding: 7px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+          Add
+        </button>
+      </div>
+    </div>
+    <div id="parent-list" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+      {parentRows.length === 0 && (
+        <div id="parent-empty" style="padding: 20px; text-align: center;">
+          <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No parents recorded yet.</p>
+        </div>
+      )}
+      {parentRows.map((a, i) => (
+        <div class="visitor-row" id={`parent-row-${a.id}`}
+          style={`display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}`}>
+          <p style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-800); margin: 0;">{a.visitor_name ?? '—'}</p>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span style="font-family: var(--font-body); font-size: 13px; color: var(--color-success-600);">Present</span>
+            <button class="remove-btn" data-att-id={a.id} data-row-id={`parent-row-${a.id}`}
+              style="padding: 4px 8px; border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); background: white; color: var(--color-danger-500); font-family: var(--font-body); font-size: 12px; cursor: pointer;">
+              ✕
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+
+  <!-- ── Visitors ───────────────────────────────────────────────────────── -->
+  <div style="margin-bottom: 28px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+      <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-500); margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">
+        Visitors (<span id="visitor-count">{visitorRows.length}</span>)
+      </h2>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <input id="visitor-name-input" type="text" placeholder="Visitor name"
+          style="padding: 7px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; width: 200px;" />
+        <button id="add-visitor-btn"
+          style="padding: 7px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+          Add
+        </button>
+      </div>
+    </div>
+    <div id="visitor-list" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+      {visitorRows.length === 0 && (
+        <div id="visitor-empty" style="padding: 20px; text-align: center;">
+          <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No visitors recorded yet.</p>
+        </div>
+      )}
+      {visitorRows.map((a, i) => (
+        <div class="visitor-row" id={`visitor-row-${a.id}`}
+          style={`display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}`}>
+          <p style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-800); margin: 0;">{a.visitor_name ?? '—'}</p>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span style="font-family: var(--font-body); font-size: 13px; color: var(--color-success-600);">Present</span>
+            <button class="remove-btn" data-att-id={a.id} data-row-id={`visitor-row-${a.id}`}
+              style="padding: 4px 8px; border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); background: white; color: var(--color-danger-500); font-family: var(--font-body); font-size: 12px; cursor: pointer;">
+              ✕
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+
+  {menteeRows.length === 0 && (
+    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; text-align: center; margin-bottom: 24px;">
+      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0 0 8px;">No mentees are assigned to this programme year.</p>
+      <a href="/admin/mentees/new" style="font-family: var(--font-body); font-size: 13px; color: var(--color-brand-navy); text-decoration: underline;">Add mentees →</a>
+    </div>
+  )}
+</DashboardLayout>
+
+<script define:vars={{ sessionId: id }}>
+  const STATUS_BG = { present: 'var(--color-success-100)', absent: 'var(--color-neutral-200)', apology: 'var(--color-warning-100)' }
+  const STATUS_COLOR = { present: 'var(--color-success-700)', absent: 'var(--color-neutral-700)', apology: 'var(--color-warning-700)' }
+  const STATUS_BORDER = { present: 'var(--color-success-300)', absent: 'var(--color-neutral-300)', apology: 'var(--color-warning-300)' }
+
+  const saveStatus = document.getElementById('save-status')
+
+  function showStatus(msg, isError = false) {
+    if (!saveStatus) return
+    saveStatus.textContent = msg
+    saveStatus.style.color = isError ? 'var(--color-danger-600)' : 'var(--color-success-600)'
+    setTimeout(() => { if (saveStatus) saveStatus.textContent = '' }, 2000)
+  }
+
+  // ── Attendance buttons (mentees + pre-loaded mentors) ─────────────────────
+  function wireAttButton(btn) {
+    btn.addEventListener('click', async () => {
+      const status = btn.dataset.status
+      const role = btn.dataset.role
+      const menteeId = btn.dataset.menteeId
+      const personId = btn.dataset.personId
+
+      const payload = role === 'mentee'
+        ? { session_id: sessionId, role: 'mentee', mentee_id: menteeId, status }
+        : { session_id: sessionId, role: 'mentor', person_id: personId, status }
+
+      // Optimistic UI
+      const row = btn.closest('[data-mentee-id], [data-person-id]')
+      row.querySelectorAll('.att-btn').forEach(sib => {
+        const s = sib.dataset.status
+        const active = s === status
+        sib.style.background = active ? STATUS_BG[s] : 'white'
+        sib.style.color = active ? STATUS_COLOR[s] : 'var(--color-neutral-600)'
+        sib.style.borderColor = active ? STATUS_BORDER[s] : 'var(--color-neutral-300)'
+      })
+
+      try {
+        const res = await fetch('/api/cmp/attendance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        showStatus(res.ok ? 'Saved' : 'Error saving', !res.ok)
+      } catch {
+        showStatus('Network error', true)
+      }
+    })
+  }
+
+  document.querySelectorAll('.att-btn').forEach(wireAttButton)
+
+  // ── Remove buttons ────────────────────────────────────────────────────────
+  function wireRemoveBtn(btn) {
+    btn.addEventListener('click', async () => {
+      const attId = btn.dataset.attId
+      const rowId = btn.dataset.rowId
+      if (!attId) return
+
+      try {
+        const res = await fetch('/api/cmp/attendance', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: attId }),
+        })
+        if (res.ok) {
+          const row = document.getElementById(rowId)
+          if (row) row.remove()
+          showStatus('Removed')
+        } else {
+          showStatus('Error removing', true)
+        }
+      } catch {
+        showStatus('Network error', true)
+      }
+    })
+  }
+
+  document.querySelectorAll('.remove-btn').forEach(wireRemoveBtn)
+
+  // ── Add mentor ────────────────────────────────────────────────────────────
+  const mentorSelect = document.getElementById('mentor-select')
+  const addMentorBtn = document.getElementById('add-mentor-btn')
+  const mentorList   = document.getElementById('mentor-list')
+  const mentorEmpty  = document.getElementById('mentor-empty')
+  const mentorCount  = document.getElementById('mentor-count')
+
+  addMentorBtn?.addEventListener('click', async () => {
+    const personId = mentorSelect?.value
+    const personName = mentorSelect?.options[mentorSelect.selectedIndex]?.text
+    if (!personId) return
+
+    addMentorBtn.disabled = true
+
+    const res = await fetch('/api/cmp/attendance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, role: 'mentor', person_id: personId, status: 'present' }),
+    })
+
+    if (!res.ok) {
+      showStatus('Error adding mentor', true)
+      addMentorBtn.disabled = false
+      return
+    }
+
+    const { data } = await res.json()
+    mentorEmpty?.remove()
+
+    // Build a new row
+    const row = document.createElement('div')
+    row.className = 'att-row mentor-row'
+    row.id = `mentor-row-${personId}`
+    row.dataset.attId = data.id
+    row.dataset.personId = personId
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid var(--color-neutral-100);'
+    row.innerHTML = `
+      <p style="font-family:var(--font-body);font-size:14px;font-weight:500;color:var(--color-neutral-800);margin:0;">${personName}</p>
+      <div style="display:flex;gap:6px;align-items:center;">
+        ${['present','absent','apology'].map(s => `
+          <button class="att-btn${s === 'present' ? ' active' : ''}" data-status="${s}" data-session-id="${sessionId}" data-person-id="${personId}" data-role="mentor"
+            style="padding:6px 14px;border:1.5px solid ${s==='present'?'var(--color-success-300)':s==='apology'?'var(--color-warning-300)':'var(--color-neutral-300)'};border-radius:var(--radius-md);font-family:var(--font-body);font-size:13px;font-weight:500;cursor:pointer;background:${s==='present'?'var(--color-success-100)':'white'};color:${s==='present'?'var(--color-success-700)':'var(--color-neutral-600)'};">
+            ${s.charAt(0).toUpperCase()+s.slice(1)}
+          </button>`).join('')}
+        <button class="remove-btn" data-att-id="${data.id}" data-row-id="mentor-row-${personId}"
+          style="margin-left:8px;padding:4px 8px;border:1px solid var(--color-danger-200);border-radius:var(--radius-md);background:white;color:var(--color-danger-500);font-family:var(--font-body);font-size:12px;cursor:pointer;">✕</button>
+      </div>`
+
+    mentorList?.appendChild(row)
+    row.querySelectorAll('.att-btn').forEach(wireAttButton)
+    row.querySelectorAll('.remove-btn').forEach(wireRemoveBtn)
+
+    // Remove option from select
+    const opt = mentorSelect?.querySelector(`option[value="${personId}"]`)
+    if (opt) opt.remove()
+    if (mentorSelect) mentorSelect.value = ''
+
+    if (mentorCount) mentorCount.textContent = String((mentorList?.querySelectorAll('.mentor-row').length ?? 0))
+    showStatus('Mentor added')
+    addMentorBtn.disabled = false
+  })
+
+  // ── Add parent / visitor ──────────────────────────────────────────────────
+  function wireAdHocAdd(inputId, btnId, listId, emptyId, countId, role) {
+    const input   = document.getElementById(inputId)
+    const btn     = document.getElementById(btnId)
+    const list    = document.getElementById(listId)
+    const empty   = document.getElementById(emptyId)
+    const counter = document.getElementById(countId)
+
+    btn?.addEventListener('click', async () => {
+      const name = input?.value.trim()
+      if (!name) return
+
+      btn.disabled = true
+
+      const res = await fetch('/api/cmp/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, role, visitor_name: name, status: 'present' }),
+      })
+
+      if (!res.ok) {
+        showStatus('Error adding', true)
+        btn.disabled = false
+        return
+      }
+
+      const { data } = await res.json()
+      empty?.remove()
+
+      const row = document.createElement('div')
+      row.className = 'visitor-row'
+      row.id = `${role}-row-${data.id}`
+      row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid var(--color-neutral-100);'
+      row.innerHTML = `
+        <p style="font-family:var(--font-body);font-size:14px;font-weight:500;color:var(--color-neutral-800);margin:0;">${name}</p>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span style="font-family:var(--font-body);font-size:13px;color:var(--color-success-600);">Present</span>
+          <button class="remove-btn" data-att-id="${data.id}" data-row-id="${role}-row-${data.id}"
+            style="padding:4px 8px;border:1px solid var(--color-danger-200);border-radius:var(--radius-md);background:white;color:var(--color-danger-500);font-family:var(--font-body);font-size:12px;cursor:pointer;">✕</button>
+        </div>`
+
+      list?.appendChild(row)
+      row.querySelectorAll('.remove-btn').forEach(wireRemoveBtn)
+
+      if (input) input.value = ''
+      if (counter) counter.textContent = String(list?.querySelectorAll('.visitor-row').length ?? 0)
+      showStatus('Added')
+      btn.disabled = false
+    })
+
+    // Allow pressing Enter in the input
+    input?.addEventListener('keydown', e => { if (e.key === 'Enter') btn?.click() })
+  }
+
+  wireAdHocAdd('parent-name-input', 'add-parent-btn', 'parent-list', 'parent-empty', 'parent-count', 'parent')
+  wireAdHocAdd('visitor-name-input', 'add-visitor-btn', 'visitor-list', 'visitor-empty', 'visitor-count', 'visitor')
+</script>

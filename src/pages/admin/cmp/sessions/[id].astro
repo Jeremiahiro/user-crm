@@ -1,0 +1,185 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const { id } = Astro.params
+
+const { data: session } = await supabaseAdmin
+  .from('cmp_sessions')
+  .select(`
+    *,
+    cmp_programme_years(id, name),
+    cmp_attendance(
+      id, status, role, recorded_at,
+      mentee_id, mentees(id, full_name),
+      person_id, people(id, full_name),
+      visitor_name
+    )
+  `)
+  .eq('id', id ?? '')
+  .single()
+
+if (!session) return Astro.redirect('/admin/cmp/years')
+
+type AttendanceRow = {
+  id: string
+  status: string
+  role: string
+  recorded_at: string
+  mentee_id: string | null
+  mentees: { id: string; full_name: string } | null
+  person_id: string | null
+  people: { id: string; full_name: string } | null
+  visitor_name: string | null
+}
+
+const attendanceRows = (session as unknown as { cmp_attendance: AttendanceRow[] }).cmp_attendance ?? []
+const programmeYear = (session as unknown as { cmp_programme_years: { id: string; name: string } | null }).cmp_programme_years
+
+const presentCount = attendanceRows.filter(a => a.status === 'present').length
+const absentCount = attendanceRows.filter(a => a.status === 'absent').length
+const apologyCount = attendanceRows.filter(a => a.status === 'apology').length
+
+function formatDate(d: string | null) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+function formatTime(t: string | null) {
+  if (!t) return ''
+  const [h, m] = t.split(':')
+  const hour = parseInt(h ?? '0')
+  const ampm = hour >= 12 ? 'pm' : 'am'
+  const displayHour = hour % 12 || 12
+  return `${displayHour}:${m}${ampm}`
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  present: 'var(--color-success-100)',
+  absent: 'var(--color-neutral-100)',
+  apology: 'var(--color-warning-100)',
+}
+const STATUS_TEXT_COLORS: Record<string, string> = {
+  present: 'var(--color-success-700)',
+  absent: 'var(--color-neutral-500)',
+  apology: 'var(--color-warning-700)',
+}
+---
+
+<DashboardLayout title={session.title as string}>
+  <Breadcrumb crumbs={[{ label: 'CMP', href: '/admin/cmp' }, { label: session.title as string ?? 'Session' }]} />
+
+  <!-- Header -->
+  <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+        {(session.is_cancelled as boolean) && (
+          <span style="display: inline-block; padding: 2px 10px; border-radius: var(--radius-full); background-color: var(--color-danger-100); color: var(--color-danger-700); font-family: var(--font-body); font-size: 12px; font-weight: 700;">CANCELLED</span>
+        )}
+        <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">{session.title as string}</h1>
+      </div>
+      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+        {formatDate(session.session_date as string)}
+        {session.session_time && <span style="margin-left: 6px;">{formatTime(session.session_time as string | null)}</span>}
+        {session.location && <span style="margin-left: 6px;">· {session.location as string}</span>}
+      </p>
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <a href={`/admin/cmp/sessions/${id}/edit`}
+        style="padding: 8px 16px; background: white; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700); text-decoration: none;">
+        Edit
+      </a>
+      <a href={`/admin/cmp/sessions/${id}/attendance`}
+        style="padding: 8px 16px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; text-decoration: none;">
+        Mark attendance
+      </a>
+    </div>
+  </div>
+
+  <!-- Cancellation notice -->
+  {(session.is_cancelled as boolean) && session.cancellation_reason && (
+    <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px;">
+      <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-danger-700); margin: 0;">
+        <strong>Cancellation reason:</strong> {session.cancellation_reason as string}
+      </p>
+    </div>
+  )}
+
+  <!-- Notes -->
+  {(session.notes as string | null) && (
+    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 20px;">
+      <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 700; color: var(--color-neutral-500); margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.05em;">Notes</h2>
+      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700); margin: 0; line-height: 1.6; white-space: pre-wrap;">{session.notes as string}</p>
+    </div>
+  )}
+
+  <!-- Attendance summary stats -->
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
+    {[
+      { label: 'Present', value: presentCount, color: 'var(--color-success-700)' },
+      { label: 'Absent', value: absentCount, color: 'var(--color-neutral-500)' },
+      { label: 'Apology', value: apologyCount, color: 'var(--color-warning-700)' },
+    ].map(stat => (
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 16px 20px;">
+        <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0 0 4px;">{stat.label}</p>
+        <p style={`font-family: var(--font-heading); font-size: 28px; font-weight: 700; color: ${stat.color}; margin: 0;`}>{stat.value}</p>
+      </div>
+    ))}
+  </div>
+
+  <!-- Attendance table -->
+  <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+    <div style="padding: 16px 24px; border-bottom: 1px solid var(--color-neutral-200); display: flex; align-items: center; justify-content: space-between;">
+      <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">Attendance ({attendanceRows.length})</h2>
+      {attendanceRows.length === 0 && (
+        <a href={`/admin/cmp/sessions/${id}/attendance`}
+          style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none;">
+          Mark attendance →
+        </a>
+      )}
+    </div>
+
+    {attendanceRows.length === 0 ? (
+      <div style="padding: 40px; text-align: center;">
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">No attendance recorded yet.</p>
+      </div>
+    ) : (
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead style="background-color: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+          <tr>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Name</th>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Role</th>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {attendanceRows.map((a, i) => {
+            const name = a.visitor_name ?? a.mentees?.full_name ?? a.people?.full_name ?? 'Unknown'
+            const role = (a.role ?? (a.mentee_id ? 'mentee' : 'mentor')).charAt(0).toUpperCase() + (a.role ?? (a.mentee_id ? 'mentee' : 'mentor')).slice(1)
+            const profileUrl = a.mentee_id
+              ? `/admin/mentees/${a.mentee_id}`
+              : a.person_id ? `/admin/members/${a.person_id}` : null
+            return (
+              <tr style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
+                <td style="padding: 12px 16px;">
+                  {profileUrl
+                    ? <a href={profileUrl} style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none;">{name}</a>
+                    : <span style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-800);">{name}</span>}
+                </td>
+                <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500);">{role}</td>
+                <td style="padding: 12px 16px;">
+                  <span style={`display: inline-block; padding: 2px 10px; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 12px; font-weight: 600; background-color: ${STATUS_COLORS[a.status] ?? 'var(--color-neutral-100)'}; color: ${STATUS_TEXT_COLORS[a.status] ?? 'var(--color-neutral-700)'};`}>
+                    {a.status.charAt(0).toUpperCase() + a.status.slice(1)}
+                  </span>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    )}
+  </div>
+</DashboardLayout>

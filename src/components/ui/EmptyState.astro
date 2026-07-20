@@ -1,0 +1,69 @@
+---
+interface Props {
+  heading: string
+  subtext?: string
+  class?: string
+}
+
+const { heading, subtext, class: className = '' } = Astro.props
+---
+
+<div
+  class={className}
+  style="
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 64px 32px;
+    text-align: center;
+  "
+>
+  <div
+    style="
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-full);
+      background-color: var(--color-neutral-100);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      font-size: 20px;
+    "
+    aria-hidden="true"
+  >
+    ○
+  </div>
+
+  <h3
+    style="
+      font-family: var(--font-heading);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--color-neutral-900);
+      margin: 0 0 8px 0;
+    "
+  >
+    {heading}
+  </h3>
+
+  {
+    subtext && (
+      <p
+        style="
+          font-size: 14px;
+          color: var(--color-neutral-500);
+          margin: 0 0 24px 0;
+          max-width: 320px;
+          line-height: 1.6;
+          font-family: var(--font-body);
+        "
+      >
+        {subtext}
+      </p>
+    )
+  }
+
+  <slot name="cta" />
+</div>

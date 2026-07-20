@@ -1,0 +1,559 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Badge from '@/components/ui/Badge.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const currentYear = new Date().getFullYear()
+const year = Number(Astro.url.searchParams.get('year') ?? currentYear)
+const teamFilter = Astro.url.searchParams.get('team_id') ?? ''
+
+// Fetch active members
+let memberQuery = supabaseAdmin
+  .from('people')
+  .select('id, full_name, person_types, date_joined, person_teams(team_id)')
+  .eq('is_archived', false)
+  .in('status', ['active', 'approved'])
+  .order('full_name')
+
+const { data: rawMembers } = await memberQuery
+
+// Fetch dues for the selected year
+const { data: duesData } = await supabaseAdmin
+  .from('dues')
+  .select('person_id, month')
+  .eq('year', year)
+
+// Fetch pending submissions for the selected year
+const { data: submissionsData } = await supabaseAdmin
+  .from('dues_submissions')
+  .select('id, person_id, month, status')
+  .eq('year', year)
+  .eq('status', 'pending')
+
+// Fetch teams for filter
+const { data: teams } = await supabaseAdmin
+  .from('teams')
+  .select('id, name')
+  .eq('is_active', true)
+  .order('name')
+
+type RawMember = {
+  id: string
+  full_name: string
+  person_types: string[]
+  date_joined: string | null
+  person_teams: { team_id: string }[]
+}
+type DueRecord = { person_id: string; month: number }
+type SubmissionRow = { id: string; person_id: string; month: number; status: string }
+
+let members = (rawMembers ?? []) as RawMember[]
+if (teamFilter) {
+  members = members.filter(m => m.person_teams?.some(pt => pt.team_id === teamFilter))
+}
+// Volunteers exempt from dues
+members = members.filter(m => !m.person_types.every(t => t === 'volunteer'))
+
+const dues = (duesData ?? []) as DueRecord[]
+const submissions = (submissionsData ?? []) as SubmissionRow[]
+const totalPending = submissions.length
+
+// Build lookups
+const duesMap = new Map<string, Set<number>>()
+for (const d of dues) {
+  if (!duesMap.has(d.person_id)) duesMap.set(d.person_id, new Set())
+  duesMap.get(d.person_id)!.add(d.month)
+}
+
+const submissionMap = new Map<string, SubmissionRow>()
+for (const s of submissions) {
+  submissionMap.set(`${s.person_id}-${s.month}`, s)
+}
+
+const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const yearOptions = [currentYear + 1, currentYear, currentYear - 1, currentYear - 2, currentYear - 3]
+
+function paidCount(memberId: string) { return duesMap.get(memberId)?.size ?? 0 }
+
+function expectedMonths(member: RawMember): number {
+  if (!member.date_joined) return 12
+  const joined = new Date(member.date_joined)
+  if (joined.getFullYear() === year) return 12 - joined.getMonth()
+  if (joined.getFullYear() > year) return 0
+  return 12
+}
+
+function complianceVariant(paid: number, expected: number): 'success' | 'warning' | 'neutral' {
+  if (expected === 0) return 'neutral'
+  if (paid >= expected) return 'success'
+  if (paid >= Math.ceil(expected / 2)) return 'warning'
+  return 'neutral'
+}
+
+// Serialise initial state for JS diff tracking
+// Shape: { [personId]: { [month]: { paid: bool, submissionId: string|null } } }
+const initialStateObj: Record<string, Record<number, { paid: boolean; submissionId: string | null }>> = {}
+for (const member of members) {
+  initialStateObj[member.id] = {}
+  for (let m = 1; m <= 12; m++) {
+    const paid = (duesMap.get(member.id) ?? new Set()).has(m)
+    const sub = submissionMap.get(`${member.id}-${m}`)
+    initialStateObj[member.id][m] = { paid, submissionId: sub?.id ?? null }
+  }
+}
+const initialStateJSON = JSON.stringify(initialStateObj)
+---
+
+<DashboardLayout title="Dues">
+  <style>
+    /* Custom checkbox */
+    .dues-cb {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--color-neutral-300);
+      border-radius: 4px;
+      background: white;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.12s, border-color 0.12s;
+      flex-shrink: 0;
+    }
+    .dues-cb:checked {
+      background: var(--color-success-600);
+      border-color: var(--color-success-600);
+    }
+    .dues-cb:checked::after {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 1px;
+      width: 8px;
+      height: 5px;
+      border-left: 2px solid white;
+      border-bottom: 2px solid white;
+      transform: rotate(-45deg);
+    }
+    .dues-cb:disabled {
+      opacity: 0.25;
+      cursor: default;
+    }
+    .dues-cb.is-dirty {
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.3);
+      border-color: #3b82f6;
+    }
+    .dues-cb:checked.is-dirty {
+      background: #3b82f6;
+      border-color: #3b82f6;
+    }
+    /* Pending badge on cell */
+    .cell-wrap { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+    .pending-dot {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      width: 8px;
+      height: 8px;
+      background: #f59e0b;
+      border-radius: 50%;
+      border: 1px solid white;
+    }
+    /* Floating save bar */
+    #save-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--color-brand-navy);
+      color: white;
+      padding: 14px 32px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 500;
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
+    }
+    #save-bar.visible { display: flex; }
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 72px;
+      right: 24px;
+      padding: 12px 20px;
+      border-radius: var(--radius-md);
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 500;
+      color: white;
+      display: none;
+      z-index: 9999;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    tbody tr:hover td { background-color: var(--color-neutral-50); }
+    tbody tr:hover td.sticky-col { background-color: var(--color-neutral-50); }
+    /* Status filter pills */
+    .status-pill {
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      border: 1px solid var(--color-neutral-300);
+      background: white;
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-neutral-600);
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s, border-color 0.1s;
+    }
+    .status-pill.active {
+      background: var(--color-brand-navy);
+      color: white;
+      border-color: var(--color-brand-navy);
+    }
+    .status-pill:hover:not(.active) {
+      background: var(--color-neutral-100);
+    }
+  </style>
+
+  <div>
+    <!-- Header -->
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+      <div>
+        <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Dues</h1>
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+          {members.length} member{members.length !== 1 ? 's' : ''}{teamFilter ? ' (filtered)' : ''} — {year}
+        </p>
+      </div>
+      <a href={`/admin/dues/export?year=${year}`}
+         style="display: inline-flex; align-items: center; gap: 6px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); padding: 8px 16px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; text-decoration: none; border: 1px solid var(--color-neutral-200); white-space: nowrap; align-self: flex-start;">
+        ↓ Export CSV
+      </a>
+    </div>
+
+    <!-- Filters -->
+    <form method="GET" style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em;">Year</label>
+        <select name="year"
+          style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+          {yearOptions.map(y => <option value={y} selected={year === y}>{y}</option>)}
+        </select>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em;">Team</label>
+        <select name="team_id"
+          style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+          <option value="">All teams</option>
+          {(teams ?? []).map((t: { id: string; name: string }) => (
+            <option value={t.id} selected={teamFilter === t.id}>{t.name}</option>
+          ))}
+        </select>
+      </div>
+      <button type="submit"
+        style="padding: 8px 16px; background-color: var(--color-neutral-800); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer;">
+        Apply
+      </button>
+    </form>
+
+    <!-- Pending banner -->
+    {totalPending > 0 && (
+      <div style="background: #fffbeb; border: 1px solid #fcd34d; border-radius: var(--radius-lg); padding: 12px 20px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 16px;">⏳</span>
+        <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: #92400e; margin: 0;">
+          {totalPending} pending submission{totalPending !== 1 ? 's' : ''} — cells with an amber dot are awaiting approval. Check the box to approve, or leave unchecked to keep pending.
+        </p>
+      </div>
+    )}
+
+    <!-- Legend / filter bar -->
+    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap;">
+      <button type="button" id="pill-all" class="status-pill active" onclick="duesFilter('all')"
+        style="display:flex; align-items:center; gap:8px;">
+        <span style="font-family: var(--font-body); font-size: 12px;">All members</span>
+      </button>
+
+      <button type="button" id="pill-paid" class="status-pill" onclick="duesFilter('paid')"
+        style="display:flex; align-items:center; gap:8px;">
+        <div style="width:16px; height:16px; border-radius:3px; background:var(--color-success-600); flex-shrink:0;"></div>
+        <span style="font-family: var(--font-body); font-size: 12px;">Fully paid</span>
+      </button>
+
+      <button type="button" id="pill-pending" class="status-pill" onclick="duesFilter('pending')"
+        style="display:flex; align-items:center; gap:8px;">
+        <div style="position:relative; width:16px; height:16px; border-radius:3px; background:white; border:2px solid var(--color-neutral-300); flex-shrink:0;">
+          <div style="position:absolute; top:-3px; right:-3px; width:7px; height:7px; background:#f59e0b; border-radius:50%; border:1px solid white;"></div>
+        </div>
+        <span style="font-family: var(--font-body); font-size: 12px;">Has pending</span>
+      </button>
+
+      <button type="button" id="pill-behind" class="status-pill" onclick="duesFilter('behind')"
+        style="display:flex; align-items:center; gap:8px;">
+        <div style="width:16px; height:16px; border-radius:3px; background:white; border:2px solid var(--color-neutral-300); flex-shrink:0;"></div>
+        <span style="font-family: var(--font-body); font-size: 12px;">Behind</span>
+      </button>
+
+      <div style="display:flex; align-items:center; gap:8px; padding: 6px 14px; margin-left: 8px; border-left: 1px solid var(--color-neutral-200);">
+        <div style="width:16px; height:16px; border-radius:3px; background:white; border:2px solid var(--color-neutral-200); opacity:0.4; flex-shrink:0;"></div>
+        <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400);">N/A = before join date</span>
+      </div>
+    </div>
+
+    <!-- Matrix table -->
+    {members.length > 0 ? (
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: auto; margin-bottom: 80px;">
+        <table style="border-collapse: collapse; min-width: 940px; width: 100%;">
+          <thead>
+            <tr style="background-color: var(--color-neutral-50); border-bottom: 2px solid var(--color-neutral-200);">
+              <th class="sticky-col" style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em; position: sticky; left: 0; background: var(--color-neutral-50); min-width: 200px; z-index: 2; border-right: 1px solid var(--color-neutral-200);">
+                Member
+              </th>
+              {months.map(m => (
+                <th style="padding: 10px 0; text-align: center; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.06em; width: 56px;">
+                  {m}
+                </th>
+              ))}
+              <th style="padding: 10px 16px; text-align: center; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap;">
+                Paid / Due
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {members.map((member) => {
+              const paid = paidCount(member.id)
+              const expected = expectedMonths(member)
+              const paidMonths = duesMap.get(member.id) ?? new Set<number>()
+              const joinedDate = member.date_joined ? new Date(member.date_joined) : null
+
+              // Compliance bucket for client-side filtering
+              const variant = complianceVariant(paid, expected)
+              const hasPending = submissions.some(s => s.person_id === member.id)
+              const complianceBucket = expected === 0 ? 'paid' : paid >= expected ? 'paid' : 'behind'
+
+              return (
+                <tr
+                  data-compliance={complianceBucket}
+                  data-has-pending={hasPending ? 'true' : 'false'}
+                  style="border-top: 1px solid var(--color-neutral-100);">
+                  <td class="sticky-col" style="padding: 10px 16px; position: sticky; left: 0; background: white; z-index: 1; border-right: 1px solid var(--color-neutral-100);">
+                    <a href={`/admin/members/${member.id}?tab=dues`}
+                       style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none;">
+                      {member.full_name}
+                    </a>
+                  </td>
+                  {months.map((_, i) => {
+                    const month = i + 1
+                    const isPaid = paidMonths.has(month)
+                    const pendingSub = submissionMap.get(`${member.id}-${month}`)
+                    const isPending = !!pendingSub && !isPaid
+                    const notApplicable = joinedDate
+                      && joinedDate.getFullYear() === year
+                      && month < joinedDate.getMonth() + 1
+                    // Disable future months in current year
+                    const isFuture = year === currentYear && month > new Date().getMonth() + 1
+
+                    return (
+                      <td style="padding: 8px 0; text-align: center; vertical-align: middle;">
+                        <div class="cell-wrap">
+                          <input
+                            type="checkbox"
+                            class="dues-cb"
+                            data-person-id={member.id}
+                            data-month={month}
+                            data-initial={isPaid ? '1' : '0'}
+                            data-submission-id={pendingSub?.id ?? ''}
+                            checked={isPaid}
+                            disabled={notApplicable || isFuture}
+                            title={
+                              notApplicable ? 'Before join date'
+                              : isFuture ? 'Future month'
+                              : isPending ? `Pending submission — check to approve`
+                              : isPaid ? 'Paid — uncheck to remove'
+                              : 'Unpaid — check to mark as paid'
+                            }
+                          />
+                          {isPending && <div class="pending-dot"></div>}
+                        </div>
+                      </td>
+                    )
+                  })}
+                  <td style="padding: 10px 16px; text-align: center;">
+                    <Badge variant={complianceVariant(paid, expected)}>
+                      {paid}/{expected}
+                    </Badge>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 48px; text-align: center;">
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+          No active members found{teamFilter ? ' for this team' : ''}.
+        </p>
+      </div>
+    )}
+  </div>
+
+  <!-- Floating save bar -->
+  <div id="save-bar">
+    <p id="save-label" style="font-family: var(--font-body); font-size: 14px; margin: 0;"></p>
+    <div style="display: flex; gap: 10px;">
+      <button id="btn-discard"
+        style="padding: 8px 20px; background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer;">
+        Discard
+      </button>
+      <button id="btn-save"
+        style="padding: 8px 24px; background: white; color: var(--color-brand-navy); border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 700; cursor: pointer;">
+        Save changes
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <script is:inline define:vars={{ year, initialStateJSON }}>
+    (function () {
+      var YEAR = year
+      var initialState = JSON.parse(initialStateJSON) // { personId: { month: { paid, submissionId } } }
+
+      // changes: Map key = "personId-month", value = { person_id, month, paid, submission_id }
+      var changes = new Map()
+
+      var saveBar = document.getElementById('save-bar')
+      var saveLabel = document.getElementById('save-label')
+      var btnSave = document.getElementById('btn-save')
+      var btnDiscard = document.getElementById('btn-discard')
+      var toast = document.getElementById('toast')
+
+      function showToast(msg, ok) {
+        if (!toast) return
+        toast.textContent = msg
+        toast.style.background = ok ? 'var(--color-success-600)' : 'var(--color-danger-600)'
+        toast.style.display = 'block'
+        setTimeout(function () { toast.style.display = 'none' }, 4000)
+      }
+
+      function updateBar() {
+        var n = changes.size
+        if (n === 0) {
+          saveBar.classList.remove('visible')
+        } else {
+          saveLabel.textContent = n + ' unsaved change' + (n !== 1 ? 's' : '')
+          saveBar.classList.add('visible')
+        }
+      }
+
+      // ── Status filter pills ────────────────────────────────────────────────
+      var pillIds = { all: 'pill-all', behind: 'pill-behind', pending: 'pill-pending', paid: 'pill-paid' }
+
+      window.duesFilter = function (filter) {
+        document.querySelectorAll('tbody tr').forEach(function (row) {
+          var compliance = row.getAttribute('data-compliance') || ''
+          var hasPending = row.querySelector('.pending-dot') !== null
+          var show = filter === 'all'
+            || (filter === 'behind'  && compliance === 'behind' && !hasPending)
+            || (filter === 'pending' && hasPending)
+            || (filter === 'paid'    && compliance === 'paid')
+          row.style.display = show ? '' : 'none'
+        })
+        Object.keys(pillIds).forEach(function (key) {
+          var el = document.getElementById(pillIds[key])
+          if (el) el.classList.toggle('active', key === filter)
+        })
+      }
+
+      // ── Checkbox changes ───────────────────────────────────────────────────
+      document.querySelectorAll('.dues-cb').forEach(function (cb) {
+        cb.addEventListener('change', function () {
+          var pid = cb.dataset.personId
+          var month = parseInt(cb.dataset.month)
+          var initial = cb.dataset.initial === '1'
+          var subId = cb.dataset.submissionId || null
+          var nowPaid = cb.checked
+          var key = pid + '-' + month
+
+          if (nowPaid === initial) {
+            // Reverted to original — remove from changes
+            changes.delete(key)
+            cb.classList.remove('is-dirty')
+          } else {
+            changes.set(key, { person_id: pid, month: month, paid: nowPaid, submission_id: subId })
+            cb.classList.add('is-dirty')
+          }
+          updateBar()
+        })
+      })
+
+      function discard() {
+        changes.clear()
+        document.querySelectorAll('.dues-cb').forEach(function (cb) {
+          cb.checked = cb.dataset.initial === '1'
+          cb.classList.remove('is-dirty')
+        })
+        updateBar()
+      }
+
+      async function save() {
+        if (changes.size === 0) return
+        btnSave.disabled = true
+        btnSave.textContent = 'Saving…'
+
+        var payload = {
+          year: YEAR,
+          changes: Array.from(changes.values())
+        }
+
+        try {
+          var res = await fetch('/api/admin/dues/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          })
+          var data = await res.json()
+          if (res.ok) {
+            var msg = data.applied + ' change' + (data.applied !== 1 ? 's' : '') + ' saved'
+            if (data.errors && data.errors.length > 0) msg += ' (' + data.errors.length + ' failed)'
+            showToast('✓ ' + msg, true)
+            // Commit changes to initial state so bar resets cleanly
+            changes.forEach(function (c, key) {
+              document.querySelectorAll('.dues-cb[data-person-id="' + c.person_id + '"][data-month="' + c.month + '"]').forEach(function(cb) {
+                cb.dataset.initial = c.paid ? '1' : '0'
+                cb.classList.remove('is-dirty')
+                // Remove pending dot if now paid
+                if (c.paid) {
+                  var dot = cb.closest('.cell-wrap')?.querySelector('.pending-dot')
+                  if (dot) dot.remove()
+                }
+              })
+            })
+            changes.clear()
+            updateBar()
+          } else {
+            showToast(data.error || 'Save failed', false)
+          }
+        } catch (e) {
+          showToast('Network error — changes not saved', false)
+        }
+
+        btnSave.disabled = false
+        btnSave.textContent = 'Save changes'
+      }
+
+      btnSave && btnSave.addEventListener('click', save)
+      btnDiscard && btnDiscard.addEventListener('click', discard)
+
+      // Warn before navigating away with unsaved changes
+      window.addEventListener('beforeunload', function (e) {
+        if (changes.size > 0) {
+          e.preventDefault()
+          e.returnValue = ''
+        }
+      })
+    })()
+  </script>
+</DashboardLayout>

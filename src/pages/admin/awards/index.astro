@@ -1,0 +1,189 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Pagination from '@/components/ui/Pagination.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin } from '@/lib/rbac'
+
+const user = Astro.locals.user
+if (!user) return Astro.redirect('/login')
+
+const admin = isAdmin(user)
+
+const PAGE_SIZE = 25
+const url = Astro.url
+const currentYear = new Date().getFullYear()
+
+// Build distinct years list
+const { data: yearData } = admin
+  ? await supabaseAdmin.from('awards').select('year')
+  : await supabaseAdmin.from('awards').select('year').eq('person_id', user.person_id ?? '')
+
+const availableYears = [...new Set(((yearData ?? []) as { year: number }[]).map(r => r.year))].sort((a, b) => b - a)
+
+// Default to current year; fall back to most recent with data
+const yearParam = url.searchParams.get('year')
+const selectedYear = yearParam
+  ? parseInt(yearParam, 10)
+  : (availableYears.includes(currentYear) ? currentYear : (availableYears[0] ?? currentYear))
+const yearFilter = String(selectedYear)
+
+const page = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'))
+const offset = (page - 1) * PAGE_SIZE
+
+type AwardRow = {
+  id: string
+  type: string
+  year: number
+  citation: string | null
+  created_at: string
+  person_id: string | null
+  awarded_by: string | null
+}
+
+let query = supabaseAdmin
+  .from('awards')
+  .select('*', { count: 'exact' })
+  .order('year', { ascending: false })
+  .order('created_at', { ascending: false })
+
+if (!admin && user.person_id) query = query.eq('person_id', user.person_id)
+query = query.eq('year', selectedYear)
+
+query = query.range(offset, offset + PAGE_SIZE - 1)
+
+const { data, count: awardCount } = await query
+const rows = (data ?? []) as unknown as AwardRow[]
+const totalPages = Math.ceil((awardCount ?? 0) / PAGE_SIZE)
+
+const filterParams = new URLSearchParams()
+if (yearFilter) filterParams.set('year', yearFilter)
+const paginationBase = `/admin/awards${filterParams.toString() ? `?${filterParams}` : ''}`
+
+// Fetch recipient and awarded_by people separately — avoids PostgREST ambiguity with two FKs to same table
+const personIds = [...new Set(rows.map(r => r.person_id).filter(Boolean))] as string[]
+const { data: rawRecipients } = personIds.length > 0
+  ? await supabaseAdmin.from('people').select('id, full_name').in('id', personIds)
+  : { data: [] }
+const recipientMap = new Map(((rawRecipients ?? []) as { id: string; full_name: string }[]).map(p => [p.id, p.full_name]))
+
+const awardedByIds = [...new Set(rows.map(r => r.awarded_by).filter(Boolean))] as string[]
+const { data: rawGrantors } = awardedByIds.length > 0
+  ? await supabaseAdmin.from('people').select('id, full_name').in('id', awardedByIds)
+  : { data: [] }
+const grantorMap = new Map(((rawGrantors ?? []) as { id: string; full_name: string }[]).map(p => [p.id, p.full_name]))
+
+const AWARD_LABELS: Record<string, string> = {
+  member_of_the_year: 'Member of the Year',
+  volunteer_of_the_year: 'Volunteer of the Year',
+  mentor_of_the_year: 'Mentor of the Year',
+  rising_star: 'Rising Star',
+  community_impact: 'Community Impact',
+  leadership_excellence: 'Leadership Excellence',
+  special_recognition: 'Special Recognition',
+}
+---
+
+<DashboardLayout title="Awards">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+    <div>
+      <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Awards</h1>
+      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">{awardCount ?? 0} award{(awardCount ?? 0) !== 1 ? 's' : ''} in {selectedYear}</p>
+    </div>
+    {admin && (
+      <a href="/admin/awards/new"
+        style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+        + Give award
+      </a>
+    )}
+  </div>
+
+  <!-- Year filter -->
+  {availableYears.length > 0 && (
+    <div style="margin-bottom: 20px;">
+      <select onchange="window.location.href='/admin/awards?year='+this.value"
+        style="padding: 7px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white; color: var(--color-neutral-700); cursor: pointer; min-width: 110px;">
+        {availableYears.map(y => (
+          <option value={String(y)} selected={y === selectedYear}>{y}</option>
+        ))}
+      </select>
+    </div>
+  )}
+
+  <!-- Awards table -->
+  <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+    {rows.length === 0 ? (
+      <div style="padding: 48px; text-align: center;">
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0 0 16px;">No awards yet.</p>
+        {admin && (
+          <a href="/admin/awards/new"
+            style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+            Give first award
+          </a>
+        )}
+      </div>
+    ) : (
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead style="background-color: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+          <tr>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Award</th>
+            {admin && <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Recipient</th>}
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Year</th>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Awarded by</th>
+            {admin && <th style="padding: 10px 16px;"></th>}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((award, i) => {
+            const recipientName = award.person_id ? (recipientMap.get(award.person_id) ?? '—') : '—'
+            const grantorName = award.awarded_by ? (grantorMap.get(award.awarded_by) ?? '—') : '—'
+            return (
+              <tr style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
+                <td style="padding: 14px 16px;">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 20px;">🏆</span>
+                    <div>
+                      <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-brand-gold); margin: 0 0 2px;">{AWARD_LABELS[award.type] ?? award.type}</p>
+                      {award.citation && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0;">{award.citation}</p>}
+                    </div>
+                  </div>
+                </td>
+                {admin && (
+                  <td style="padding: 14px 16px;">
+                    {award.person_id ? (
+                      <a href={`/admin/members/${award.person_id}`}
+                        style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none;">
+                        {recipientName}
+                      </a>
+                    ) : <span style="color: var(--color-neutral-400);">—</span>}
+                  </td>
+                )}
+                <td style="padding: 14px 16px; font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--color-neutral-700);">{award.year}</td>
+                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">
+                  {grantorName}
+                </td>
+                {admin && (
+                  <td style="padding: 14px 16px; text-align: right;">
+                    <button onclick={`deleteAward('${award.id}')`}
+                      style="padding: 4px 10px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); cursor: pointer;">
+                      Delete
+                    </button>
+                  </td>
+                )}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    )}
+    <Pagination page={page} totalPages={totalPages} baseUrl={paginationBase} />
+  </div>
+</DashboardLayout>
+
+<script is:inline>
+  async function deleteAward(id) {
+    if (!confirm('Delete this award? This cannot be undone.')) return
+    var res = await fetch('/api/awards/' + id, { method: 'DELETE' })
+    if (res.ok) window.location.reload()
+    else alert('Failed to delete award.')
+  }
+</script>

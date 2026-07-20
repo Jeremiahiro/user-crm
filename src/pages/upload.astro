@@ -1,0 +1,517 @@
+---
+/**
+ * Public document upload page — no authentication required.
+ * URL: /upload?training=<uuid>
+ *
+ * Resolves the submitter by email address (checks people.email).
+ * If a training is specified, pre-selects its expected document type
+ * and links the uploaded document to that training.
+ */
+import PublicLayout from '@/layouts/PublicLayout.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+const trainingId = Astro.url.searchParams.get('training') ?? ''
+
+// Load training context
+let training: any = null
+if (trainingId) {
+  const { data } = await supabaseAdmin
+    .from('trainings')
+    .select('id, title, description, requires_document, expected_document_type_id, document_type:document_types(id, name)')
+    .eq('id', trainingId)
+    .eq('is_active', true)
+    .maybeSingle()
+  training = data ?? null
+}
+
+// Org logo + name
+const { data: settingRows } = await supabaseAdmin
+  .from('settings')
+  .select('key, value')
+  .in('key', ['logo_url', 'org_name'])
+const settingsMap = Object.fromEntries(((settingRows ?? []) as any[]).map((r: any) => [r.key, r.value]))
+const logoUrl = settingsMap.logo_url ?? null
+const orgName = settingsMap.org_name ?? '100BMOL'
+
+// Active document types for dropdown (only needed when training has no specific type)
+const showDocTypeDropdown = !training?.expected_document_type_id
+let docTypes: any[] = []
+if (showDocTypeDropdown) {
+  const { data } = await supabaseAdmin
+    .from('document_types')
+    .select('id, name')
+    .eq('is_active', true)
+    .order('sort_order')
+    .order('name')
+  docTypes = (data ?? []) as any[]
+}
+
+// ── POST handler ──────────────────────────────────────────────────────────────
+let success = false
+let submittedName = ''
+let errors: Record<string, string> = {}
+let globalError = ''
+let formValues: Record<string, string> = {}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+
+  const email      = ((form.get('email')            as string | null) ?? '').trim().toLowerCase()
+  const title      = ((form.get('title')             as string | null) ?? '').trim()
+  const docTypeId  = ((form.get('document_type_id')  as string | null) ?? '').trim()
+  const file       = form.get('file') as File | null
+
+  formValues = { email, title, document_type_id: docTypeId }
+
+  const ALLOWED = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+
+  if (!email) errors.email = 'Your email address is required.'
+  if (!title) errors.title = 'Please give this document a name.'
+  if (!docTypeId && showDocTypeDropdown) errors.document_type_id = 'Please select a document type.'
+  if (!file || file.size === 0) {
+    errors.file = 'Please choose a file.'
+  } else if (file.size > 10 * 1024 * 1024) {
+    errors.file = 'File must be under 10 MB.'
+  } else if (!ALLOWED.includes(file.type)) {
+    errors.file = 'Only PDF, JPEG, PNG, or WebP files are accepted.'
+  }
+
+  if (Object.keys(errors).length === 0) {
+    // Resolve person by email
+    const { data: person } = await supabaseAdmin
+      .from('people')
+      .select('id, full_name')
+      .ilike('email', email)
+      .maybeSingle()
+
+    if (!person) {
+      errors.email = "We couldn't find an account with that email address. Please contact your administrator if you think this is a mistake."
+    } else {
+      submittedName = person.full_name
+
+      // Upload file to storage
+      const ext = (file!.name.split('.').pop() ?? 'bin').toLowerCase()
+      const storagePath = `${person.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const buffer = await file!.arrayBuffer()
+
+      const { error: storageErr } = await supabaseAdmin.storage
+        .from('member-documents')
+        .upload(storagePath, buffer, { contentType: file!.type })
+
+      if (storageErr) {
+        globalError = 'File upload failed. Please try again.'
+      } else {
+        const effectiveDocTypeId = training?.expected_document_type_id ?? docTypeId
+
+        const { error: dbErr } = await supabaseAdmin
+          .from('documents')
+          .insert({
+            person_id:         person.id,
+            document_type_id:  effectiveDocTypeId,
+            training_id:       trainingId || null,
+            title,
+            storage_path:      storagePath,
+            file_name:         file!.name,
+            file_type:         file!.type,
+            file_size:         file!.size,
+            status:            'pending',
+          })
+
+        if (dbErr) {
+          // Roll back storage on DB failure
+          await supabaseAdmin.storage.from('member-documents').remove([storagePath])
+          globalError = 'Failed to save your document. Please try again.'
+        } else {
+          success = true
+        }
+      }
+    }
+  }
+}
+
+const hasErrors = Object.keys(errors).length > 0 || !!globalError
+---
+
+<PublicLayout title={training ? `${training.title} — Submit Document` : 'Submit a Document'}>
+  <div style="
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    background-color: var(--color-brand-navy);
+    padding: 48px 24px 64px;
+    box-sizing: border-box;
+  ">
+    <div style="width: 100%; max-width: 520px;">
+
+      <!-- Logo / org identity -->
+      <div style="text-align: center; margin-bottom: 32px;">
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt={orgName}
+            style="max-height: 56px; max-width: 200px; object-fit: contain; display: inline-block;"
+          />
+        ) : (
+          <p style="
+            font-family: var(--font-heading);
+            font-size: 26px;
+            font-weight: 700;
+            color: white;
+            margin: 0;
+            letter-spacing: -0.5px;
+          ">{orgName}</p>
+        )}
+      </div>
+
+      <!-- Card -->
+      <div style="
+        background: white;
+        border-radius: var(--radius-xl);
+        padding: 40px;
+        box-shadow: var(--shadow-lg);
+      ">
+
+        {success ? (
+          <!-- ── Success state ── -->
+          <div style="text-align: center; padding: 16px 0;">
+            <div style="
+              width: 64px; height: 64px;
+              background-color: var(--color-success-50);
+              border-radius: 50%;
+              display: flex; align-items: center; justify-content: center;
+              margin: 0 auto 20px;
+              font-size: 28px;
+            ">✓</div>
+            <h1 style="
+              font-family: var(--font-heading);
+              font-size: 22px;
+              font-weight: 700;
+              color: var(--color-brand-navy);
+              margin: 0 0 8px;
+            ">Document submitted</h1>
+            <p style="
+              font-family: var(--font-body);
+              font-size: 14px;
+              color: var(--color-neutral-500);
+              margin: 0 0 6px;
+              line-height: 1.6;
+            ">
+              Thanks{submittedName ? `, ${submittedName.split(' ')[0]}` : ''}. Your document is now awaiting review.
+            </p>
+            {training && (
+              <p style="
+                font-family: var(--font-body);
+                font-size: 13px;
+                color: var(--color-neutral-500);
+                margin: 0;
+              ">
+                Linked to: <strong style="color: var(--color-brand-navy);">{training.title}</strong>
+              </p>
+            )}
+          </div>
+        ) : (
+          <!-- ── Upload form ── -->
+          <div>
+            <h1 style="
+              font-family: var(--font-heading);
+              font-size: 22px;
+              font-weight: 700;
+              color: var(--color-brand-navy);
+              margin: 0 0 6px;
+            ">Submit a document</h1>
+
+            {training ? (
+              <div style="
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                background-color: var(--color-neutral-100);
+                border-radius: var(--radius-full);
+                padding: 4px 14px;
+                margin-bottom: 28px;
+              ">
+                <span style="font-size: 11px; color: var(--color-neutral-500); font-family: var(--font-body);">For training:</span>
+                <span style="font-size: 13px; font-weight: 600; color: var(--color-brand-navy); font-family: var(--font-body);">{training.title}</span>
+              </div>
+            ) : (
+              <p style="
+                font-family: var(--font-body);
+                font-size: 14px;
+                color: var(--color-neutral-500);
+                margin: 0 0 28px;
+              ">Fill in your details and attach your document below.</p>
+            )}
+
+            {globalError && (
+              <div style="
+                background-color: var(--color-danger-50);
+                border: 1px solid #fca5a5;
+                border-radius: var(--radius-md);
+                padding: 12px 16px;
+                margin-bottom: 20px;
+                font-family: var(--font-body);
+                font-size: 14px;
+                color: #991b1b;
+              ">{globalError}</div>
+            )}
+
+            <form method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 18px;">
+
+              <!-- Email -->
+              <div style="display: flex; flex-direction: column; gap: 5px;">
+                <label for="emailInput" style="
+                  font-family: var(--font-body);
+                  font-size: 13px;
+                  font-weight: 500;
+                  color: var(--color-neutral-700);
+                ">Your email address *</label>
+                <input
+                  id="emailInput"
+                  name="email"
+                  type="email"
+                  required
+                  autocomplete="email"
+                  value={formValues.email ?? ''}
+                  placeholder="you@example.com"
+                  style={`
+                    padding: 10px 14px;
+                    border: 1px solid ${errors.email ? '#f87171' : 'var(--color-neutral-300)'};
+                    border-radius: var(--radius-md);
+                    font-family: var(--font-body);
+                    font-size: 14px;
+                    color: var(--color-neutral-900);
+                    outline: none;
+                    width: 100%;
+                    box-sizing: border-box;
+                  `}
+                />
+                {errors.email && (
+                  <p style="font-family: var(--font-body); font-size: 12px; color: #dc2626; margin: 0;">{errors.email}</p>
+                )}
+              </div>
+
+              <!-- Document type (only when training doesn't fix it) -->
+              {showDocTypeDropdown && (
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                  <label for="docTypeSelect" style="
+                    font-family: var(--font-body);
+                    font-size: 13px;
+                    font-weight: 500;
+                    color: var(--color-neutral-700);
+                  ">Document type *</label>
+                  <select
+                    id="docTypeSelect"
+                    name="document_type_id"
+                    required
+                    style={`
+                      padding: 10px 14px;
+                      border: 1px solid ${errors.document_type_id ? '#f87171' : 'var(--color-neutral-300)'};
+                      border-radius: var(--radius-md);
+                      font-family: var(--font-body);
+                      font-size: 14px;
+                      color: var(--color-neutral-900);
+                      background: white;
+                      width: 100%;
+                      box-sizing: border-box;
+                    `}
+                  >
+                    <option value="">Select a type…</option>
+                    {docTypes.map((dt: any) => (
+                      <option value={dt.id} selected={formValues.document_type_id === dt.id}>{dt.name}</option>
+                    ))}
+                  </select>
+                  {errors.document_type_id && (
+                    <p style="font-family: var(--font-body); font-size: 12px; color: #dc2626; margin: 0;">{errors.document_type_id}</p>
+                  )}
+                </div>
+              )}
+
+              <!-- Hidden doc type when pre-fixed by training -->
+              {!showDocTypeDropdown && training?.expected_document_type_id && (
+                <input type="hidden" name="document_type_id" value={training.expected_document_type_id} />
+              )}
+
+              <!-- Title -->
+              <div style="display: flex; flex-direction: column; gap: 5px;">
+                <label for="titleInput" style="
+                  font-family: var(--font-body);
+                  font-size: 13px;
+                  font-weight: 500;
+                  color: var(--color-neutral-700);
+                ">Document name *</label>
+                <input
+                  id="titleInput"
+                  name="title"
+                  type="text"
+                  required
+                  value={formValues.title ?? ''}
+                  placeholder={training?.document_type?.name ? `e.g. My ${training.document_type.name}` : 'e.g. Enhanced DBS Certificate'}
+                  style={`
+                    padding: 10px 14px;
+                    border: 1px solid ${errors.title ? '#f87171' : 'var(--color-neutral-300)'};
+                    border-radius: var(--radius-md);
+                    font-family: var(--font-body);
+                    font-size: 14px;
+                    color: var(--color-neutral-900);
+                    width: 100%;
+                    box-sizing: border-box;
+                  `}
+                />
+                {errors.title && (
+                  <p style="font-family: var(--font-body); font-size: 12px; color: #dc2626; margin: 0;">{errors.title}</p>
+                )}
+              </div>
+
+              <!-- File -->
+              <div style="display: flex; flex-direction: column; gap: 5px;">
+                <label for="fileInput" style="
+                  font-family: var(--font-body);
+                  font-size: 13px;
+                  font-weight: 500;
+                  color: var(--color-neutral-700);
+                ">File *</label>
+
+                <!-- Drop zone -->
+                <label id="dropZone" for="fileInput" style="
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 8px;
+                  border: 2px dashed var(--color-neutral-300);
+                  border-radius: var(--radius-md);
+                  padding: 28px 20px;
+                  cursor: pointer;
+                  transition: border-color 0.15s, background-color 0.15s;
+                  background-color: var(--color-neutral-50);
+                ">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--color-neutral-400);">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                  </svg>
+                  <div style="text-align: center;">
+                    <p id="dropLabel" style="
+                      font-family: var(--font-body);
+                      font-size: 14px;
+                      font-weight: 500;
+                      color: var(--color-neutral-700);
+                      margin: 0 0 2px;
+                    ">Click to choose a file</p>
+                    <p style="
+                      font-family: var(--font-body);
+                      font-size: 12px;
+                      color: var(--color-neutral-400);
+                      margin: 0;
+                    ">PDF, JPEG, PNG or WebP — max 10 MB</p>
+                  </div>
+                </label>
+
+                <input
+                  id="fileInput"
+                  name="file"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  required
+                  style="display: none;"
+                />
+
+                {errors.file && (
+                  <p style="font-family: var(--font-body); font-size: 12px; color: #dc2626; margin: 0;">{errors.file}</p>
+                )}
+              </div>
+
+              <!-- Submit -->
+              <button
+                type="submit"
+                id="submitBtn"
+                style="
+                  margin-top: 4px;
+                  padding: 12px 20px;
+                  background-color: var(--color-brand-navy);
+                  color: white;
+                  border: none;
+                  border-radius: var(--radius-md);
+                  font-family: var(--font-body);
+                  font-size: 15px;
+                  font-weight: 600;
+                  cursor: pointer;
+                  width: 100%;
+                  transition: opacity 0.15s;
+                "
+                onmouseover="this.style.opacity='0.88'"
+                onmouseout="this.style.opacity='1'"
+              >
+                Submit document
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
+
+      <!-- Footer -->
+      <p style="
+        text-align: center;
+        font-family: var(--font-body);
+        font-size: 12px;
+        color: rgba(255,255,255,0.4);
+        margin: 24px 0 0;
+      ">
+        {orgName} · Secure document submission
+      </p>
+    </div>
+  </div>
+</PublicLayout>
+
+<script is:inline>
+  // File picker — update drop zone label when a file is chosen
+  var fileInput = document.getElementById('fileInput')
+  var dropLabel = document.getElementById('dropLabel')
+  var dropZone  = document.getElementById('dropZone')
+
+  if (fileInput) {
+    fileInput.addEventListener('change', function() {
+      var file = fileInput.files && fileInput.files[0]
+      if (file && dropLabel) {
+        dropLabel.textContent = file.name
+        dropZone.style.borderColor = 'var(--color-brand-navy)'
+        dropZone.style.backgroundColor = '#f0f4ff'
+      }
+    })
+  }
+
+  // Drag and drop
+  if (dropZone && fileInput) {
+    dropZone.addEventListener('dragover', function(e) {
+      e.preventDefault()
+      dropZone.style.borderColor = 'var(--color-brand-navy)'
+      dropZone.style.backgroundColor = '#f0f4ff'
+    })
+    dropZone.addEventListener('dragleave', function() {
+      dropZone.style.borderColor = 'var(--color-neutral-300)'
+      dropZone.style.backgroundColor = 'var(--color-neutral-50)'
+    })
+    dropZone.addEventListener('drop', function(e) {
+      e.preventDefault()
+      var files = e.dataTransfer && e.dataTransfer.files
+      if (files && files.length) {
+        // Transfer dropped file to the real input via DataTransfer
+        try {
+          var dt = new DataTransfer()
+          dt.items.add(files[0])
+          fileInput.files = dt.files
+          if (dropLabel) dropLabel.textContent = files[0].name
+        } catch (_) {}
+      }
+    })
+  }
+
+  // Disable submit while uploading to prevent double-submit
+  var form = document.querySelector('form')
+  var submitBtn = document.getElementById('submitBtn')
+  if (form && submitBtn) {
+    form.addEventListener('submit', function() {
+      submitBtn.disabled = true
+      submitBtn.textContent = 'Submitting…'
+    })
+  }
+</script>

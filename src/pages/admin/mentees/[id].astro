@@ -1,0 +1,544 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const { id } = Astro.params
+const activeTab = Astro.url.searchParams.get('tab') ?? 'overview'
+
+const { data: mentee } = await supabaseAdmin
+  .from('mentees')
+  .select('*, people!mentees_mentor_id_fkey(id, full_name, email), cmp_programme_years(id, name)')
+  .eq('id', id ?? '')
+  .eq('is_archived', false)
+  .single()
+
+if (!mentee) return Astro.redirect('/admin/mentees')
+
+const mentor = (mentee as unknown as { people: { id: string; full_name: string; email: string } | null }).people
+const programmeYear = (mentee as unknown as { cmp_programme_years: { id: string; name: string } | null }).cmp_programme_years
+
+// ── Parallel data fetches ─────────────────────────────────────────────────────
+const [
+  { data: attendance },
+  { data: mentorNotes },
+  { data: callLogs },
+] = await Promise.all([
+  supabaseAdmin
+    .from('cmp_attendance')
+    .select('id, status, role, cmp_sessions(id, title, session_date, session_time)')
+    .eq('mentee_id', id ?? '')
+    .order('recorded_at', { ascending: false }),
+  supabaseAdmin
+    .from('cmp_mentor_notes')
+    .select('id, note, created_at, people(id, full_name)')
+    .eq('mentee_id', id ?? '')
+    .order('created_at', { ascending: false }),
+  supabaseAdmin
+    .from('cmp_call_logs')
+    .select('id, called_at, duration_minutes, outcome, summary, people(id, full_name)')
+    .eq('mentee_id', id ?? '')
+    .order('called_at', { ascending: false }),
+])
+
+type AttendRow = { id: string; status: string; role: string; cmp_sessions: { id: string; title: string; session_date: string; session_time: string | null } | null }
+type NoteRow   = { id: string; note: string; created_at: string; people: { id: string; full_name: string } | null }
+type CallRow   = { id: string; called_at: string; duration_minutes: number | null; outcome: string; summary: string | null; people: { id: string; full_name: string } | null }
+
+const attendRows = (attendance ?? []) as unknown as AttendRow[]
+const noteRows   = (mentorNotes ?? []) as unknown as NoteRow[]
+const callRows   = (callLogs ?? []) as unknown as CallRow[]
+
+const attendedCount = attendRows.filter(a => a.status === 'present').length
+const totalSessions = attendRows.length
+
+function formatDate(d: string | null) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function formatTime(t: string | null) {
+  if (!t) return ''
+  const [h, m] = t.split(':')
+  const hour = parseInt(h ?? '0')
+  return `${hour % 12 || 12}:${m}${hour >= 12 ? 'pm' : 'am'}`
+}
+
+const OUTCOME_LABELS: Record<string, string> = {
+  reached: 'Reached',
+  no_answer: 'No answer',
+  left_voicemail: 'Left voicemail',
+  rescheduled: 'Rescheduled',
+}
+
+const OUTCOME_COLORS: Record<string, string> = {
+  reached: 'var(--color-success-100)',
+  no_answer: 'var(--color-neutral-100)',
+  left_voicemail: 'var(--color-info-100)',
+  rescheduled: 'var(--color-warning-100)',
+}
+const OUTCOME_TEXT_COLORS: Record<string, string> = {
+  reached: 'var(--color-success-700)',
+  no_answer: 'var(--color-neutral-600)',
+  left_voicemail: 'var(--color-info-700)',
+  rescheduled: 'var(--color-warning-700)',
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  present: 'var(--color-success-100)',
+  absent: 'var(--color-danger-100)',
+  apology: 'var(--color-warning-100)',
+}
+const STATUS_TEXT: Record<string, string> = {
+  present: 'var(--color-success-700)',
+  absent: 'var(--color-danger-700)',
+  apology: 'var(--color-warning-700)',
+}
+
+const tabs = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'attendance', label: `Attendance (${attendedCount}/${totalSessions})` },
+  { key: 'notes', label: `Mentor Notes (${noteRows.length})` },
+  { key: 'calls', label: `Call Logs (${callRows.length})` },
+]
+---
+
+<DashboardLayout title={mentee.full_name as string}>
+  <Breadcrumb crumbs={[{ label: 'Mentees', href: '/admin/mentees' }, { label: mentee.full_name as string }]} />
+
+  <!-- Header -->
+  <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px;">
+    <div>
+      <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">{mentee.full_name as string}</h1>
+      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+        {mentee.email as string | null ?? (mentee.guardian_email as string | null) ?? 'No email on file'}
+      </p>
+    </div>
+    <a href={`/admin/mentees/${id}/edit`}
+      style="padding: 8px 16px; background: white; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700); text-decoration: none;">
+      Edit
+    </a>
+  </div>
+
+  <!-- Status banner -->
+  <div id="statusBanner" style="display: none; padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 16px; font-family: var(--font-body); font-size: 14px;"></div>
+
+  <!-- Tabs -->
+  <div style="display: flex; gap: 2px; border-bottom: 2px solid var(--color-neutral-200); margin-bottom: 24px;">
+    {tabs.map(t => (
+      <a href={`/admin/mentees/${id}?tab=${t.key}`}
+        style={`padding: 10px 16px; font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -2px; ${activeTab === t.key ? 'color: var(--color-brand-navy); border-bottom-color: var(--color-brand-navy);' : 'color: var(--color-neutral-500);'}`}>
+        {t.label}
+      </a>
+    ))}
+  </div>
+
+  <!-- ── Overview tab ──────────────────────────────────────────────────────── -->
+  {activeTab === 'overview' && (
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+      <!-- Personal details -->
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
+        <h2 style="font-family: var(--font-heading); font-size: 12px; font-weight: 700; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px;">Personal details</h2>
+        <table style="border-collapse: collapse; width: 100%;">
+          {[
+            ['Date of birth', formatDate(mentee.date_of_birth as string | null)],
+            ['School', (mentee.school as string | null) ?? '—'],
+            ['Year group', (mentee.year_group as string | null) ?? '—'],
+            ['Phone', (mentee.phone as string | null) ?? '—'],
+          ].map(([label, value]) => (
+            <tr>
+              <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); padding: 5px 16px 5px 0; width: 130px; vertical-align: top;">{label}</td>
+              <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); padding: 5px 0;">{value}</td>
+            </tr>
+          ))}
+        </table>
+      </div>
+
+      <!-- Programme info -->
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
+        <h2 style="font-family: var(--font-heading); font-size: 12px; font-weight: 700; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px;">Programme</h2>
+        <table style="border-collapse: collapse; width: 100%;">
+          <tr>
+            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); padding: 5px 16px 5px 0; width: 130px;">Mentor</td>
+            <td style="font-family: var(--font-body); font-size: 13px; padding: 5px 0;">
+              {mentor ? (
+                <a href={`/admin/members/${mentor.id}`} style="color: var(--color-brand-navy); text-decoration: none; font-weight: 500;">{mentor.full_name}</a>
+              ) : <span style="color: var(--color-warning-600); font-weight: 500;">Unassigned</span>}
+            </td>
+          </tr>
+          <tr>
+            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); padding: 5px 16px 5px 0;">Programme year</td>
+            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); padding: 5px 0;">
+              {programmeYear ? (
+                <a href={`/admin/cmp/years/${programmeYear.id}`} style="color: var(--color-brand-navy); text-decoration: none;">{programmeYear.name}</a>
+              ) : '—'}
+            </td>
+          </tr>
+          <tr>
+            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); padding: 5px 16px 5px 0;">Sessions attended</td>
+            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); padding: 5px 0;">{attendedCount} / {totalSessions}</td>
+          </tr>
+          <tr>
+            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); padding: 5px 16px 5px 0;">Mentor notes</td>
+            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); padding: 5px 0;">{noteRows.length}</td>
+          </tr>
+          <tr>
+            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); padding: 5px 16px 5px 0;">Call logs</td>
+            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); padding: 5px 0;">{callRows.length}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Guardian -->
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; grid-column: 1 / -1;">
+        <h2 style="font-family: var(--font-heading); font-size: 12px; font-weight: 700; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px;">Guardian / Parent</h2>
+        <table style="border-collapse: collapse; width: 100%;">
+          {[
+            ['Name', (mentee.guardian_name as string | null) ?? '—'],
+            ['Email', (mentee.guardian_email as string | null) ?? '—'],
+          ].map(([label, value]) => (
+            <tr>
+              <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); padding: 5px 16px 5px 0; width: 130px;">{label}</td>
+              <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); padding: 5px 0;">{value}</td>
+            </tr>
+          ))}
+        </table>
+      </div>
+    </div>
+  )}
+
+  <!-- ── Attendance tab ──────────────────────────────────────────────────────── -->
+  {activeTab === 'attendance' && (
+    <div>
+      <!-- Summary bar -->
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;">
+        {[
+          { label: 'Present', count: attendRows.filter(a => a.status === 'present').length, bg: 'var(--color-success-50)', border: 'var(--color-success-200)', text: 'var(--color-success-700)' },
+          { label: 'Absent', count: attendRows.filter(a => a.status === 'absent').length, bg: 'var(--color-danger-50)', border: 'var(--color-danger-200)', text: 'var(--color-danger-700)' },
+          { label: 'Apology', count: attendRows.filter(a => a.status === 'apology').length, bg: 'var(--color-warning-50)', border: 'var(--color-warning-200)', text: 'var(--color-warning-700)' },
+        ].map(s => (
+          <div style={`background: ${s.bg}; border: 1px solid ${s.border}; border-radius: var(--radius-lg); padding: 16px 20px;`}>
+            <p style={`font-family: var(--font-heading); font-size: 28px; font-weight: 700; color: ${s.text}; margin: 0;`}>{s.count}</p>
+            <p style={`font-family: var(--font-body); font-size: 13px; color: ${s.text}; margin: 2px 0 0;`}>{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+        {attendRows.length === 0 ? (
+          <div style="padding: 36px; text-align: center;">
+            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">No attendance records yet.</p>
+          </div>
+        ) : (
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead style="background: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+              <tr>
+                <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Session</th>
+                <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Date</th>
+                <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {attendRows.map((a, i) => (
+                <tr style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
+                  <td style="padding: 12px 16px;">
+                    {a.cmp_sessions ? (
+                      <a href={`/admin/cmp/sessions/${a.cmp_sessions.id}`}
+                        style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none;">
+                        {a.cmp_sessions.title}
+                      </a>
+                    ) : <span style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400);">—</span>}
+                  </td>
+                  <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">
+                    {a.cmp_sessions ? formatDate(a.cmp_sessions.session_date) : '—'}
+                    {a.cmp_sessions?.session_time && <span style="margin-left: 4px; color: var(--color-neutral-400);">{formatTime(a.cmp_sessions.session_time)}</span>}
+                  </td>
+                  <td style="padding: 12px 16px;">
+                    <span style={`padding: 2px 10px; border-radius: var(--radius-full); background: ${STATUS_COLORS[a.status] ?? 'var(--color-neutral-100)'}; color: ${STATUS_TEXT[a.status] ?? 'var(--color-neutral-600)'}; font-family: var(--font-body); font-size: 12px; font-weight: 600; text-transform: capitalize;`}>
+                      {a.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )}
+
+  <!-- ── Mentor notes tab ──────────────────────────────────────────────────── -->
+  {activeTab === 'notes' && (
+    <div>
+      <!-- Add note form -->
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 20px;">
+        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 12px;">Add note</h2>
+        <textarea id="newNote" rows={3} placeholder="Observations about this mentee's progress, engagement, areas to support…"
+          style="width: 100%; padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; resize: vertical; box-sizing: border-box;"></textarea>
+        <div style="margin-top: 10px; display: flex; gap: 8px;">
+          <button id="btnSaveNote"
+            style="padding: 8px 18px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+            Save note
+          </button>
+        </div>
+      </div>
+
+      <!-- Notes list -->
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        {noteRows.length === 0 ? (
+          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 36px; text-align: center;">
+            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">No mentor notes yet.</p>
+          </div>
+        ) : noteRows.map(n => (
+          <div data-note-id={n.id} style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 16px 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <div>
+                <span style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-neutral-700);">
+                  {n.people?.full_name ?? 'Unknown'}
+                </span>
+                <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin-left: 8px;">
+                  {formatDate(n.created_at)}
+                </span>
+              </div>
+              <button class="btn-delete-note" data-id={n.id}
+                style="padding: 3px 10px; background: var(--color-neutral-100); border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); cursor: pointer;">
+                Delete
+              </button>
+            </div>
+            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700); margin: 0; white-space: pre-wrap; line-height: 1.6;">{n.note}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
+
+  <!-- ── Call logs tab ─────────────────────────────────────────────────────── -->
+  {activeTab === 'calls' && (
+    <div>
+      <!-- Log call form -->
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 20px;">
+        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 14px;">Log a call</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-700);">Date *</label>
+            <input type="date" id="callDate" value={new Date().toISOString().slice(0, 10)}
+              style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px;" />
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-700);">Duration (mins)</label>
+            <input type="number" id="callDuration" min="1" max="120" placeholder="e.g. 15"
+              style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px;" />
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-700);">Outcome *</label>
+            <select id="callOutcome"
+              style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white; height: 38px;">
+              <option value="reached">Reached</option>
+              <option value="no_answer">No answer</option>
+              <option value="left_voicemail">Left voicemail</option>
+              <option value="rescheduled">Rescheduled</option>
+            </select>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px;">
+          <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-700);">Summary</label>
+          <textarea id="callSummary" rows={2} placeholder="Key points from the call…"
+            style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; resize: vertical;"></textarea>
+        </div>
+        <button id="btnSaveCall"
+          style="padding: 8px 18px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+          Log call
+        </button>
+      </div>
+
+      <!-- Call log list -->
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+        {callRows.length === 0 ? (
+          <div style="padding: 36px; text-align: center;">
+            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">No call logs yet.</p>
+          </div>
+        ) : (
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead style="background: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+              <tr>
+                <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Date</th>
+                <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Caller</th>
+                <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Outcome</th>
+                <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Duration</th>
+                <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Notes</th>
+                <th style="padding: 9px 16px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {callRows.map((c, i) => (
+                <tr data-call-id={c.id} style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
+                  <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); font-weight: 500;">{formatDate(c.called_at)}</td>
+                  <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">{c.people?.full_name ?? '—'}</td>
+                  <td style="padding: 12px 16px;">
+                    <span style={`padding: 2px 10px; border-radius: var(--radius-full); background: ${OUTCOME_COLORS[c.outcome] ?? 'var(--color-neutral-100)'}; color: ${OUTCOME_TEXT_COLORS[c.outcome] ?? 'var(--color-neutral-600)'}; font-family: var(--font-body); font-size: 12px; font-weight: 600;`}>
+                      {OUTCOME_LABELS[c.outcome] ?? c.outcome}
+                    </span>
+                  </td>
+                  <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">
+                    {c.duration_minutes != null ? `${c.duration_minutes} min` : '—'}
+                  </td>
+                  <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); max-width: 280px;">
+                    {c.summary ? (
+                      <span style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">{c.summary}</span>
+                    ) : <span style="color: var(--color-neutral-300);">—</span>}
+                  </td>
+                  <td style="padding: 12px 16px; text-align: right;">
+                    <button class="btn-delete-call" data-id={c.id}
+                      style="padding: 3px 10px; background: var(--color-neutral-100); border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); cursor: pointer;">
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )}
+</DashboardLayout>
+
+<script is:inline>
+  (function () {
+    var menteeId = window.location.pathname.split('/').at(-1)
+    // Handle tab from query string
+    var params = new URLSearchParams(window.location.search)
+    menteeId = params.get('tab') === 'notes' || params.get('tab') === 'calls'
+      ? window.location.pathname.split('/').filter(Boolean).at(-1)
+      : window.location.pathname.split('/').filter(Boolean).at(-1)
+
+    // Re-derive menteeId cleanly
+    var pathParts = window.location.pathname.split('/').filter(Boolean)
+    // path: /admin/mentees/<id>
+    menteeId = pathParts[pathParts.length - 1]
+
+    var banner = document.getElementById('statusBanner')
+
+    function showBanner(msg, type) {
+      if (!banner) return
+      banner.textContent = msg
+      banner.style.display = 'block'
+      banner.style.backgroundColor = type === 'success' ? '#f0fdf4' : '#fef2f2'
+      banner.style.border = '1px solid ' + (type === 'success' ? '#86efac' : '#fca5a5')
+      banner.style.color = type === 'success' ? '#166534' : '#991b1b'
+      setTimeout(function () { banner.style.display = 'none' }, 5000)
+    }
+
+    // ── Mentor notes ─────────────────────────────────────────────────────────
+    var btnSaveNote = document.getElementById('btnSaveNote')
+    if (btnSaveNote) {
+      btnSaveNote.addEventListener('click', function () {
+        var ta = document.getElementById('newNote')
+        var note = ta ? ta.value.trim() : ''
+        if (!note) { showBanner('Note cannot be empty.', 'error'); return }
+        btnSaveNote.disabled = true
+        btnSaveNote.textContent = 'Saving…'
+        fetch('/api/cmp/mentor-notes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mentee_id: menteeId, note: note }),
+        })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d } }) })
+          .then(function (res) {
+            if (res.ok) {
+              showBanner('Note saved.', 'success')
+              setTimeout(function () { window.location.reload() }, 800)
+            } else {
+              showBanner(res.d.error || 'Failed to save note.', 'error')
+              btnSaveNote.disabled = false
+              btnSaveNote.textContent = 'Save note'
+            }
+          })
+          .catch(function () { showBanner('Network error.', 'error'); btnSaveNote.disabled = false; btnSaveNote.textContent = 'Save note' })
+      })
+    }
+
+    document.querySelectorAll('.btn-delete-note').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!confirm('Delete this note?')) return
+        var id = btn.getAttribute('data-id')
+        fetch('/api/cmp/mentor-notes', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: id }),
+        })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d } }) })
+          .then(function (res) {
+            if (res.ok) {
+              var row = btn.closest('[data-note-id]')
+              if (row) row.remove()
+              showBanner('Note deleted.', 'success')
+            } else {
+              showBanner(res.d.error || 'Failed to delete.', 'error')
+            }
+          })
+      })
+    })
+
+    // ── Call logs ────────────────────────────────────────────────────────────
+    var btnSaveCall = document.getElementById('btnSaveCall')
+    if (btnSaveCall) {
+      btnSaveCall.addEventListener('click', function () {
+        var called_at = document.getElementById('callDate') ? document.getElementById('callDate').value : ''
+        var outcome = document.getElementById('callOutcome') ? document.getElementById('callOutcome').value : 'reached'
+        var dur = document.getElementById('callDuration') ? document.getElementById('callDuration').value : ''
+        var summary = document.getElementById('callSummary') ? document.getElementById('callSummary').value.trim() : ''
+        if (!called_at) { showBanner('Date is required.', 'error'); return }
+        btnSaveCall.disabled = true
+        btnSaveCall.textContent = 'Saving…'
+        fetch('/api/cmp/call-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mentee_id: menteeId,
+            called_at: called_at,
+            outcome: outcome,
+            duration_minutes: dur ? parseInt(dur) : null,
+            summary: summary || null,
+          }),
+        })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d } }) })
+          .then(function (res) {
+            if (res.ok) {
+              showBanner('Call logged.', 'success')
+              setTimeout(function () { window.location.reload() }, 800)
+            } else {
+              showBanner(res.d.error || 'Failed to log call.', 'error')
+              btnSaveCall.disabled = false
+              btnSaveCall.textContent = 'Log call'
+            }
+          })
+          .catch(function () { showBanner('Network error.', 'error'); btnSaveCall.disabled = false; btnSaveCall.textContent = 'Log call' })
+      })
+    }
+
+    document.querySelectorAll('.btn-delete-call').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!confirm('Delete this call log?')) return
+        var id = btn.getAttribute('data-id')
+        fetch('/api/cmp/call-logs', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: id }),
+        })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d } }) })
+          .then(function (res) {
+            if (res.ok) {
+              var row = btn.closest('[data-call-id]')
+              if (row) row.remove()
+              showBanner('Call log deleted.', 'success')
+            } else {
+              showBanner(res.d.error || 'Failed to delete.', 'error')
+            }
+          })
+      })
+    })
+  })()
+</script>

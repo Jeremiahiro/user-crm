@@ -1,0 +1,266 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin } from '@/lib/rbac'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const admin = isAdmin(Astro.locals.user)
+if (!admin) return Astro.redirect('/admin/email-templates')
+
+const { id } = Astro.params
+const { data: template } = await supabaseAdmin
+  .from('email_templates').select('*').eq('id', id ?? '').single()
+
+if (!template) return Astro.redirect('/admin/email-templates')
+
+const CATEGORY_LABELS: Record<string, string> = {
+  general: 'General', welcome: 'Welcome', award: 'Award', reminder: 'Reminder', event: 'Event',
+}
+
+const VARIABLE_HINTS: Record<string, string[]> = {
+  general: ['{{full_name}}', '{{first_name}}', '{{year}}'],
+  welcome: ['{{full_name}}', '{{first_name}}', '{{year}}'],
+  award: ['{{full_name}}', '{{first_name}}', '{{award_type}}', '{{year}}', '{{citation}}'],
+  reminder: ['{{full_name}}', '{{first_name}}', '{{year}}'],
+  event: ['{{full_name}}', '{{first_name}}', '{{event_name}}', '{{event_date}}', '{{year}}'],
+}
+
+let errors: Record<string, string> = {}
+let globalError = ''
+let successMsg = ''
+let values: Record<string, string> = {
+  name: template.name as string,
+  description: (template.description as string | null) ?? '',
+  subject: template.subject as string,
+  html_body: template.html_body as string,
+  category: template.category as string,
+}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  const formValues = Object.fromEntries(form.entries()) as Record<string, string>
+
+  if (formValues._action === 'test') {
+    // Send test email
+    const res = await fetch(`${Astro.url.origin}/api/email-templates/${id}/test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+      body: JSON.stringify({ to: formValues.test_email }),
+    })
+    if (res.ok) {
+      successMsg = `Test email sent to ${formValues.test_email}.`
+    } else {
+      const body = await res.json() as { error?: string }
+      globalError = body.error ?? 'Failed to send test email.'
+    }
+  } else {
+    values = formValues
+    const res = await fetch(`${Astro.url.origin}/api/email-templates/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+      body: JSON.stringify({
+        name: values.name,
+        description: values.description || null,
+        subject: values.subject,
+        html_body: values.html_body,
+        category: values.category,
+      }),
+    })
+
+    if (res.ok) {
+      return Astro.redirect(`/admin/email-templates/${id}/edit?saved=1`)
+    } else {
+      const body = await res.json() as { error?: string; issues?: { fieldErrors?: Record<string, string[]> } }
+      globalError = body.error ?? 'Failed to save.'
+      errors = Object.fromEntries(Object.entries(body.issues?.fieldErrors ?? {}).map(([k, v]) => [k, v[0] ?? '']))
+    }
+  }
+}
+
+const saved = Astro.url.searchParams.get('saved') === '1'
+const adminEmail = Astro.locals.user?.email ?? ''
+---
+
+<DashboardLayout title={`Edit: ${template.name}`}>
+  <div id="edit-template-root" data-template-id={id}>
+    <Breadcrumb crumbs={[
+      { label: 'Email Templates', href: '/admin/email-templates' },
+      { label: template.name as string, href: `/admin/email-templates/${id}/edit` },
+      { label: 'Edit' },
+    ]} />
+
+    {saved && (
+      <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: var(--radius-md); padding: 10px 16px; margin-bottom: 16px; font-family: var(--font-body); font-size: 14px; color: #166534;">
+        Changes saved.
+      </div>
+    )}
+    {successMsg && (
+      <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: var(--radius-md); padding: 10px 16px; margin-bottom: 16px; font-family: var(--font-body); font-size: 14px; color: #166534;">
+        {successMsg}
+      </div>
+    )}
+    {globalError && (
+      <div style="background: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 16px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+        {globalError}
+      </div>
+    )}
+
+    <form method="POST" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px;">
+      <input type="hidden" name="_action" value="edit" />
+
+      <!-- Top metadata row -->
+      <div style="display: grid; grid-template-columns: 1fr 180px; gap: 16px; max-width: 700px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Name *</label>
+          <input type="text" name="name" value={values.name} required maxlength="100"
+            style="padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px;" />
+          {errors.name && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-600); margin: 0;">{errors.name}</p>}
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Category *</label>
+          <select name="category" id="category-select"
+            style="padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white; height: 40px;">
+            {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
+              <option value={v} selected={values.category === v}>{l}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 4px; max-width: 700px;">
+        <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Subject *</label>
+        <input type="text" name="subject" value={values.subject} required maxlength="300"
+          style="padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px;" />
+        {errors.subject && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-600); margin: 0;">{errors.subject}</p>}
+      </div>
+
+      <!-- Variable hints -->
+      <div style="background: var(--color-neutral-50); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); padding: 10px 14px; max-width: 700px;">
+        <span style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-600);">Variables: </span>
+        <span id="vars-list" style="display: inline-flex; flex-wrap: wrap; gap: 5px; vertical-align: middle; margin-left: 4px;">
+          {(VARIABLE_HINTS[values.category ?? 'general'] ?? VARIABLE_HINTS.general).map(v => (
+            <code style="font-family: var(--font-mono, monospace); font-size: 12px; padding: 1px 7px; background: white; border: 1px solid var(--color-neutral-300); border-radius: 4px; color: var(--color-brand-navy);">{v}</code>
+          ))}
+        </span>
+      </div>
+
+      <!-- Side-by-side editor + preview -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start;">
+
+        <!-- Editor column -->
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">HTML Body *</label>
+          <textarea name="html_body" id="html-body" required
+            style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.5; resize: vertical; height: 600px; min-height: 400px;">{values.html_body}</textarea>
+          {errors.html_body && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-600); margin: 0;">{errors.html_body}</p>}
+        </div>
+
+        <!-- Preview column -->
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Preview</label>
+            <span style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400);">Sample values · updates as you type</span>
+          </div>
+          <div style="border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); overflow: hidden; height: 600px; min-height: 400px; background: white;">
+            <iframe id="preview-frame" style="width: 100%; height: 100%; border: none; display: block;"></iframe>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; padding-top: 4px;">
+        <button type="submit"
+          style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          Save changes
+        </button>
+        <a href="/admin/email-templates"
+          style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+          Cancel
+        </a>
+      </div>
+    </form>
+
+    <!-- Send test section -->
+    <div style="border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 28px; max-width: 500px;">
+      <div style="background: var(--color-neutral-50); padding: 10px 20px; border-bottom: 1px solid var(--color-neutral-200);">
+        <h2 style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.06em; margin: 0;">Send test email</h2>
+      </div>
+      <form method="POST" style="background: white; padding: 16px 20px; display: flex; gap: 12px; align-items: flex-end;">
+        <input type="hidden" name="_action" value="test" />
+        <div style="display: flex; flex-direction: column; gap: 4px; flex: 1;">
+          <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Send to</label>
+          <input type="email" name="test_email" value={adminEmail} required
+            style="padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px;" />
+        </div>
+        <button type="submit"
+          style="padding: 9px 18px; background-color: var(--color-neutral-700); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;">
+          Send test
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script is:inline>
+    var VARIABLE_HINTS = {
+      general: ['{{full_name}}', '{{first_name}}', '{{year}}'],
+      welcome: ['{{full_name}}', '{{first_name}}', '{{year}}'],
+      award: ['{{full_name}}', '{{first_name}}', '{{award_type}}', '{{year}}', '{{citation}}'],
+      reminder: ['{{full_name}}', '{{first_name}}', '{{year}}'],
+      event: ['{{full_name}}', '{{first_name}}', '{{event_name}}', '{{event_date}}', '{{year}}'],
+    }
+
+    var SAMPLE_VARS = {
+      full_name: 'John Smith', first_name: 'John', last_name: 'Smith',
+      year: String(new Date().getFullYear()),
+      award_type: 'Member of the Year',
+      citation: 'For outstanding service to the chapter.',
+      event_name: 'Annual Gala', event_date: 'Saturday, 15 November 2025',
+      message: 'Your contributions to the mentorship programme have been outstanding.',
+      sender_name: 'James Brown',
+    }
+
+    function applyVars(html) {
+      return html.replace(/\{\{(\w+)\}\}/g, function (_, key) {
+        return SAMPLE_VARS[key] !== undefined ? SAMPLE_VARS[key] : '{{' + key + '}}'
+      })
+    }
+
+    function refreshPreview() {
+      var htmlBody = document.getElementById('html-body')
+      var previewFrame = document.getElementById('preview-frame')
+      if (!htmlBody || !previewFrame) return
+      var doc = previewFrame.contentDocument || previewFrame.contentWindow.document
+      doc.open(); doc.write(applyVars(htmlBody.value)); doc.close()
+    }
+
+    // Category → variable hints
+    var catSelect = document.getElementById('category-select')
+    var varsList = document.getElementById('vars-list')
+
+    function refreshVarHints() {
+      var cat = catSelect ? catSelect.value : 'general'
+      var hints = VARIABLE_HINTS[cat] || VARIABLE_HINTS.general
+      if (varsList) {
+        varsList.innerHTML = hints.map(function (v) {
+          return '<code style="font-family:monospace;font-size:12px;padding:1px 7px;background:white;border:1px solid #d1d5db;border-radius:4px;color:#0a1a3b;">' + v + '</code>'
+        }).join('')
+      }
+    }
+
+    if (catSelect) catSelect.addEventListener('change', refreshVarHints)
+
+    // Live preview — debounced on input
+    var htmlBody = document.getElementById('html-body')
+    if (htmlBody) {
+      var debounce
+      htmlBody.addEventListener('input', function () {
+        clearTimeout(debounce)
+        debounce = setTimeout(refreshPreview, 300)
+      })
+    }
+
+    // Initial render
+    refreshPreview()
+  </script>
+</DashboardLayout>

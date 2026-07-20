@@ -1,0 +1,234 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin, getTeamLeadIds } from '@/lib/rbac'
+
+const user = Astro.locals.user
+if (!user) return Astro.redirect('/login')
+const admin = isAdmin(user)
+const personId = user.person_id ?? ''
+const trainingId = Astro.params.id ?? ''
+const leadIds = admin ? new Set<string>() : await getTeamLeadIds(personId)
+const isLead = admin || leadIds.size > 0
+
+const { data: training } = await supabaseAdmin
+  .from('trainings')
+  .select('*, creator:people!created_by(full_name), expected_document_type:document_types(id, name, slug)')
+  .eq('id', trainingId)
+  .single()
+if (!training) return Astro.redirect('/admin/trainings')
+
+const { data: myCompletion } = personId
+  ? await supabaseAdmin.from('training_completions').select('*').eq('training_id', trainingId).eq('person_id', personId).maybeSingle()
+  : { data: null }
+
+let assignments: any[] = []
+if (isLead) {
+  const { data } = await supabaseAdmin
+    .from('training_assignments')
+    .select('id, scope, team_id, person_id, deadline, team:teams(name), assignee:people!person_id(full_name)')
+    .eq('training_id', trainingId)
+  assignments = data ?? []
+}
+
+let teams: any[] = []
+if (isLead) {
+  let tq = supabaseAdmin.from('teams').select('id, name').eq('is_active', true).order('name')
+  if (!admin && leadIds.size > 0) tq = tq.in('id', [...leadIds])
+  const { data } = await tq
+  teams = data ?? []
+}
+
+let completeError = ''
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  const action = form.get('_action') as string
+  if (action === 'complete') {
+    const res = await fetch(`${Astro.url.origin}/api/trainings/${trainingId}/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+      body: JSON.stringify({ notes: null }),
+    })
+    if (res.ok) return Astro.redirect(`/admin/trainings/${trainingId}`)
+    else { const b = await res.json() as any; completeError = b.error ?? 'Failed to mark complete.' }
+  } else if (action === 'assign' && isLead) {
+    const scope = form.get('scope') as string
+    const team_id = form.get('team_id') as string | null
+    const deadline = form.get('deadline') as string | null
+    const res = await fetch(`${Astro.url.origin}/api/trainings/${trainingId}/assignments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+      body: JSON.stringify({ scope, team_id: team_id || null, deadline: deadline || null }),
+    })
+    if (res.ok) return Astro.redirect(`/admin/trainings/${trainingId}`)
+  }
+}
+
+function fmt(d: string | null) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+const t = training as any
+---
+
+<DashboardLayout title={t.title}>
+  <div style="max-width: 860px;">
+    <Breadcrumb crumbs={[{ label: 'Trainings', href: '/admin/trainings' }, { label: t.title }]} />
+
+    <!-- Header -->
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;">
+      <div>
+        <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 6px;">{t.title}</h1>
+        {t.requires_document && (
+          <span style="display: inline-block; padding: 2px 10px; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 12px; font-weight: 500; background-color: var(--color-warning-50); color: var(--color-warning-800); border: 1px solid var(--color-warning-300);">
+            Requires document
+          </span>
+        )}
+      </div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        {t.external_url && (
+          <a href={t.external_url} target="_blank" rel="noopener noreferrer"
+            style="padding: 8px 16px; background: white; border: 1px solid var(--color-brand-navy); color: var(--color-brand-navy); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; text-decoration: none;">
+            Open resource &#8599;
+          </a>
+        )}
+        {isLead && (
+          <a href={`/admin/trainings/${trainingId}/edit`}
+            style="padding: 8px 16px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; text-decoration: none;">
+            Edit
+          </a>
+        )}
+        {isLead && (
+          <a href={`/admin/trainings/${trainingId}/completions`}
+            style="padding: 8px 16px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; text-decoration: none;">
+            View completions
+          </a>
+        )}
+      </div>
+    </div>
+
+    <!-- Description -->
+    {t.description && (
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px;">
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700); margin: 0; white-space: pre-wrap; line-height: 1.7;">{t.description}</p>
+      </div>
+    )}
+
+    <!-- My Progress -->
+    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px;">
+      <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 16px;">My Progress</h2>
+
+      {myCompletion ? (
+        <div style="background-color: var(--color-success-50); border: 1px solid var(--color-success-100); border-radius: var(--radius-md); padding: 14px 16px;">
+          <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-success-700); margin: 0 0 4px;">Completed &#10003;</p>
+          <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-success-700); margin: 0 0 2px; text-transform: capitalize;">Method: {(myCompletion as any).method?.replace('_', ' ')}</p>
+          <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-success-700); margin: 0;">{fmt((myCompletion as any).completed_at)}</p>
+        </div>
+      ) : !t.requires_document ? (
+        <div>
+          {completeError && (
+            <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 10px 14px; margin-bottom: 12px; font-family: var(--font-body); font-size: 13px; color: var(--color-danger-700);">
+              {completeError}
+            </div>
+          )}
+          <form method="POST">
+            <input type="hidden" name="_action" value="complete" />
+            <button type="submit"
+              style="padding: 10px 20px; background-color: var(--color-success-700); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+              Mark as completed
+            </button>
+          </form>
+        </div>
+      ) : (
+        <div style="background-color: var(--color-neutral-50); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+          <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); margin: 0;">Upload a document to complete this training.</p>
+          <a href={`/admin/documents/upload?training_id=${trainingId}`}
+            style="padding: 8px 16px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap;">
+            Upload document
+          </a>
+        </div>
+      )}
+    </div>
+
+    <!-- Assignments (admin/lead only) -->
+    {isLead && (
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
+        <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 16px;">Assignments</h2>
+
+        {assignments.length === 0 ? (
+          <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0 0 20px;">No assignments yet.</p>
+        ) : (
+          <div style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px;">
+            {assignments.map((a: any) => (
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background-color: var(--color-neutral-50); border-radius: var(--radius-md); border: 1px solid var(--color-neutral-200);">
+                <div>
+                  <span style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-800); text-transform: capitalize;">
+                    {a.scope === 'team' ? `Team: ${(a.team as any)?.name ?? a.team_id}` : a.scope === 'person' ? `Person: ${(a.assignee as any)?.full_name ?? a.person_id}` : 'All members'}
+                  </span>
+                  {a.deadline && <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin-left: 10px;">Deadline: {fmt(a.deadline)}</span>}
+                </div>
+                <button onclick={`deleteAssignment('${trainingId}', '${a.id}')`}
+                  style="padding: 4px 10px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); cursor: pointer;">
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <!-- Add assignment form -->
+        <form method="POST" style="display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--color-neutral-100); padding-top: 16px;">
+          <input type="hidden" name="_action" value="assign" />
+          <h3 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-700); margin: 0;">Add assignment</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; flex-wrap: wrap;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-600);">Scope</label>
+              <select name="scope" id="scopeSelect" onchange="updateScopeFields()"
+                style="padding: 8px 10px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; background: white;">
+                {admin && <option value="all">All members</option>}
+                <option value="team">Team</option>
+              </select>
+            </div>
+            <div id="teamSelectWrap" style="display: flex; flex-direction: column; gap: 4px;">
+              <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-600);">Team</label>
+              <select name="team_id"
+                style="padding: 8px 10px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; background: white;">
+                <option value="">Select team</option>
+                {teams.map((team: any) => <option value={team.id}>{team.name}</option>)}
+              </select>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-600);">Deadline (optional)</label>
+              <input name="deadline" type="date"
+                style="padding: 8px 10px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px;" />
+            </div>
+          </div>
+          <div>
+            <button type="submit"
+              style="padding: 8px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+              Assign
+            </button>
+          </div>
+        </form>
+      </div>
+    )}
+  </div>
+</DashboardLayout>
+
+<script is:inline>
+  function updateScopeFields() {
+    var scope = document.getElementById('scopeSelect').value
+    var teamWrap = document.getElementById('teamSelectWrap')
+    if (teamWrap) teamWrap.style.display = scope === 'team' ? 'flex' : 'none'
+  }
+  updateScopeFields()
+
+  async function deleteAssignment(trainingId, assignmentId) {
+    if (!confirm('Remove this assignment?')) return
+    var res = await fetch('/api/trainings/' + trainingId + '/assignments?assignment_id=' + assignmentId, { method: 'DELETE' })
+    if (res.ok) window.location.reload()
+    else alert('Failed to remove assignment.')
+  }
+</script>

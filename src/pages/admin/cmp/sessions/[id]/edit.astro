@@ -1,0 +1,138 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import Input from '@/components/ui/Input.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const { id } = Astro.params
+
+const { data: session } = await supabaseAdmin
+  .from('cmp_sessions')
+  .select('*, cmp_programme_years(id, name)')
+  .eq('id', id ?? '')
+  .single()
+
+if (!session) return Astro.redirect('/admin/cmp/years')
+
+const programmeYearId = session.programme_year_id as string | null
+const programmeYear = (session as unknown as { cmp_programme_years: { id: string; name: string } | null }).cmp_programme_years
+
+let errors: Record<string, string> = {}
+let globalError = ''
+let values: Record<string, string | boolean> = {
+  title: session.title as string,
+  session_date: (session.session_date as string | null) ?? '',
+  session_time: (session.session_time as string | null) ?? '',
+  session_end_time: (session.session_end_time as string | null) ?? '',
+  location: (session.location as string | null) ?? '',
+  type: (session.type as string | null) ?? 'regular',
+  notes: (session.notes as string | null) ?? '',
+  is_cancelled: session.is_cancelled as boolean,
+  cancellation_reason: (session.cancellation_reason as string | null) ?? '',
+}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  const raw = Object.fromEntries(form.entries()) as Record<string, string>
+  values = {
+    ...raw,
+    is_cancelled: raw.is_cancelled === 'true',
+  }
+
+  const res = await fetch(`${Astro.url.origin}/api/cmp/sessions/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+    body: JSON.stringify({
+      title: raw.title,
+      session_date: raw.session_date,
+      session_time: raw.session_time || null,
+      session_end_time: raw.session_end_time || null,
+      location: raw.location || null,
+      type: raw.type || null,
+      notes: raw.notes || null,
+      is_cancelled: raw.is_cancelled === 'true',
+      cancellation_reason: raw.cancellation_reason || null,
+    }),
+  })
+
+  if (res.ok) {
+    return Astro.redirect(`/admin/cmp/sessions/${id}`)
+  } else {
+    const body = await res.json() as { error?: string; issues?: { fieldErrors?: Record<string, string[]> } }
+    globalError = body.error ?? 'Failed to update session.'
+    errors = Object.fromEntries(Object.entries(body.issues?.fieldErrors ?? {}).map(([k, v]) => [k, v[0] ?? '']))
+  }
+}
+
+const backUrl = programmeYearId ? `/admin/cmp/years/${programmeYearId}` : '/admin/cmp/years'
+---
+
+<DashboardLayout title={`Edit — ${session.title as string}`}>
+  <div style="max-width: 600px;">
+    <Breadcrumb crumbs={[{ label: 'CMP', href: '/admin/cmp' }, { label: session.title as string, href: `/admin/cmp/sessions/${id}` }, { label: 'Edit' }]} />
+    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">Edit — {session.title as string}</h1>
+
+    {globalError && (
+      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+        {globalError}
+      </div>
+    )}
+
+    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+      <Input label="Title *" name="title" value={String(values.title)} error={errors.title} required />
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+        <Input label="Date *" name="session_date" type="date" value={String(values.session_date)} error={errors.session_date} required />
+        <Input label="Start time" name="session_time" type="time" value={String(values.session_time)} error={errors.session_time} />
+        <Input label="End time" name="session_end_time" type="time" value={String(values.session_end_time)} error={errors.session_end_time} />
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <Input label="Location" name="location" value={String(values.location)} error={errors.location} />
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Type</label>
+          <select name="type"
+            style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
+            <option value="regular" selected={values.type === 'regular'}>Regular</option>
+            <option value="special" selected={values.type === 'special'}>Special</option>
+            <option value="trip" selected={values.type === 'trip'}>Trip</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Notes</label>
+        <textarea name="notes" rows={3}
+          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; resize: vertical;">{String(values.notes)}</textarea>
+      </div>
+
+      <!-- Cancellation -->
+      <div style="border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <input type="hidden" name="is_cancelled" value="false" />
+          <input type="checkbox" id="is_cancelled" name="is_cancelled" value="true"
+            checked={values.is_cancelled === true}
+            onchange="document.getElementById('cancellation_reason_wrap').style.display = this.checked ? 'block' : 'none'"
+            style="width: 16px; height: 16px;" />
+          <label for="is_cancelled" style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-danger-700); cursor: pointer;">Mark as cancelled</label>
+        </div>
+        <div id="cancellation_reason_wrap" style={`display: ${values.is_cancelled === true ? 'block' : 'none'};`}>
+          <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700); display: block; margin-bottom: 4px;">Cancellation reason</label>
+          <input type="text" name="cancellation_reason" value={String(values.cancellation_reason)}
+            style="width: 100%; padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; box-sizing: border-box;" />
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; padding-top: 8px;">
+        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          Save changes
+        </button>
+        <a href={`/admin/cmp/sessions/${id}`} style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</DashboardLayout>

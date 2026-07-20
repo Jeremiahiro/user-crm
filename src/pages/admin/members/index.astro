@@ -1,0 +1,241 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Badge from '@/components/ui/Badge.astro'
+import EmptyState from '@/components/ui/EmptyState.astro'
+import Pagination from '@/components/ui/Pagination.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { createHash } from 'node:crypto'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const PAGE_SIZE = 25
+const statusFilter = Astro.url.searchParams.get('status') ?? ''
+const teamFilter = Astro.url.searchParams.get('team_id') ?? ''
+const searchQ = Astro.url.searchParams.get('q') ?? ''
+const page = Math.max(1, parseInt(Astro.url.searchParams.get('page') ?? '1'))
+const offset = (page - 1) * PAGE_SIZE
+
+// Resolve team filter server-side to allow proper pagination
+let teamPersonIds: string[] | null = null
+if (teamFilter) {
+  const { data: ptRows } = await supabaseAdmin
+    .from('person_teams')
+    .select('person_id')
+    .eq('team_id', teamFilter)
+  teamPersonIds = (ptRows ?? []).map(r => r.person_id as string)
+}
+
+let query = supabaseAdmin
+  .from('people')
+  .select('id, full_name, email, status, person_types, profile_photo_url, date_joined, person_teams(is_team_lead, teams(id, name))', { count: 'exact' })
+  .eq('is_archived', false)
+  .order('full_name')
+
+if (statusFilter) query = query.eq('status', statusFilter)
+if (searchQ) query = query.ilike('full_name', `%${searchQ}%`)
+if (teamPersonIds) query = query.in('id', teamPersonIds.length > 0 ? teamPersonIds : ['00000000-0000-0000-0000-000000000000'])
+
+query = query.range(offset, offset + PAGE_SIZE - 1)
+
+const { data: rawMembers, count } = await query
+const { data: teams } = await supabaseAdmin.from('teams').select('id, name').eq('is_active', true).order('name')
+
+type MemberRow = {
+  id: string
+  full_name: string
+  email: string
+  status: string
+  person_types: string[]
+  profile_photo_url: string | null
+  date_joined: string | null
+  person_teams: { is_team_lead: boolean; teams: { id: string; name: string } | null }[]
+}
+
+const members = (rawMembers ?? []) as MemberRow[]
+const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE)
+
+// Build base URL for pagination (preserve filters, strip page)
+const filterParams = new URLSearchParams()
+if (searchQ) filterParams.set('q', searchQ)
+if (statusFilter) filterParams.set('status', statusFilter)
+if (teamFilter) filterParams.set('team_id', teamFilter)
+const paginationBase = `/admin/members${filterParams.toString() ? `?${filterParams}` : ''}`
+
+const statusOptions = [
+  { value: '', label: 'All statuses' },
+  { value: 'applicant', label: 'Applicant' },
+  { value: 'pending_review', label: 'Pending Review' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'active', label: 'Active' },
+  { value: 'suspended', label: 'Suspended' },
+  { value: 'inactive', label: 'Inactive' },
+  { value: 'alumni', label: 'Alumni' },
+  { value: 'left', label: 'Left' },
+]
+
+function statusVariant(s: string): 'success' | 'warning' | 'danger' | 'neutral' | 'info' {
+  const map: Record<string, 'success' | 'warning' | 'danger' | 'neutral' | 'info'> = {
+    active: 'success', approved: 'info', pending_review: 'warning',
+    applicant: 'neutral', suspended: 'warning', inactive: 'neutral', alumni: 'neutral', left: 'danger',
+  }
+  return map[s] ?? 'neutral'
+}
+
+function titleCase(s: string): string {
+  return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+function getInitials(name: string): string {
+  return name.trim().split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+}
+
+function gravatarUrl(email: string): string {
+  const hash = createHash('md5').update(email.toLowerCase().trim()).digest('hex')
+  return `https://www.gravatar.com/avatar/${hash}?d=mp&s=72`
+}
+---
+
+<DashboardLayout title="Members">
+  <div>
+    <!-- Page header -->
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+      <div>
+        <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Members</h1>
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+          {count ?? 0} member{(count ?? 0) !== 1 ? 's' : ''}{statusFilter || teamFilter || searchQ ? ' (filtered)' : ''}
+        </p>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <a href="/admin/members/export"
+           style="display: inline-flex; align-items: center; gap: 6px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); padding: 10px 18px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none; border: 1px solid var(--color-neutral-200);">
+          ↓ Export CSV
+        </a>
+        <a href="/admin/members/import"
+           style="display: inline-flex; align-items: center; gap: 6px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); padding: 10px 18px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none; border: 1px solid var(--color-neutral-200);">
+          ↑ Import CSV
+        </a>
+        <a href="/admin/members/new"
+           style="display: inline-flex; align-items: center; gap: 6px; background-color: var(--color-brand-navy); color: white; padding: 10px 18px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+          + Add member
+        </a>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <form method="GET" style="display: flex; gap: 12px; align-items: center; margin-bottom: 20px; flex-wrap: wrap;">
+      <input
+        type="search"
+        name="q"
+        value={searchQ}
+        placeholder="Search by name…"
+        style="padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); min-width: 200px;"
+      />
+      <select name="status"
+        style="padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+        {statusOptions.map(o => <option value={o.value} selected={statusFilter === o.value}>{o.label}</option>)}
+      </select>
+      <select name="team_id"
+        style="padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+        <option value="">All teams</option>
+        {(teams ?? []).map((t: { id: string; name: string }) => <option value={t.id} selected={teamFilter === t.id}>{t.name}</option>)}
+      </select>
+      <button type="submit"
+        style="padding: 9px 16px; background-color: var(--color-neutral-800); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer;">
+        Filter
+      </button>
+      {(statusFilter || teamFilter || searchQ) && (
+        <a href="/admin/members" style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); text-decoration: none;">
+          Clear filters
+        </a>
+      )}
+    </form>
+
+    <!-- Table -->
+    {members.length > 0 ? (
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background-color: var(--color-neutral-100);">
+              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Member</th>
+              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Team(s)</th>
+              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Types</th>
+              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Status</th>
+              <th style="padding: 12px 16px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {members.map((m) => (
+              <tr style="border-top: 1px solid var(--color-neutral-100);" onmouseover="this.style.backgroundColor='var(--color-neutral-50)'" onmouseout="this.style.backgroundColor=''">
+                <td style="padding: 12px 16px;">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 36px; height: 36px; border-radius: var(--radius-full); background-color: var(--color-brand-navy); color: white; display: flex; align-items: center; justify-content: center; font-family: var(--font-body); font-size: 12px; font-weight: 600; flex-shrink: 0; overflow: hidden;">
+                      <img src={m.profile_photo_url ?? gravatarUrl(m.email)} alt={m.full_name} width={36} height={36} style="width:100%;height:100%;object-fit:cover;" />
+                    </div>
+                    <div>
+                      <a href={`/admin/members/${m.id}`}
+                         style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none; display: block;">
+                        {m.full_name}
+                      </a>
+                      <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500);">
+                        {m.email}
+                      </span>
+                    </div>
+                  </div>
+                </td>
+                <td style="padding: 12px 16px;">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                    {(m.person_teams ?? []).map(pt => pt.teams && (
+                      <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); background-color: var(--color-neutral-100); padding: 2px 8px; border-radius: var(--radius-full);">
+                        {pt.is_team_lead ? '★ ' : ''}{pt.teams.name}
+                      </span>
+                    ))}
+                    {(!m.person_teams || m.person_teams.length === 0) && (
+                      <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400);">—</span>
+                    )}
+                  </div>
+                </td>
+                <td style="padding: 12px 16px;">
+                  <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600);">
+                    {(m.person_types ?? []).map(titleCase).join(', ') || '—'}
+                  </span>
+                </td>
+                <td style="padding: 12px 16px;">
+                  <Badge variant={statusVariant(m.status)}>
+                    {titleCase(m.status)}
+                  </Badge>
+                </td>
+                <td style="padding: 12px 16px; text-align: right; white-space: nowrap;">
+                  <a href={`/admin/members/${m.id}`}
+                     style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-600); text-decoration: none; padding: 4px 10px; border-radius: var(--radius-md);"
+                     onmouseover="this.style.backgroundColor='var(--color-neutral-100)'"
+                     onmouseout="this.style.backgroundColor=''">
+                    View
+                  </a>
+                  <a href={`/admin/members/${m.id}/edit`}
+                     style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-600); text-decoration: none; padding: 4px 10px; border-radius: var(--radius-md);"
+                     onmouseover="this.style.backgroundColor='var(--color-neutral-100)'"
+                     onmouseout="this.style.backgroundColor=''">
+                    Edit
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Pagination page={page} totalPages={totalPages} baseUrl={paginationBase} />
+    ) : (
+      <EmptyState
+        heading="No members found"
+        subtext={searchQ || statusFilter || teamFilter ? 'Try adjusting your filters.' : 'Add your first member to get started.'}
+      >
+        {!searchQ && !statusFilter && !teamFilter && (
+          <a slot="cta" href="/admin/members/new"
+             style="display: inline-block; background-color: var(--color-brand-navy); color: white; padding: 10px 18px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+            Add first member
+          </a>
+        )}
+      </EmptyState>
+    )}
+  </div>
+</DashboardLayout>

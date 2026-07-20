@@ -1,0 +1,143 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import Input from '@/components/ui/Input.astro'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const MODULES = [
+  { key: 'members', label: 'Members' },
+  { key: 'volunteers', label: 'Volunteers' },
+  { key: 'teams', label: 'Teams' },
+  { key: 'pillars', label: 'Pillars' },
+  { key: 'elected_positions', label: 'Elected Positions' },
+  { key: 'elected_tenures', label: 'Elected Tenures' },
+  { key: 'dues', label: 'Dues' },
+  { key: 'dbs_records', label: 'DBS Records' },
+  { key: 'documents', label: 'Documents' },
+  { key: 'mentees', label: 'Mentees' },
+  { key: 'cmp_years', label: 'CMP Years' },
+  { key: 'cmp_sessions', label: 'CMP Sessions' },
+  { key: 'cmp_attendance', label: 'CMP Attendance' },
+  { key: 'awards', label: 'Awards' },
+  { key: 'praise', label: 'Praise' },
+  { key: 'participation_events', label: 'Participation Events' },
+  { key: 'roles', label: 'Roles' },
+  { key: 'permissions', label: 'Permissions' },
+  { key: 'user_role_assignment', label: 'Role Assignment' },
+  { key: 'audit_log', label: 'Audit Log' },
+]
+
+const OPS = ['create', 'read', 'update', 'delete'] as const
+
+let errors: Record<string, string> = {}
+let globalError = ''
+let values: Record<string, string> = {}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  values = Object.fromEntries(form.entries()) as Record<string, string>
+
+  // Build permissions from checkboxes
+  const permissions: { module: string; operation: string; scope: string }[] = []
+  for (const mod of MODULES) {
+    for (const op of OPS) {
+      if (form.get(`perm_${mod.key}_${op}`)) {
+        permissions.push({ module: mod.key, operation: op, scope: 'all' })
+      }
+    }
+  }
+
+  const res = await fetch(`${Astro.url.origin}/api/roles`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+    body: JSON.stringify({ name: values.name, description: values.description || undefined, permissions }),
+  })
+
+  if (res.ok) {
+    return Astro.redirect('/admin/roles')
+  } else {
+    const body = await res.json() as { error?: string; issues?: { fieldErrors?: Record<string, string[]> } }
+    globalError = body.error ?? ''
+    errors = Object.fromEntries(Object.entries(body.issues?.fieldErrors ?? {}).map(([k, v]) => [k, v[0] ?? '']))
+  }
+}
+---
+
+<DashboardLayout title="Create Role">
+  <div style="max-width: 900px;">
+    <Breadcrumb crumbs={[{ label: 'Roles', href: '/admin/roles' }, { label: 'New Role' }]} />
+    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">Create Role</h1>
+
+    {globalError && (
+      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+        {globalError}
+      </div>
+    )}
+
+    <form method="POST" style="display: flex; flex-direction: column; gap: 24px;">
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+        <Input label="Role name *" name="name" value={values.name} error={errors.name} required placeholder="e.g. Events Lead" />
+        <Input label="Description" name="description" value={values.description} placeholder="Brief description of this role's purpose" />
+      </div>
+
+      <!-- Permissions grid -->
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px;">
+        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 20px;">Permissions</h2>
+
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
+            <thead>
+              <tr>
+                <th style="padding: 8px 12px; text-align: left; font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; width: 220px;">Module</th>
+                {OPS.map(op => (
+                  <th style="padding: 8px 12px; text-align: center; font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; width: 80px;">{op}</th>
+                ))}
+                <th style="padding: 8px 12px; text-align: center; font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400);">All</th>
+              </tr>
+            </thead>
+            <tbody>
+              {MODULES.map((mod, i) => (
+                <tr style={`border-top: 1px solid var(--color-neutral-100); ${i % 2 === 0 ? '' : 'background-color: var(--color-neutral-50);'}`}>
+                  <td style="padding: 10px 12px; font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">{mod.label}</td>
+                  {OPS.map(op => (
+                    <td style="padding: 10px 12px; text-align: center;">
+                      <input type="checkbox" name={`perm_${mod.key}_${op}`} value="1"
+                        style="width: 16px; height: 16px; cursor: pointer; accent-color: var(--color-brand-navy);" />
+                    </td>
+                  ))}
+                  <td style="padding: 10px 12px; text-align: center;">
+                    <button type="button"
+                      onclick={`toggleRow('${mod.key}')`}
+                      style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); background: none; border: none; cursor: pointer; padding: 2px 6px; border-radius: var(--radius-sm);">
+                      All
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px;">
+        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          Create role
+        </button>
+        <a href="/admin/roles" style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">Cancel</a>
+      </div>
+    </form>
+  </div>
+</DashboardLayout>
+
+<script>
+  function toggleRow(moduleKey: string) {
+    const ops = ['create', 'read', 'update', 'delete']
+    const checkboxes = ops.map(op =>
+      document.querySelector<HTMLInputElement>(`input[name="perm_${moduleKey}_${op}"]`)
+    ).filter(Boolean) as HTMLInputElement[]
+
+    const allChecked = checkboxes.every(cb => cb.checked)
+    checkboxes.forEach(cb => { cb.checked = !allChecked })
+  }
+</script>

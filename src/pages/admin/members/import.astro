@@ -1,0 +1,465 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+---
+
+<DashboardLayout title="Import Members">
+  <div style="max-width: 900px;">
+    <Breadcrumb crumbs={[{ label: 'Members', href: '/admin/members' }, { label: 'Import CSV' }]} />
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+      <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">Import Members</h1>
+    </div>
+    <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0 0 28px;">
+      Upload a CSV file to bulk-import members. Required columns: <code style="background: var(--color-neutral-100); padding: 2px 6px; border-radius: 4px; font-size: 12px;">first_name</code>, <code style="background: var(--color-neutral-100); padding: 2px 6px; border-radius: 4px; font-size: 12px;">last_name</code>, <code style="background: var(--color-neutral-100); padding: 2px 6px; border-radius: 4px; font-size: 12px;">email</code>.
+    </p>
+
+    <!-- Download template -->
+    <div style="background: var(--color-neutral-50); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: gap;">
+      <div>
+        <p style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-800); margin: 0 0 2px;">Download template</p>
+        <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0;">Pre-filled with all supported columns and example rows</p>
+      </div>
+      <button id="download-template-btn"
+        style="padding: 8px 16px; background: white; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700); cursor: pointer;">
+        ↓ Download CSV template
+      </button>
+    </div>
+
+    <!-- Step 1: Upload -->
+    <div id="step-upload" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; margin-bottom: 20px;">
+      <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--color-neutral-700); margin: 0 0 20px;">1. Select CSV file</h2>
+
+      <label id="drop-zone"
+        style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 2px dashed var(--color-neutral-300); border-radius: var(--radius-lg); padding: 40px 24px; cursor: pointer; transition: border-color 0.15s, background 0.15s; text-align: center;"
+        ondragover="event.preventDefault(); this.style.borderColor='var(--color-brand-navy)'; this.style.background='var(--color-neutral-50)'"
+        ondragleave="this.style.borderColor='var(--color-neutral-300)'; this.style.background=''"
+        ondrop="event.preventDefault(); this.style.borderColor='var(--color-neutral-300)'; this.style.background=''; handleFile(event.dataTransfer.files[0])">
+        <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="color: var(--color-neutral-400);">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 13.5l3-3m0 0l3 3m-3-3v7.5M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.338-2.32 5.75 5.75 0 011.687 10.522" />
+        </svg>
+        <div>
+          <p style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-700); margin: 0;">Drag & drop your CSV here</p>
+          <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 4px 0 0;">or click to browse files</p>
+        </div>
+        <input type="file" id="csv-input" accept=".csv,text/csv" style="display: none;" onchange="handleFile(this.files[0])" />
+      </label>
+
+      <p id="file-name" style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 12px 0 0; display: none;"></p>
+    </div>
+
+    <!-- Step 2: Column mapping & preview -->
+    <div id="step-preview" style="display: none;">
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+          <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--color-neutral-700); margin: 0;">2. Column mapping</h2>
+          <p id="col-summary" style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0;"></p>
+        </div>
+        <div id="col-map-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px;"></div>
+      </div>
+
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+          <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--color-neutral-700); margin: 0;">3. Preview</h2>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <p id="row-summary" style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0;"></p>
+            <button id="re-parse-btn"
+              style="padding: 6px 12px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-600); cursor: pointer;">
+              Refresh preview
+            </button>
+          </div>
+        </div>
+        <div id="preview-wrap" style="overflow-x: auto;">
+          <table id="preview-table" style="width: 100%; border-collapse: collapse; font-size: 13px; font-family: var(--font-body);">
+            <thead id="preview-head"></thead>
+            <tbody id="preview-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <button id="import-btn"
+          style="padding: 10px 24px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          Import members
+        </button>
+        <button id="back-btn"
+          style="padding: 10px 16px; background: var(--color-neutral-100); border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-600); cursor: pointer;">
+          ← Pick a different file
+        </button>
+        <p id="import-note" style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">
+          Duplicate emails are skipped automatically.
+        </p>
+      </div>
+    </div>
+
+    <!-- Step 3: Results -->
+    <div id="step-results" style="display: none; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px;">
+      <h2 style="font-family: var(--font-heading); font-size: 16px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 20px;">Import complete</h2>
+      <div id="results-summary" style="margin-bottom: 20px;"></div>
+      <div id="results-table-wrap" style="overflow-x: auto;"></div>
+      <div style="margin-top: 24px; display: flex; gap: 12px;">
+        <a href="/admin/members" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">View members</a>
+        <button id="import-again-btn"
+          style="padding: 10px 16px; background: var(--color-neutral-100); border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-600); cursor: pointer;">
+          Import another file
+        </button>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script is:inline>
+  // ── FIELD DEFINITIONS ───────────────────────────────────────────────────────
+  const FIELDS = [
+    { key: 'first_name',   label: 'First name',    required: true,  type: 'text' },
+    { key: 'middle_name',  label: 'Middle name',   required: false, type: 'text' },
+    { key: 'last_name',    label: 'Last name',     required: true,  type: 'text' },
+    { key: 'email',        label: 'Email',          required: true,  type: 'email' },
+    { key: 'phone',        label: 'Phone',          required: false, type: 'text' },
+    { key: 'date_of_birth',label: 'Date of birth',  required: false, type: 'date' },
+    { key: 'gender',       label: 'Gender',         required: false, type: 'text' },
+    { key: 'address',      label: 'Address',        required: false, type: 'text' },
+    { key: 'status',       label: 'Status',         required: false, type: 'enum',
+      values: ['applicant','pending_review','approved','active','suspended','inactive','alumni','left'],
+      default: 'active' },
+    { key: 'person_types', label: 'Person types',   required: false, type: 'multi',
+      values: ['member','mentor','volunteer','alumni','parent','trustee'],
+      default: 'member' },
+    { key: 'date_joined',  label: 'Date joined',    required: false, type: 'date' },
+    { key: 'source',       label: 'Source',         required: false, type: 'enum',
+      values: ['google_form','manual'], default: 'manual' },
+    { key: 'notes',        label: 'Notes',          required: false, type: 'text' },
+  ]
+
+  let rawRows = []      // parsed CSV rows as { [header]: value }
+  let csvHeaders = []   // headers from CSV file
+  let colMap = {}       // { fieldKey: csvHeader | '__ignore__' | '__default__' }
+
+  // ── TEMPLATE DOWNLOAD ───────────────────────────────────────────────────────
+  document.getElementById('download-template-btn').addEventListener('click', () => {
+    const headers = FIELDS.map(f => f.key).join(',')
+    const example1 = 'John,,Smith,john@example.com,07700900000,1985-03-15,Male,,active,member,2020-01-10,manual,'
+    const example2 = 'Jane,Marie,Doe,jane@example.com,,1990-07-22,Female,,applicant,"member,mentor",,manual,'
+    const csv = [headers, example1, example2].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'members_import_template.csv'; a.click()
+    URL.revokeObjectURL(url)
+  })
+
+  // ── FILE HANDLING ────────────────────────────────────────────────────────────
+  document.getElementById('drop-zone').addEventListener('click', () => {
+    document.getElementById('csv-input').click()
+  })
+
+  function handleFile(file) {
+    if (!file) return
+    if (!file.name.endsWith('.csv') && file.type !== 'text/csv') {
+      alert('Please select a CSV file.')
+      return
+    }
+    document.getElementById('file-name').style.display = ''
+    document.getElementById('file-name').textContent = `📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`
+
+    const reader = new FileReader()
+    reader.onload = e => parseCSV(e.target.result)
+    reader.readAsText(file)
+  }
+
+  // ── CSV PARSER ───────────────────────────────────────────────────────────────
+  function parseCSVLine(line) {
+    const result = []
+    let cur = '', inQuote = false
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i]
+      if (ch === '"') {
+        if (inQuote && line[i + 1] === '"') { cur += '"'; i++ }
+        else inQuote = !inQuote
+      } else if (ch === ',' && !inQuote) {
+        result.push(cur.trim()); cur = ''
+      } else {
+        cur += ch
+      }
+    }
+    result.push(cur.trim())
+    return result
+  }
+
+  function parseCSV(text) {
+    const lines = text.split(/\r?\n/).filter(l => l.trim())
+    if (lines.length < 2) { alert('CSV must have a header row and at least one data row.'); return }
+
+    csvHeaders = parseCSVLine(lines[0])
+    rawRows = lines.slice(1).map(line => {
+      const vals = parseCSVLine(line)
+      const row = {}
+      csvHeaders.forEach((h, i) => { row[h] = vals[i] ?? '' })
+      return row
+    }).filter(r => Object.values(r).some(v => v !== ''))
+
+    buildColMap()
+    renderColMapUI()
+    renderPreview()
+
+    document.getElementById('step-upload').style.display = 'none'
+    document.getElementById('step-preview').style.display = ''
+    document.getElementById('step-results').style.display = 'none'
+  }
+
+  // ── AUTO-DETECT COLUMN MAPPING ───────────────────────────────────────────────
+  const ALIASES = {
+    first_name:  ['first_name','firstname','first name','given name','forename'],
+    middle_name: ['middle_name','middlename','middle name','middle initial'],
+    last_name:   ['last_name','lastname','last name','surname','family name'],
+    email:       ['email','email address','e-mail'],
+    phone:     ['phone','phone number','mobile','tel','telephone'],
+    date_of_birth: ['date_of_birth','dob','birth date','birthday','date of birth'],
+    gender:    ['gender','sex'],
+    address:   ['address','home address'],
+    status:    ['status','member status'],
+    person_types: ['person_types','person types','type','types','role'],
+    date_joined:  ['date_joined','joined','date joined','membership date'],
+    source:    ['source'],
+    notes:     ['notes','note','comments'],
+  }
+
+  function buildColMap() {
+    colMap = {}
+    for (const field of FIELDS) {
+      const aliases = ALIASES[field.key] ?? [field.key]
+      const match = csvHeaders.find(h => aliases.includes(h.toLowerCase().trim()))
+      colMap[field.key] = match ?? '__default__'
+    }
+  }
+
+  // ── COLUMN MAP UI ─────────────────────────────────────────────────────────────
+  function renderColMapUI() {
+    const grid = document.getElementById('col-map-grid')
+    grid.innerHTML = ''
+    for (const field of FIELDS) {
+      const div = document.createElement('div')
+      div.innerHTML = `
+        <label style="display:block;font-family:var(--font-body);font-size:12px;font-weight:500;color:var(--color-neutral-600);margin-bottom:4px;">
+          ${field.label}${field.required ? ' <span style="color:var(--color-danger-600)">*</span>' : ''}
+        </label>
+        <select data-field="${field.key}" style="width:100%;padding:6px 8px;border:1px solid var(--color-neutral-300);border-radius:var(--radius-md);font-family:var(--font-body);font-size:13px;color:var(--color-neutral-700);background:white;">
+          ${field.required ? '' : '<option value="__default__">Use default</option>'}
+          <option value="__ignore__">— Ignore —</option>
+          ${csvHeaders.map(h => `<option value="${h}" ${colMap[field.key] === h ? 'selected' : ''}>${h}</option>`).join('')}
+          ${colMap[field.key] === '__default__' && !field.required ? '' : ''}
+        </select>
+      `
+      const sel = div.querySelector('select')
+      if (colMap[field.key] && colMap[field.key] !== '__ignore__' && colMap[field.key] !== '__default__') {
+        sel.value = colMap[field.key]
+      } else if (colMap[field.key] === '__default__') {
+        sel.value = '__default__'
+      }
+      sel.addEventListener('change', () => {
+        colMap[field.key] = sel.value
+        renderPreview()
+      })
+      grid.appendChild(div)
+    }
+
+    const detected = FIELDS.filter(f => colMap[f.key] && colMap[f.key] !== '__default__' && colMap[f.key] !== '__ignore__').length
+    document.getElementById('col-summary').textContent = `${detected} of ${FIELDS.length} columns mapped · ${rawRows.length} rows`
+  }
+
+  // ── PREVIEW TABLE ─────────────────────────────────────────────────────────────
+  const STATUS_COLORS = {
+    active: '#166534', applicant: '#6b7280', pending_review: '#92400e',
+    approved: '#1e40af', suspended: '#991b1b', inactive: '#6b7280',
+    alumni: '#6b7280', left: '#991b1b',
+  }
+
+  function getRowValue(row, fieldKey) {
+    const header = colMap[fieldKey]
+    if (!header || header === '__ignore__') return null
+    if (header === '__default__') {
+      const field = FIELDS.find(f => f.key === fieldKey)
+      return field?.default ?? null
+    }
+    return row[header] ?? null
+  }
+
+  function validateRow(row) {
+    const errors = []
+    const firstName = getRowValue(row, 'first_name')
+    const lastName = getRowValue(row, 'last_name')
+    const email = getRowValue(row, 'email')
+    if (!firstName || firstName.trim() === '') errors.push('first_name required')
+    if (!lastName || lastName.trim() === '') errors.push('last_name required')
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.push('valid email required')
+    const status = getRowValue(row, 'status')
+    const validStatuses = ['applicant','pending_review','approved','active','suspended','inactive','alumni','left']
+    if (status && !validStatuses.includes(status.trim())) errors.push(`invalid status "${status}"`)
+    return errors
+  }
+
+  function renderPreview() {
+    const SHOW = Math.min(rawRows.length, 20)
+    const head = document.getElementById('preview-head')
+    const body = document.getElementById('preview-body')
+
+    const shownFields = FIELDS.filter(f => colMap[f.key] !== '__ignore__')
+    head.innerHTML = `<tr style="background:var(--color-neutral-50);">
+      <th style="padding:8px 12px;text-align:left;font-family:var(--font-body);font-size:11px;font-weight:600;color:var(--color-neutral-500);text-transform:uppercase;letter-spacing:.08em;">#</th>
+      ${shownFields.map(f => `<th style="padding:8px 12px;text-align:left;font-family:var(--font-body);font-size:11px;font-weight:600;color:var(--color-neutral-500);text-transform:uppercase;letter-spacing:.08em;">${f.label}</th>`).join('')}
+      <th style="padding:8px 12px;text-align:left;font-family:var(--font-body);font-size:11px;font-weight:600;color:var(--color-neutral-500);text-transform:uppercase;letter-spacing:.08em;">Status</th>
+    </tr>`
+
+    const validCount = rawRows.filter(r => validateRow(r).length === 0).length
+    const invalidCount = rawRows.length - validCount
+    document.getElementById('row-summary').textContent =
+      `${rawRows.length} rows · ${validCount} valid${invalidCount > 0 ? ` · ${invalidCount} with errors` : ''}`
+    document.getElementById('import-btn').textContent = `Import ${validCount} member${validCount === 1 ? '' : 's'}`
+
+    body.innerHTML = rawRows.slice(0, SHOW).map((row, i) => {
+      const errors = validateRow(row)
+      const isOk = errors.length === 0
+      const rowStyle = isOk ? '' : 'background:var(--color-danger-50);'
+      const cells = shownFields.map(f => {
+        const val = getRowValue(row, f.key)
+        let display = val ?? '<span style="color:var(--color-neutral-300)">—</span>'
+        if (f.key === 'status' && val) {
+          const col = STATUS_COLORS[val] ?? '#6b7280'
+          display = `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${col}18;color:${col}">${val}</span>`
+        }
+        return `<td style="padding:8px 12px;font-family:var(--font-body);font-size:13px;color:var(--color-neutral-700);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${display}</td>`
+      }).join('')
+      const statusCell = isOk
+        ? `<td style="padding:8px 12px;"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:#f0fdf4;color:#166534">✓ OK</span></td>`
+        : `<td style="padding:8px 12px;"><span title="${errors.join('; ')}" style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:#fef2f2;color:#991b1b;cursor:help">⚠ ${errors[0]}</span></td>`
+      return `<tr style="border-top:1px solid var(--color-neutral-100);${rowStyle}">
+        <td style="padding:8px 12px;font-family:var(--font-body);font-size:12px;color:var(--color-neutral-400);">${i + 1}</td>
+        ${cells}${statusCell}
+      </tr>`
+    }).join('')
+
+    if (rawRows.length > SHOW) {
+      body.innerHTML += `<tr><td colspan="${shownFields.length + 2}" style="padding:10px 12px;font-family:var(--font-body);font-size:12px;color:var(--color-neutral-400);text-align:center;">… and ${rawRows.length - SHOW} more rows (not shown)</td></tr>`
+    }
+  }
+
+  // ── BACK BUTTON ───────────────────────────────────────────────────────────────
+  document.getElementById('back-btn').addEventListener('click', () => {
+    document.getElementById('step-upload').style.display = ''
+    document.getElementById('step-preview').style.display = 'none'
+    document.getElementById('csv-input').value = ''
+    document.getElementById('file-name').style.display = 'none'
+  })
+
+  document.getElementById('re-parse-btn').addEventListener('click', renderPreview)
+
+  // ── IMPORT ────────────────────────────────────────────────────────────────────
+  document.getElementById('import-btn').addEventListener('click', async () => {
+    const validRows = rawRows.filter(r => validateRow(r).length === 0)
+    if (validRows.length === 0) { alert('No valid rows to import.'); return }
+
+    const btn = document.getElementById('import-btn')
+    btn.disabled = true
+    btn.textContent = 'Importing…'
+
+    const payload = validRows.map(row => {
+      const personTypes = (getRowValue(row, 'person_types') ?? 'member')
+        .split(/[,;|]/).map(v => v.trim().toLowerCase()).filter(v =>
+          ['member','mentor','volunteer','alumni','parent','trustee'].includes(v)
+        )
+      return {
+        first_name: (getRowValue(row, 'first_name') ?? '').trim(),
+        middle_name: getRowValue(row, 'middle_name')?.trim() || null,
+        last_name: (getRowValue(row, 'last_name') ?? '').trim(),
+        email: (getRowValue(row, 'email') ?? '').trim().toLowerCase(),
+        phone: getRowValue(row, 'phone') || null,
+        date_of_birth: getRowValue(row, 'date_of_birth') || null,
+        gender: getRowValue(row, 'gender') || null,
+        address: getRowValue(row, 'address') || null,
+        status: getRowValue(row, 'status')?.trim() || 'active',
+        person_types: personTypes.length > 0 ? personTypes : ['member'],
+        date_joined: getRowValue(row, 'date_joined') || null,
+        source: getRowValue(row, 'source')?.trim() || 'manual',
+        notes: getRowValue(row, 'notes') || null,
+      }
+    })
+
+    try {
+      const res = await fetch('/api/members/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: payload }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        alert(data.error ?? 'Import failed')
+        btn.disabled = false
+        btn.textContent = `Import ${validRows.length} member${validRows.length === 1 ? '' : 's'}`
+        return
+      }
+
+      showResults(data)
+    } catch (err) {
+      alert('Network error — please try again')
+      btn.disabled = false
+    }
+  })
+
+  // ── RESULTS ───────────────────────────────────────────────────────────────────
+  function showResults(data) {
+    document.getElementById('step-preview').style.display = 'none'
+    document.getElementById('step-upload').style.display = 'none'
+    document.getElementById('step-results').style.display = ''
+
+    const summary = document.getElementById('results-summary')
+    summary.innerHTML = `
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
+        <div style="padding:16px 24px;background:#f0fdf4;border-radius:var(--radius-lg);text-align:center;">
+          <p style="font-family:var(--font-heading);font-size:28px;font-weight:700;color:#166534;margin:0">${data.created}</p>
+          <p style="font-family:var(--font-body);font-size:13px;color:#166534;margin:0">Created</p>
+        </div>
+        <div style="padding:16px 24px;background:var(--color-neutral-100);border-radius:var(--radius-lg);text-align:center;">
+          <p style="font-family:var(--font-heading);font-size:28px;font-weight:700;color:var(--color-neutral-600);margin:0">${data.skipped}</p>
+          <p style="font-family:var(--font-body);font-size:13px;color:var(--color-neutral-500);margin:0">Skipped</p>
+        </div>
+      </div>
+    `
+
+    const skipped = (data.results ?? []).filter(r => r.status === 'skipped')
+    if (skipped.length > 0) {
+      const wrap = document.getElementById('results-table-wrap')
+      wrap.innerHTML = `
+        <p style="font-family:var(--font-body);font-size:13px;font-weight:500;color:var(--color-neutral-700);margin:0 0 10px;">Skipped rows</p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;font-family:var(--font-body);">
+          <thead>
+            <tr style="background:var(--color-neutral-50);">
+              <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--color-neutral-500);text-transform:uppercase;letter-spacing:.08em;">Row</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--color-neutral-500);text-transform:uppercase;letter-spacing:.08em;">Email</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--color-neutral-500);text-transform:uppercase;letter-spacing:.08em;">Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${skipped.map(r => `
+              <tr style="border-top:1px solid var(--color-neutral-100);">
+                <td style="padding:8px 12px;color:var(--color-neutral-500)">${r.row}</td>
+                <td style="padding:8px 12px;color:var(--color-neutral-700)">${r.email}</td>
+                <td style="padding:8px 12px;color:var(--color-danger-600)">${r.reason ?? 'Unknown'}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      `
+    }
+  }
+
+  document.getElementById('import-again-btn').addEventListener('click', () => {
+    document.getElementById('step-results').style.display = 'none'
+    document.getElementById('step-upload').style.display = ''
+    document.getElementById('step-preview').style.display = 'none'
+    document.getElementById('csv-input').value = ''
+    document.getElementById('file-name').style.display = 'none'
+    rawRows = []; csvHeaders = []; colMap = {}
+  })
+</script>

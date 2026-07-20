@@ -1,0 +1,79 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import Input from '@/components/ui/Input.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const { id } = Astro.params
+
+const { data: year } = await supabaseAdmin
+  .from('cmp_programme_years')
+  .select('*')
+  .eq('id', id ?? '')
+  .single()
+
+if (!year) return Astro.redirect('/admin/cmp/years')
+
+let errors: Record<string, string> = {}
+let globalError = ''
+let values: Record<string, string> = {
+  name: year.name as string,
+  start_date: (year.start_date as string | null) ?? '',
+  end_date: (year.end_date as string | null) ?? '',
+}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  values = Object.fromEntries(form.entries()) as Record<string, string>
+
+  const res = await fetch(`${Astro.url.origin}/api/cmp/years/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+    body: JSON.stringify({
+      name: values.name,
+      start_date: values.start_date || null,
+      end_date: values.end_date || null,
+    }),
+  })
+
+  if (res.ok) {
+    return Astro.redirect(`/admin/cmp/years/${id}`)
+  } else {
+    const body = await res.json() as { error?: string; issues?: { fieldErrors?: Record<string, string[]> } }
+    globalError = body.error ?? 'Failed to update programme year.'
+    errors = Object.fromEntries(Object.entries(body.issues?.fieldErrors ?? {}).map(([k, v]) => [k, v[0] ?? '']))
+  }
+}
+---
+
+<DashboardLayout title={`Edit — ${year.name as string}`}>
+  <div style="max-width: 520px;">
+    <Breadcrumb crumbs={[{ label: 'CMP', href: '/admin/cmp' }, { label: year.name as string, href: `/admin/cmp/years/${id}` }, { label: 'Edit' }]} />
+    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">Edit — {year.name as string}</h1>
+
+    {globalError && (
+      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+        {globalError}
+      </div>
+    )}
+
+    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+      <Input label="Name *" name="name" value={values.name} error={errors.name} required />
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <Input label="Start date" name="start_date" type="date" value={values.start_date} error={errors.start_date} />
+        <Input label="End date" name="end_date" type="date" value={values.end_date} error={errors.end_date} />
+      </div>
+
+      <div style="display: flex; gap: 12px; padding-top: 8px;">
+        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          Save changes
+        </button>
+        <a href={`/admin/cmp/years/${id}`} style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</DashboardLayout>

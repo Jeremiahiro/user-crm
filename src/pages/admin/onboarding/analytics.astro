@@ -1,0 +1,265 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+// ── Fetch all people ever in the pipeline ─────────────────────────────────
+type PersonRow = {
+  id: string
+  status: string
+  applied_at: string | null
+  date_joined: string | null
+}
+
+const { data: rawPeople } = await supabaseAdmin
+  .from('people')
+  .select('id, status, applied_at, date_joined')
+  .not('applied_at', 'is', null)
+  .order('applied_at', { ascending: true })
+
+const people = (rawPeople ?? []) as PersonRow[]
+
+// ── Year range ────────────────────────────────────────────────────────────
+const currentYear = new Date().getFullYear()
+const years: number[] = []
+for (let y = 2020; y <= currentYear; y++) years.push(y)
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function getYear(iso: string | null): number | null {
+  if (!iso) return null
+  return new Date(iso).getFullYear()
+}
+
+// ── Per-year stats ────────────────────────────────────────────────────────
+type YearStats = {
+  year: number
+  applicants: number
+  activated: number
+  cancelled: number
+  inProgress: number
+  conversionRate: number
+}
+
+const yearStats: YearStats[] = years.map(y => {
+  const cohort = people.filter(p => getYear(p.applied_at) === y)
+  const applicants = cohort.length
+  const activated = cohort.filter(p => p.status === 'active' || p.status === 'alumni' || p.status === 'inactive' || p.status === 'left' || p.status === 'suspended').length
+  const cancelled = cohort.filter(p => p.status === 'cancelled').length
+  const inProgress = cohort.filter(p => ['applicant', 'pending_review', 'approved'].includes(p.status)).length
+  const conversionRate = applicants > 0 ? Math.round((activated / applicants) * 100) : 0
+  return { year: y, applicants, activated, cancelled, inProgress, conversionRate }
+}).filter(s => s.applicants > 0)
+
+// ── Overall funnel (all time) ─────────────────────────────────────────────
+const totalApplicants = people.length
+const totalActivated = people.filter(p => ['active', 'alumni', 'inactive', 'left', 'suspended'].includes(p.status)).length
+const totalCancelled = people.filter(p => p.status === 'cancelled').length
+const totalInProgress = people.filter(p => ['applicant', 'pending_review', 'approved'].includes(p.status)).length
+const overallConversion = totalApplicants > 0 ? Math.round((totalActivated / totalApplicants) * 100) : 0
+
+// ── Average time to activation (days) ─────────────────────────────────────
+const activatedWithBoth = people.filter(p =>
+  p.applied_at && p.date_joined &&
+  ['active', 'alumni', 'inactive', 'left', 'suspended'].includes(p.status)
+)
+const avgDaysToActivation = activatedWithBoth.length > 0
+  ? Math.round(
+      activatedWithBoth.reduce((sum, p) => {
+        const diff = new Date(p.date_joined!).getTime() - new Date(p.applied_at!).getTime()
+        return sum + diff / 86_400_000
+      }, 0) / activatedWithBoth.length
+    )
+  : null
+
+// ── Current pipeline breakdown ────────────────────────────────────────────
+const currentPipeline = [
+  { label: 'Applicant', key: 'applicant', color: 'var(--color-neutral-400)' },
+  { label: 'In Progress', key: 'pending_review', color: 'var(--color-warning-500)' },
+  { label: 'Approved', key: 'approved', color: 'var(--color-info-500)' },
+]
+const pipelineCounts = currentPipeline.map(s => ({
+  ...s,
+  count: people.filter(p => p.status === s.key).length,
+}))
+const totalInPipeline = pipelineCounts.reduce((s, c) => s + c.count, 0)
+
+// ── Chart data for bar chart (pass to inline script via data attr) ─────────
+const chartData = yearStats.map(s => ({
+  year: s.year,
+  applicants: s.applicants,
+  activated: s.activated,
+  cancelled: s.cancelled,
+}))
+---
+
+<DashboardLayout title="Onboarding Analytics">
+  <div>
+    <!-- Header -->
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px;">
+      <div>
+        <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Onboarding Analytics</h1>
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+          Applicant cohorts, conversion rates, and pipeline health.
+        </p>
+      </div>
+      <a href="/admin/onboarding"
+        style="padding: 9px 16px; background: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; text-decoration: none;">
+        ← Pipeline
+      </a>
+    </div>
+
+    <!-- Summary stat cards -->
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px;">
+      {[
+        { label: 'Total Applicants', value: totalApplicants, sub: 'all time', color: 'var(--color-brand-navy)' },
+        { label: 'Activated', value: totalActivated, sub: `${overallConversion}% conversion`, color: 'var(--color-success-600)' },
+        { label: 'In Pipeline', value: totalInProgress, sub: 'pending · review · approved', color: 'var(--color-warning-600)' },
+        { label: 'Avg. Days to Activation', value: avgDaysToActivation !== null ? avgDaysToActivation : '—', sub: avgDaysToActivation !== null ? 'from application to active' : 'no data', color: 'var(--color-brand-gold)' },
+      ].map(card => (
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
+          <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 8px;">{card.label}</p>
+          <p style={`font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: ${card.color}; margin: 0 0 4px;`}>{card.value}</p>
+          <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">{card.sub}</p>
+        </div>
+      ))}
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 280px; gap: 20px; margin-bottom: 28px;">
+
+      <!-- Bar chart -->
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
+        <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 20px;">Applicants by Year</h2>
+        <div id="chart-container" style="position: relative; height: 220px; display: flex; align-items: flex-end; gap: 12px;">
+          <!-- Rendered by inline script -->
+        </div>
+        <div style="display: flex; gap: 16px; margin-top: 16px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="width: 12px; height: 12px; border-radius: 2px; background: var(--color-brand-navy);"></div>
+            <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500);">Applied</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="width: 12px; height: 12px; border-radius: 2px; background: var(--color-success-500);"></div>
+            <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500);">Activated</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <div style="width: 12px; height: 12px; border-radius: 2px; background: var(--color-danger-400);"></div>
+            <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500);">Cancelled</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Current pipeline funnel -->
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
+        <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 20px;">Current Pipeline</h2>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          {pipelineCounts.map(stage => {
+            const pct = totalInPipeline > 0 ? Math.round((stage.count / totalInPipeline) * 100) : 0
+            return (
+              <div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style={`width: 8px; height: 8px; border-radius: 50%; background: ${stage.color}; flex-shrink: 0;`}></div>
+                    <span style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">{stage.label}</span>
+                  </div>
+                  <span style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-brand-navy);">{stage.count}</span>
+                </div>
+                <div style="height: 6px; background: var(--color-neutral-100); border-radius: var(--radius-full); overflow: hidden;">
+                  <div style={`height: 100%; width: ${pct}%; background: ${stage.color}; border-radius: var(--radius-full);`}></div>
+                </div>
+              </div>
+            )
+          })}
+          {totalInPipeline === 0 && (
+            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); text-align: center; padding: 16px 0;">Pipeline is empty.</p>
+          )}
+        </div>
+      </div>
+    </div>
+
+    <!-- Year-by-year table -->
+    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+      <div style="padding: 20px 24px 16px; border-bottom: 1px solid var(--color-neutral-100);">
+        <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">Cohort Breakdown</h2>
+      </div>
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background: var(--color-neutral-50);">
+            {['Year', 'Applicants', 'Activated', 'Cancelled', 'In Progress', 'Conversion'].map(h => (
+              <th style="padding: 10px 20px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em;">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {[...yearStats].reverse().map(s => (
+            <tr style="border-top: 1px solid var(--color-neutral-100);" onmouseover="this.style.backgroundColor='var(--color-neutral-50)'" onmouseout="this.style.backgroundColor=''">
+              <td style="padding: 13px 20px; font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-brand-navy);">{s.year}</td>
+              <td style="padding: 13px 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700);">{s.applicants}</td>
+              <td style="padding: 13px 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-success-700); font-weight: 500;">{s.activated}</td>
+              <td style="padding: 13px 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-600);">{s.cancelled}</td>
+              <td style="padding: 13px 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-warning-700);">{s.inProgress}</td>
+              <td style="padding: 13px 20px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <div style="flex: 1; height: 6px; background: var(--color-neutral-100); border-radius: var(--radius-full); overflow: hidden; max-width: 80px;">
+                    <div style={`height: 100%; width: ${s.conversionRate}%; background: ${s.conversionRate >= 70 ? 'var(--color-success-500)' : s.conversionRate >= 40 ? 'var(--color-warning-500)' : 'var(--color-danger-400)'}; border-radius: var(--radius-full);`}></div>
+                  </div>
+                  <span style={`font-family: var(--font-heading); font-size: 13px; font-weight: 700; ${s.conversionRate >= 70 ? 'color: var(--color-success-700)' : s.conversionRate >= 40 ? 'color: var(--color-warning-700)' : 'color: var(--color-danger-600)'}`}>{s.conversionRate}%</span>
+                </div>
+              </td>
+            </tr>
+          ))}
+          {yearStats.length === 0 && (
+            <tr>
+              <td colspan="6" style="padding: 32px; text-align: center; font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400);">No applicant data yet.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</DashboardLayout>
+
+<div id="chart-data" data-chart={JSON.stringify(chartData)} style="display:none;"></div>
+
+<script is:inline>
+  var raw = document.getElementById('chart-data')
+  if (!raw) { return }
+  var data = JSON.parse(raw.getAttribute('data-chart') || '[]')
+  if (!data.length) { return }
+
+  var container = document.getElementById('chart-container')
+  if (!container) { return }
+
+  var maxVal = data.reduce(function(m, d) { return Math.max(m, d.applicants) }, 0)
+  var chartH = 200
+  var barW = Math.min(48, Math.floor((container.offsetWidth - data.length * 12) / data.length / 3))
+
+  data.forEach(function(d) {
+    var colEl = document.createElement('div')
+    colEl.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;'
+
+    function makeBar(val, color, label) {
+      var h = maxVal > 0 ? Math.round((val / maxVal) * chartH) : 0
+      var bar = document.createElement('div')
+      bar.title = label + ': ' + val
+      bar.style.cssText = 'width:' + barW + 'px;min-height:2px;border-radius:3px 3px 0 0;background:' + color + ';height:' + h + 'px;transition:opacity 0.15s;'
+      bar.onmouseover = function() { this.style.opacity = '0.75' }
+      bar.onmouseout = function() { this.style.opacity = '1' }
+      return bar
+    }
+
+    var barsWrapper = document.createElement('div')
+    barsWrapper.style.cssText = 'display:flex;align-items:flex-end;gap:2px;height:' + chartH + 'px;'
+    barsWrapper.appendChild(makeBar(d.applicants, 'var(--color-brand-navy)', 'Applied'))
+    barsWrapper.appendChild(makeBar(d.activated, 'var(--color-success-500)', 'Activated'))
+    barsWrapper.appendChild(makeBar(d.cancelled, 'var(--color-danger-400)', 'Cancelled'))
+
+    var yearLabel = document.createElement('span')
+    yearLabel.textContent = String(d.year)
+    yearLabel.style.cssText = 'font-family:var(--font-body);font-size:11px;font-weight:500;color:var(--color-neutral-500);'
+
+    colEl.appendChild(barsWrapper)
+    colEl.appendChild(yearLabel)
+    container.appendChild(colEl)
+  })
+</script>

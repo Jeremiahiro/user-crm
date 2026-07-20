@@ -1,0 +1,87 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import Badge from '@/components/ui/Badge.astro'
+import EmptyState from '@/components/ui/EmptyState.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const { id } = Astro.params
+const [{ data: position }, { data: tenures }] = await Promise.all([
+  supabaseAdmin.from('elected_positions').select('title').eq('id', id ?? '').single(),
+  supabaseAdmin
+    .from('elected_position_tenures')
+    .select('*, people(id, full_name, email, profile_photo_url)')
+    .eq('position_id', id ?? '')
+    .order('term_start', { ascending: false }),
+])
+
+if (!position) return Astro.redirect('/admin/positions')
+
+type TenureRow = {
+  id: string
+  term_start: string
+  term_end: string | null
+  elected_by: string | null
+  notes: string | null
+  people: { id: string; full_name: string; email: string; profile_photo_url: string | null } | null
+}
+
+const rows = (tenures ?? []) as TenureRow[]
+---
+
+<DashboardLayout title={`${position.title} — History`}>
+  <Breadcrumb crumbs={[{ label: 'Positions', href: '/admin/positions' }, { label: position.title as string, href: '/admin/positions' }, { label: 'History' }]} />
+  <div>
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+      <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">
+        {position.title} — Tenure History
+      </h1>
+      <a href={`/admin/positions/${id}/assign`}
+         style="padding: 8px 16px; background-color: var(--color-brand-gold); color: var(--color-brand-navy); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; text-decoration: none;">
+        Assign new holder
+      </a>
+    </div>
+
+    {rows.length > 0 ? (
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background-color: var(--color-neutral-100);">
+              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Member</th>
+              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Term start</th>
+              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Term end</th>
+              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Elected by</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(t => (
+              <tr style={`border-top: 1px solid var(--color-neutral-100); ${!t.term_end ? 'background-color: var(--color-neutral-50);' : ''}`}>
+                <td style="padding: 14px 16px;">
+                  {t.people ? (
+                    <a href={`/admin/members/${t.people.id}`}
+                       style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none; display: block;">
+                      {t.people.full_name}
+                      {!t.term_end && <Badge variant="success">Current</Badge>}
+                    </a>
+                  ) : (
+                    <span style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400);">Unknown member</span>
+                  )}
+                </td>
+                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">{t.term_start}</td>
+                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500);">{t.term_end ?? '—'}</td>
+                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">{(t.elected_by ?? '').replace(/_/g, ' ')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); padding: 12px 16px; margin: 0; border-top: 1px solid var(--color-neutral-100);">
+          Tenure records are permanent and cannot be deleted.
+        </p>
+      </div>
+    ) : (
+      <EmptyState heading="No tenure history" subtext="This position has not yet been assigned to anyone." />
+    )}
+  </div>
+</DashboardLayout>

@@ -1,0 +1,138 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin, getTeamLeadIds } from '@/lib/rbac'
+
+const user = Astro.locals.user
+if (!user) return Astro.redirect('/login')
+const admin = isAdmin(user)
+const leadIds = admin ? new Set<string>(['x']) : await getTeamLeadIds(user.person_id ?? '')
+if (!admin && leadIds.size === 0) return Astro.redirect('/admin/trainings')
+
+const { data: docTypes } = await supabaseAdmin
+  .from('document_types')
+  .select('id, name')
+  .eq('is_active', true)
+  .order('sort_order')
+  .order('name')
+
+let errors: Record<string, string> = {}
+let globalError = ''
+let values: Record<string, string> = {}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  values = Object.fromEntries([...form.entries()].map(([k, v]) => [k, v as string]))
+  const res = await fetch(`${Astro.url.origin}/api/trainings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+    body: JSON.stringify({
+      title: values.title,
+      description: values.description || null,
+      requires_document: values.requires_document === 'on',
+      expected_document_type_id: values.expected_document_type_id || null,
+    }),
+  })
+  if (res.ok) return Astro.redirect('/admin/trainings')
+  else {
+    const body = await res.json() as { error?: string; issues?: { fieldErrors?: Record<string, string[]> } }
+    globalError = body.error ?? 'Failed to create training.'
+    errors = Object.fromEntries(Object.entries(body.issues?.fieldErrors ?? {}).map(([k, v]) => [k, (v as string[])[0] ?? '']))
+  }
+}
+
+const safeDocTypes = docTypes ?? []
+---
+
+<DashboardLayout title="New Training">
+  <div style="max-width: 600px;">
+    <Breadcrumb crumbs={[{ label: 'Trainings', href: '/admin/trainings' }, { label: 'New Training' }]} />
+    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">New Training</h1>
+
+    {globalError && (
+      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+        {globalError}
+      </div>
+    )}
+
+    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+
+      <!-- Title -->
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label for="titleInput" style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Title *</label>
+        <input id="titleInput" name="title" type="text" required value={values.title ?? ''}
+          style={`padding: 10px 12px; border: 1px solid ${errors.title ? 'var(--color-danger-600)' : 'var(--color-neutral-300)'}; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800);`} />
+        {errors.title && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-600); margin: 0;">{errors.title}</p>}
+      </div>
+
+      <!-- Description (CKEditor) -->
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Description</label>
+        <input type="hidden" name="description" id="descriptionInput" value={values.description ?? ''} />
+        <div id="descriptionEditor" style="min-height: 200px;"></div>
+      </div>
+
+      <!-- Requires document checkbox -->
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input id="requiresDocCheck" name="requires_document" type="checkbox"
+          checked={values.requires_document === 'on'}
+          style="width: 16px; height: 16px; cursor: pointer;" />
+        <label for="requiresDocCheck" style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700); cursor: pointer;">Requires document upload</label>
+      </div>
+
+      <!-- Expected document type (conditional) -->
+      <div id="docTypeRow" style="display: none; flex-direction: column; gap: 4px;">
+        <label for="docTypeSelect" style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Expected document type</label>
+        <select id="docTypeSelect" name="expected_document_type_id"
+          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white; color: var(--color-neutral-800);">
+          <option value="">Any type</option>
+          {safeDocTypes.map((dt: any) => (
+            <option value={dt.id} selected={values.expected_document_type_id === dt.id}>{dt.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <!-- Actions -->
+      <div style="display: flex; gap: 12px; padding-top: 8px;">
+        <button type="submit"
+          style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          Create training
+        </button>
+        <a href="/admin/trainings"
+          style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</DashboardLayout>
+
+<script is:inline>
+  // Requires-document toggle
+  var cb = document.getElementById('requiresDocCheck')
+  var row = document.getElementById('docTypeRow')
+  cb.addEventListener('change', function() { row.style.display = cb.checked ? 'flex' : 'none' })
+  row.style.display = cb.checked ? 'flex' : 'none'
+
+  // CKEditor
+  var ckScript = document.createElement('script')
+  ckScript.src = 'https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js'
+  ckScript.onload = function() {
+    ClassicEditor.create(document.getElementById('descriptionEditor'), {
+      toolbar: ['heading', '|', 'bold', 'italic', 'link', '|', 'bulletedList', 'numberedList', '|', 'blockQuote', '|', 'undo', 'redo'],
+    }).then(function(editor) {
+      window._trainingEditor = editor
+      var initial = document.getElementById('descriptionInput').value
+      if (initial) editor.setData(initial)
+    })
+  }
+  document.head.appendChild(ckScript)
+
+  // Sync editor content to hidden input on submit
+  document.querySelector('form[method="POST"]').addEventListener('submit', function() {
+    if (window._trainingEditor) {
+      document.getElementById('descriptionInput').value = window._trainingEditor.getData()
+    }
+  })
+</script>

@@ -1,0 +1,63 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import Input from '@/components/ui/Input.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const { data: pillars } = await supabaseAdmin.from('pillars').select('id, name').eq('is_active', true).order('name')
+
+let errors: Record<string, string> = {}
+let values: Record<string, string> = {}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  values = Object.fromEntries(form.entries()) as Record<string, string>
+
+  const res = await fetch(`${Astro.url.origin}/api/teams`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+    body: JSON.stringify({
+      name: values.name,
+      description: values.description || undefined,
+      pillar_id: values.pillar_id || null,
+    }),
+  })
+
+  if (res.ok) {
+    return Astro.redirect('/admin/teams')
+  } else {
+    const body = await res.json() as { issues?: { fieldErrors?: Record<string, string[]> } }
+    errors = Object.fromEntries(Object.entries(body.issues?.fieldErrors ?? {}).map(([k, v]) => [k, v[0] ?? '']))
+  }
+}
+---
+
+<DashboardLayout title="Add Team">
+  <div style="max-width: 600px;">
+    <Breadcrumb crumbs={[{ label: 'Teams', href: '/admin/teams' }, { label: 'New Team' }]} />
+    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">Add Team</h1>
+
+    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+      <Input label="Name *" name="name" value={values.name} error={errors.name} required placeholder="e.g. Education Committee" />
+      <Input label="Description" name="description" value={values.description} placeholder="Brief description" />
+
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Pillar</label>
+        <select name="pillar_id"
+          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+          <option value="">— None —</option>
+          {(pillars ?? []).map((p: { id: string; name: string }) => (
+            <option value={p.id} selected={values.pillar_id === p.id}>{p.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div style="display: flex; gap: 12px; padding-top: 8px;">
+        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">Save team</button>
+        <a href="/admin/teams" style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">Cancel</a>
+      </div>
+    </form>
+  </div>
+</DashboardLayout>

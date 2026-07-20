@@ -1,0 +1,210 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Pagination from '@/components/ui/Pagination.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin, getTeamMemberIds } from '@/lib/rbac'
+
+const user = Astro.locals.user
+if (!user) return Astro.redirect('/login')
+const admin = isAdmin(user)
+const personId = user.person_id ?? ''
+let viewerMemberIds: Set<string> | null = null
+let isLead = false
+if (!admin && personId) {
+  viewerMemberIds = await getTeamMemberIds(personId)
+  isLead = viewerMemberIds.size > 0
+}
+
+const PAGE_SIZE = 20
+const statusFilter = Astro.url.searchParams.get('status') ?? ''
+const page = Math.max(1, parseInt(Astro.url.searchParams.get('page') ?? '1', 10))
+const offset = (page - 1) * PAGE_SIZE
+
+let baseQuery = supabaseAdmin
+  .from('documents')
+  .select('id, title, status, created_at, expiry_date, person_id, document_type_id, document_type:document_types(name)', { count: 'exact' })
+  .order('created_at', { ascending: false })
+
+if (!admin) {
+  if (isLead && viewerMemberIds) {
+    baseQuery = baseQuery.in('person_id', [...viewerMemberIds])
+  } else {
+    baseQuery = baseQuery.eq('person_id', personId)
+  }
+}
+if (statusFilter) baseQuery = baseQuery.eq('status', statusFilter)
+baseQuery = baseQuery.range(offset, offset + PAGE_SIZE - 1)
+
+const { data: rows, count: totalCount } = await baseQuery
+const totalPages = Math.ceil((totalCount ?? 0) / PAGE_SIZE)
+const docs = (rows ?? []) as any[]
+
+let pendingDocs: any[] = []
+if (admin || isLead) {
+  let pendingQuery = supabaseAdmin
+    .from('documents')
+    .select('id, title, created_at, person_id, document_type:document_types(name)')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
+  if (!admin && viewerMemberIds) pendingQuery = pendingQuery.in('person_id', [...viewerMemberIds])
+  const { data: pd } = await pendingQuery
+  pendingDocs = (pd ?? []) as any[]
+}
+
+const personIds = [...new Set(docs.map((d: any) => d.person_id).filter(Boolean))] as string[]
+const allPersonIds = [...new Set([...personIds, ...pendingDocs.map((d: any) => d.person_id).filter(Boolean)])] as string[]
+const { data: people } = allPersonIds.length > 0
+  ? await supabaseAdmin.from('people').select('id, full_name').in('id', allPersonIds)
+  : { data: [] }
+const personMap = new Map(((people ?? []) as any[]).map((p: any) => [p.id, p.full_name]))
+
+const filterParams = new URLSearchParams()
+if (statusFilter) filterParams.set('status', statusFilter)
+const paginationBase = `/admin/documents${filterParams.toString() ? `?${filterParams}` : ''}`
+
+function fmt(d: string | null) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+const STATUS_BG: Record<string, string> = {
+  pending: 'var(--color-warning-50)',
+  approved: 'var(--color-success-50)',
+  rejected: 'var(--color-danger-50)',
+}
+const STATUS_COLOR: Record<string, string> = {
+  pending: 'var(--color-warning-700)',
+  approved: 'var(--color-success-700)',
+  rejected: 'var(--color-danger-700)',
+}
+const STATUS_BORDER: Record<string, string> = {
+  pending: 'var(--color-warning-300)',
+  approved: 'var(--color-success-100)',
+  rejected: 'var(--color-danger-100)',
+}
+---
+
+<DashboardLayout title="Documents">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+    <div>
+      <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Documents</h1>
+      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">{totalCount ?? 0} document{(totalCount ?? 0) !== 1 ? 's' : ''}</p>
+    </div>
+    <a href="/admin/documents/upload"
+      style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+      + Upload Document
+    </a>
+  </div>
+
+  {(admin || isLead) && pendingDocs.length > 0 && (
+    <div style="background-color: var(--color-warning-50); border: 1px solid var(--color-warning-300); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 24px;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+        <span style="font-size: 16px; color: var(--color-warning-700);">&#9888;</span>
+        <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-warning-800); margin: 0;">
+          {pendingDocs.length} document{pendingDocs.length !== 1 ? 's' : ''} awaiting review
+        </h2>
+      </div>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tbody>
+          {pendingDocs.map((d: any) => (
+            <tr>
+              <td style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-warning-800); padding: 6px 8px;">{d.title}</td>
+              <td style="font-family: var(--font-body); font-size: 12px; color: var(--color-warning-700); padding: 6px 8px;">{personMap.get(d.person_id) ?? '—'}</td>
+              <td style="font-family: var(--font-body); font-size: 12px; color: var(--color-warning-700); padding: 6px 8px;">{(d.document_type as any)?.name ?? '—'}</td>
+              <td style="font-family: var(--font-body); font-size: 12px; color: var(--color-warning-700); padding: 6px 8px;">{fmt(d.created_at)}</td>
+              <td style="padding: 6px 8px; text-align: right;">
+                <a href={`/admin/documents/${d.id}`}
+                  style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-warning-800); text-decoration: underline;">
+                  Review &#8594;
+                </a>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+
+  <!-- Status filter pills -->
+  <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+    {[
+      { label: 'All', value: '' },
+      { label: 'Pending', value: 'pending' },
+      { label: 'Approved', value: 'approved' },
+      { label: 'Rejected', value: 'rejected' },
+    ].map(({ label, value }) => {
+      const active = statusFilter === value
+      return (
+        <a
+          href={value ? `/admin/documents?status=${value}` : '/admin/documents'}
+          style={`padding: 6px 16px; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 13px; font-weight: ${active ? '600' : '400'}; text-decoration: none; border: 1px solid ${active ? 'var(--color-brand-navy)' : 'var(--color-neutral-200)'}; background-color: ${active ? 'var(--color-brand-navy)' : 'white'}; color: ${active ? 'white' : 'var(--color-neutral-600)'};`}
+        >
+          {label}
+        </a>
+      )
+    })}
+  </div>
+
+  <!-- Documents table -->
+  <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+    {docs.length === 0 ? (
+      <div style="padding: 48px; text-align: center;">
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0 0 16px;">No documents found.</p>
+        <a href="/admin/documents/upload"
+          style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+          Upload first document
+        </a>
+      </div>
+    ) : (
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead style="background-color: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+          <tr>
+            {(admin || isLead) && (
+              <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Member</th>
+            )}
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Document</th>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Type</th>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Uploaded</th>
+            <th style="padding: 10px 16px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {docs.map((doc: any, i: number) => {
+            const bg = STATUS_BG[doc.status] ?? 'var(--color-neutral-100)'
+            const color = STATUS_COLOR[doc.status] ?? 'var(--color-neutral-700)'
+            const border = STATUS_BORDER[doc.status] ?? 'var(--color-neutral-200)'
+            return (
+              <tr style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
+                {(admin || isLead) && (
+                  <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+                    {personMap.get(doc.person_id) ?? '—'}
+                  </td>
+                )}
+                <td style="padding: 14px 16px;">
+                  <span style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-800);">{doc.title}</span>
+                </td>
+                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">
+                  {(doc.document_type as any)?.name ?? '—'}
+                </td>
+                <td style="padding: 14px 16px;">
+                  <span style={`display: inline-block; padding: 2px 10px; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 12px; font-weight: 600; background-color: ${bg}; color: ${color}; border: 1px solid ${border};`}>
+                    {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                  </span>
+                </td>
+                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">{fmt(doc.created_at)}</td>
+                <td style="padding: 14px 16px; text-align: right;">
+                  <a href={`/admin/documents/${doc.id}`}
+                    style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none;">
+                    {(admin || isLead) ? 'Review' : 'View'} &#8594;
+                  </a>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    )}
+    <Pagination page={page} totalPages={totalPages} baseUrl={paginationBase} />
+  </div>
+</DashboardLayout>

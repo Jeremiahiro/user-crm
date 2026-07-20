@@ -1,0 +1,152 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import Input from '@/components/ui/Input.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const { data: teams } = await supabaseAdmin.from('teams').select('id, name').eq('is_active', true).order('name')
+
+const PERSON_TYPES = ['member', 'mentor', 'volunteer', 'alumni', 'parent', 'trustee']
+const STATUS_OPTIONS = [
+  { value: 'applicant',      label: 'Applicant' },
+  { value: 'pending_review', label: 'Pending Review' },
+  { value: 'approved',       label: 'Approved' },
+  { value: 'active',         label: 'Active' },
+  { value: 'suspended',      label: 'Suspended' },
+  { value: 'inactive',       label: 'Inactive' },
+  { value: 'alumni',         label: 'Alumni' },
+  { value: 'left',           label: 'Left' },
+]
+
+let errors: Record<string, string> = {}
+let globalError = ''
+let values: Record<string, string | string[]> = { status: 'applicant', person_types: ['member'] }
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  const person_types = form.getAll('person_types') as string[]
+  values = { ...Object.fromEntries(form.entries()) as Record<string, string>, person_types }
+
+  const res = await fetch(`${Astro.url.origin}/api/members`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+    body: JSON.stringify({
+      first_name: values.first_name,
+      middle_name: (values.middle_name as string) || undefined,
+      last_name: values.last_name,
+      email: values.email,
+      phone: (values.phone as string) || undefined,
+      date_of_birth: (values.date_of_birth as string) || undefined,
+      gender: (values.gender as string) || undefined,
+      address: (values.address as string) || undefined,
+      person_types,
+      status: values.status,
+      date_joined: (values.date_joined as string) || undefined,
+      notes: (values.notes as string) || undefined,
+      source: 'manual',
+    }),
+  })
+
+  if (res.ok) {
+    const { data } = await res.json() as { data: { id: string } }
+    return Astro.redirect(`/admin/members/${data.id}`)
+  } else {
+    const body = await res.json() as { error?: string; issues?: { fieldErrors?: Record<string, string[]> } }
+    globalError = body.error ?? ''
+    errors = Object.fromEntries(Object.entries(body.issues?.fieldErrors ?? {}).map(([k, v]) => [k, v[0] ?? '']))
+  }
+}
+---
+
+<DashboardLayout title="Add Member">
+  <div style="max-width: 700px;">
+    <Breadcrumb crumbs={[{ label: 'Members', href: '/admin/members' }, { label: 'Add Member' }]} />
+    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">Add Member</h1>
+
+    {globalError && (
+      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+        {globalError}
+      </div>
+    )}
+
+    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 28px;">
+
+      <!-- Personal details -->
+      <section>
+        <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--color-neutral-100);">Personal details</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <Input label="First name *" name="first_name" value={values.first_name as string} error={errors.first_name} required placeholder="e.g. John" />
+          <Input label="Last name *" name="last_name" value={values.last_name as string} error={errors.last_name} required placeholder="e.g. Smith" />
+          <div style="grid-column: 1 / -1;">
+            <Input label="Middle name" name="middle_name" value={values.middle_name as string} placeholder="Optional" />
+          </div>
+          <Input label="Email *" name="email" type="email" value={values.email as string} error={errors.email} required placeholder="john@example.com" />
+          <Input label="Phone" name="phone" type="tel" value={values.phone as string} error={errors.phone} placeholder="+44 7700 000000" />
+          <Input label="Date of birth" name="date_of_birth" type="date" value={values.date_of_birth as string} />
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Gender</label>
+            <select name="gender" style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+              <option value="">— Select —</option>
+              <option value="male" selected={values.gender === 'male'}>Male</option>
+              <option value="female" selected={values.gender === 'female'}>Female</option>
+              <option value="non_binary" selected={values.gender === 'non_binary'}>Non-binary</option>
+              <option value="prefer_not_to_say" selected={values.gender === 'prefer_not_to_say'}>Prefer not to say</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top: 16px;">
+          <Input label="Address" name="address" value={values.address as string} placeholder="Street, City, Postcode" />
+        </div>
+      </section>
+
+      <!-- Organisation -->
+      <section>
+        <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--color-neutral-100);">Organisation</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Status</label>
+            <select name="status" style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+              {STATUS_OPTIONS.map(s => <option value={s.value} selected={values.status === s.value}>{s.label}</option>)}
+            </select>
+          </div>
+          <Input label="Date joined" name="date_joined" type="date" value={values.date_joined as string} />
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Person types *</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            {PERSON_TYPES.map(type => (
+              <label style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-full); cursor: pointer; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+                <input type="checkbox" name="person_types" value={type}
+                  checked={(values.person_types as string[])?.includes(type)} />
+                {type}
+              </label>
+            ))}
+          </div>
+          {errors.person_types && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-600); margin: 0;">{errors.person_types}</p>}
+        </div>
+      </section>
+
+      <!-- Notes -->
+      <section>
+        <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--color-neutral-100);">Notes</h2>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Internal notes</label>
+          <textarea name="notes" rows={4} placeholder="Any additional context about this member…"
+            style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); resize: vertical;">{values.notes as string}</textarea>
+        </div>
+      </section>
+
+      <div style="display: flex; gap: 12px; padding-top: 8px;">
+        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          Add member
+        </button>
+        <a href="/admin/members" style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</DashboardLayout>

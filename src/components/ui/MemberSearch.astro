@@ -1,0 +1,222 @@
+---
+/**
+ * MemberSearch — privacy-safe member picker
+ *
+ * Replaces a full <select> over all members with a search-as-you-type input.
+ * Results only appear after 3 characters are entered, preventing exposure of
+ * the full member list.
+ *
+ * Props:
+ *   name         — the form field name for the hidden ID value
+ *   label        — field label text
+ *   required     — whether the field is required
+ *   value        — pre-selected person ID (e.g. on edit / validation failure)
+ *   initialName  — display name matching the pre-selected value
+ *   placeholder  — input placeholder
+ *   statusFilter — comma-separated status values to restrict results (e.g. "active,approved")
+ *   error        — validation error message to show beneath the field
+ */
+
+interface Props {
+  name: string
+  label?: string
+  required?: boolean
+  value?: string
+  initialName?: string
+  placeholder?: string
+  statusFilter?: string
+  error?: string
+}
+
+const {
+  name,
+  label = 'Member',
+  required = false,
+  value = '',
+  initialName = '',
+  placeholder = 'Type at least 3 characters to search…',
+  statusFilter = '',
+  error = '',
+} = Astro.props
+
+// Unique ID so multiple instances on the same page don't collide
+const uid = `ms-${name}-${Math.random().toString(36).slice(2, 8)}`
+---
+
+<div
+  class="member-search-wrapper"
+  data-uid={uid}
+  data-status={statusFilter}
+  style="position: relative;"
+>
+  <label
+    for={uid + '-input'}
+    style="display: block; font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700); margin-bottom: 4px;"
+  >
+    {label}{required && <span style="color: var(--color-danger-600); margin-left: 2px;">*</span>}
+  </label>
+
+  <!-- Visible search input -->
+  <input
+    id={uid + '-input'}
+    type="text"
+    class="member-search-input"
+    autocomplete="off"
+    spellcheck="false"
+    placeholder={placeholder}
+    value={initialName}
+    style={`width: 100%; padding: 10px 12px; border: 1px solid ${error ? 'var(--color-danger-400)' : 'var(--color-neutral-300)'}; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-900); box-sizing: border-box;`}
+  />
+
+  <!-- Hidden field submitted with the form -->
+  <input
+    type="hidden"
+    name={name}
+    class="member-search-value"
+    value={value}
+  />
+
+  <!-- Results dropdown -->
+  <ul
+    class="member-search-results"
+    role="listbox"
+    style="display: none; position: absolute; top: calc(100% + 2px); left: 0; right: 0; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); margin: 0; padding: 4px; list-style: none; max-height: 240px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 16px rgba(0,0,0,0.12);"
+  ></ul>
+
+  {error && (
+    <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-600); margin: 4px 0 0;">{error}</p>
+  )}
+
+  <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 4px 0 0;">
+    Type at least 3 characters to search
+  </p>
+</div>
+
+<script>
+  type MemberResult = { id: string; full_name: string; email: string }
+
+  function initMemberSearch(wrapper: HTMLElement) {
+    const input   = wrapper.querySelector<HTMLInputElement>('.member-search-input')!
+    const hidden  = wrapper.querySelector<HTMLInputElement>('.member-search-value')!
+    const results = wrapper.querySelector<HTMLUListElement>('.member-search-results')!
+    const statusFilter = wrapper.dataset.status ?? ''
+
+    let debounceTimer: ReturnType<typeof setTimeout>
+    let activeIndex = -1
+    let currentItems: MemberResult[] = []
+
+    function getItems() {
+      return results.querySelectorAll<HTMLLIElement>('li[data-id]')
+    }
+
+    function highlightItem(index: number) {
+      getItems().forEach((el, i) => {
+        el.style.background = i === index ? 'var(--color-neutral-100)' : ''
+      })
+    }
+
+    function select(id: string, name: string) {
+      hidden.value = id
+      input.value  = name
+      closeResults()
+    }
+
+    function clearSelection() {
+      hidden.value = ''
+    }
+
+    function closeResults() {
+      results.style.display = 'none'
+      results.innerHTML = ''
+      activeIndex = -1
+      currentItems = []
+    }
+
+    function renderResults(items: MemberResult[]) {
+      results.innerHTML = ''
+      activeIndex = -1
+      currentItems = items
+
+      if (items.length === 0) {
+        const li = document.createElement('li')
+        li.style.cssText = 'padding: 10px 12px; font-size: 13px; color: var(--color-neutral-400); font-family: var(--font-body);'
+        li.textContent = 'No members found'
+        results.appendChild(li)
+        results.style.display = 'block'
+        return
+      }
+
+      items.forEach(item => {
+        const li = document.createElement('li')
+        li.dataset.id = item.id
+        li.setAttribute('role', 'option')
+        li.style.cssText = 'padding: 10px 12px; cursor: pointer; border-radius: 6px; font-size: 14px; font-family: var(--font-body); color: var(--color-neutral-800);'
+        li.textContent = item.full_name
+        li.addEventListener('mouseenter', () => {
+          activeIndex = Array.from(getItems()).indexOf(li)
+          highlightItem(activeIndex)
+        })
+        li.addEventListener('mousedown', e => {
+          e.preventDefault() // prevent input blur before click fires
+          select(item.id, item.full_name)
+        })
+        results.appendChild(li)
+      })
+
+      results.style.display = 'block'
+    }
+
+    async function search(q: string) {
+      const params = new URLSearchParams({ q })
+      if (statusFilter) params.set('status', statusFilter)
+      try {
+        const res  = await fetch('/api/members?' + params.toString())
+        const json = await res.json() as { data?: MemberResult[] }
+        renderResults((json.data ?? []).slice(0, 10))
+      } catch {
+        closeResults()
+      }
+    }
+
+    input.addEventListener('input', () => {
+      const q = input.value.trim()
+      clearSelection()
+      clearTimeout(debounceTimer)
+
+      if (q.length < 3) {
+        closeResults()
+        return
+      }
+
+      debounceTimer = setTimeout(() => search(q), 300)
+    })
+
+    input.addEventListener('keydown', e => {
+      const items = getItems()
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        activeIndex = Math.min(activeIndex + 1, items.length - 1)
+        highlightItem(activeIndex)
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        activeIndex = Math.max(activeIndex - 1, 0)
+        highlightItem(activeIndex)
+      } else if (e.key === 'Enter' && activeIndex >= 0 && items[activeIndex]) {
+        e.preventDefault()
+        const item = currentItems[activeIndex]
+        if (item) select(item.id, item.full_name)
+      } else if (e.key === 'Escape') {
+        closeResults()
+      }
+    })
+
+    // Close when focus leaves both the input and the results list
+    input.addEventListener('blur', () => {
+      setTimeout(() => {
+        if (!wrapper.contains(document.activeElement)) closeResults()
+      }, 150)
+    })
+  }
+
+  document.querySelectorAll<HTMLElement>('.member-search-wrapper').forEach(initMemberSearch)
+</script>

@@ -1,0 +1,76 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import Input from '@/components/ui/Input.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const { data: roles } = await supabaseAdmin.from('roles').select('id, name').eq('is_archived', false).order('name')
+
+let errors: Record<string, string> = {}
+let globalError = ''
+let values: Record<string, string> = {}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  values = Object.fromEntries(form.entries()) as Record<string, string>
+
+  const res = await fetch(`${Astro.url.origin}/api/positions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+    body: JSON.stringify({
+      title: values.title,
+      description: values.description || undefined,
+      order_of_precedence: values.order_of_precedence ? Number(values.order_of_precedence) : undefined,
+      linked_system_role_id: values.linked_system_role_id || null,
+    }),
+  })
+
+  if (res.ok) {
+    return Astro.redirect('/admin/positions')
+  } else {
+    const body = await res.json() as { error?: string; issues?: { fieldErrors?: Record<string, string[]> } }
+    globalError = body.error ?? 'An unexpected error occurred'
+    errors = Object.fromEntries(Object.entries(body.issues?.fieldErrors ?? {}).map(([k, v]) => [k, v[0] ?? '']))
+  }
+}
+---
+
+<DashboardLayout title="Add Position">
+  <div style="max-width: 600px;">
+    <Breadcrumb crumbs={[{ label: 'Positions', href: '/admin/positions' }, { label: 'New Position' }]} />
+    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">Add Elected Position</h1>
+
+    {globalError && (
+      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+        {globalError}
+      </div>
+    )}
+
+    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+      <Input label="Title *" name="title" value={values.title} error={errors.title} required placeholder="e.g. Secretary" />
+      <Input label="Description" name="description" value={values.description} />
+      <Input label="Order of precedence" name="order_of_precedence" type="number" value={values.order_of_precedence} placeholder="6" />
+
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Linked system role (auto-granted on election)</label>
+        <select name="linked_system_role_id"
+          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+          <option value="">— None —</option>
+          {(roles ?? []).map((r: { id: string; name: string }) => (
+            <option value={r.id} selected={values.linked_system_role_id === r.id}>{r.name}</option>
+          ))}
+        </select>
+        <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">
+          When someone is elected to this position, they are automatically granted this role.
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 12px; padding-top: 8px;">
+        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">Save position</button>
+        <a href="/admin/positions" style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">Cancel</a>
+      </div>
+    </form>
+  </div>
+</DashboardLayout>

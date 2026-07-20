@@ -1,0 +1,102 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import Input from '@/components/ui/Input.astro'
+import MemberSearch from '@/components/ui/MemberSearch.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const { id } = Astro.params
+const { data: position } = await supabaseAdmin
+  .from('elected_positions').select('*').eq('id', id ?? '').single()
+
+if (!position) return Astro.redirect('/admin/positions')
+
+let errors: Record<string, string> = {}
+let globalError = ''
+let values: Record<string, string> = {
+  term_start: new Date().toISOString().split('T')[0] ?? '',
+  elected_by: 'chapter_vote',
+}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  values = Object.fromEntries(form.entries()) as Record<string, string>
+
+  const res = await fetch(`${Astro.url.origin}/api/positions/${id}/assign`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+    body: JSON.stringify({
+      person_id: values.person_id,
+      term_start: values.term_start,
+      elected_by: values.elected_by,
+      notes: values.notes || undefined,
+    }),
+  })
+
+  if (res.ok) {
+    return Astro.redirect('/admin/positions')
+  } else {
+    const body = await res.json() as { error?: string; issues?: { fieldErrors?: Record<string, string[]> } }
+    globalError = body.error ?? ''
+    errors = Object.fromEntries(Object.entries(body.issues?.fieldErrors ?? {}).map(([k, v]) => [k, v[0] ?? '']))
+  }
+}
+---
+
+<DashboardLayout title={`Assign — ${position.title}`}>
+  <div style="max-width: 600px;">
+    <Breadcrumb crumbs={[{ label: 'Positions', href: '/admin/positions' }, { label: position.title as string, href: '/admin/positions' }, { label: 'Assign' }]} />
+    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Assign Position</h1>
+    <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0 0 24px;">{position.title}</p>
+
+    {globalError && (
+      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+        {globalError}
+      </div>
+    )}
+
+    <div style="background-color: var(--color-warning-50); border: 1px solid var(--color-warning-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 24px;">
+      <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-warning-700); margin: 0; line-height: 1.5;">
+        <strong>Note:</strong> Assigning this position will close the current holder's tenure (if any) and automatically grant the linked role where applicable.
+      </p>
+    </div>
+
+    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+      <MemberSearch
+        name="person_id"
+        label="Member"
+        required
+        value={values.person_id}
+        statusFilter="active"
+        error={errors.person_id}
+      />
+
+      <Input label="Term start date *" name="term_start" type="date" value={values.term_start} error={errors.term_start} required />
+
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Elected by *</label>
+        <select name="elected_by" required
+          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+          <option value="chapter_vote" selected={values.elected_by === 'chapter_vote'}>Chapter vote</option>
+          <option value="board_appointment" selected={values.elected_by === 'board_appointment'}>Board appointment</option>
+          <option value="co_option" selected={values.elected_by === 'co_option'}>Co-option</option>
+        </select>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Notes</label>
+        <textarea name="notes" rows={3}
+          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); resize: vertical;">{values.notes}</textarea>
+      </div>
+
+      <div style="display: flex; gap: 12px; padding-top: 8px;">
+        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-gold); color: var(--color-brand-navy); border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          Confirm assignment
+        </button>
+        <a href="/admin/positions" style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">Cancel</a>
+      </div>
+    </form>
+  </div>
+</DashboardLayout>

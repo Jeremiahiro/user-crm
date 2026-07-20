@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.vercel/
+
+# Astro
+.astro/
+
+# Environment (NEVER commit secrets)
+.env
+.env.local
+.env.*.local
+
+# Google service account key (if stored as a file)
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local scratch / uploads folder — never commit
+ignore/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test coverage
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Cowork runtime files (managed by the plugin system — do not delete)
+skills/zi*/

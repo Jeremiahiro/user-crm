@@ -1,0 +1,305 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const { id } = Astro.params
+
+// ── Programme year + sessions ─────────────────────────────────────────────────
+const { data: year } = await supabaseAdmin
+  .from('cmp_programme_years')
+  .select(`
+    *,
+    cmp_sessions(
+      id, title, session_date, session_time, location, type, is_cancelled,
+      cmp_attendance(id, role, person_id, mentee_id, visitor_name)
+    )
+  `)
+  .eq('id', id ?? '')
+  .single()
+
+if (!year) return Astro.redirect('/admin/cmp/years')
+
+type AttendanceRow = { id: string; role: string; person_id: string | null; mentee_id: string | null; visitor_name: string | null }
+type Session = {
+  id: string
+  title: string
+  session_date: string
+  session_time: string | null
+  location: string | null
+  type: string | null
+  is_cancelled: boolean
+  cmp_attendance: AttendanceRow[]
+}
+
+const sessions = ((year as unknown as { cmp_sessions: Session[] }).cmp_sessions ?? [])
+  .sort((a, b) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime())
+
+// ── Mentees enrolled in this programme year ───────────────────────────────────
+const { data: enrolledMentees } = await supabaseAdmin
+  .from('mentees')
+  .select('id, full_name, school, year_group, mentor_id, email')
+  .eq('programme_year_id', id ?? '')
+  .eq('is_archived', false)
+  .order('full_name', { ascending: true })
+
+const menteeRows = enrolledMentees ?? []
+
+// Mentor name lookup
+const mentorIds = [...new Set(menteeRows.map(m => m.mentor_id).filter(Boolean))] as string[]
+const { data: mentorPeople } = mentorIds.length > 0
+  ? await supabaseAdmin.from('people').select('id, full_name').in('id', mentorIds)
+  : { data: [] }
+const mentorMap = new Map((mentorPeople ?? []).map(p => [p.id, p.full_name as string]))
+
+// ── Aggregate stats ────────────────────────────────────────────────────────────
+const allAttendance = sessions.flatMap(s => s.cmp_attendance)
+const uniqueMentors = new Set(allAttendance.filter(a => a.role === 'mentor').map(a => a.person_id))
+const uniqueParents = new Set(allAttendance.filter(a => a.role === 'parent').map(a => a.visitor_name))
+
+const nonCancelledSessions = sessions.filter(s => !s.is_cancelled)
+const totalPossibleMenteeAttendances = menteeRows.length * nonCancelledSessions.length
+const actualMenteeAttendances = allAttendance.filter(a => a.role === 'mentee').length
+const menteeAttendancePct = totalPossibleMenteeAttendances > 0
+  ? Math.round((actualMenteeAttendances / totalPossibleMenteeAttendances) * 100)
+  : 0
+
+const totalSessions = sessions.length
+const upcomingCount = sessions.filter(s => new Date(s.session_date) >= new Date() && !s.is_cancelled).length
+const cancelledCount = sessions.filter(s => s.is_cancelled).length
+
+function formatDate(d: string | null) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function formatTime(t: string | null) {
+  if (!t) return ''
+  const [h, m] = t.split(':')
+  const hour = parseInt(h ?? '0')
+  const ampm = hour >= 12 ? 'pm' : 'am'
+  const displayHour = hour % 12 || 12
+  return `${displayHour}:${m}${ampm}`
+}
+
+const TYPE_LABELS: Record<string, string> = { regular: 'Regular', special: 'Special', trip: 'Trip' }
+const TYPE_COLORS: Record<string, string> = {
+  regular: '#e0e7ff',
+  special: '#fef3c7',
+  trip: '#d1fae5',
+}
+---
+
+<DashboardLayout title={year.name as string}>
+  <Breadcrumb crumbs={[{ label: 'CMP', href: '/admin/cmp' }, { label: year.name as string }]} />
+
+  <!-- Header -->
+  <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px;">
+    <div>
+      <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">{year.name as string}</h1>
+      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+        {formatDate(year.start_date as string | null)} → {formatDate(year.end_date as string | null)}
+      </p>
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <a href={`/admin/cmp/years/${id}/edit`}
+        style="padding: 8px 16px; background: white; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700); text-decoration: none;">
+        Edit year
+      </a>
+      <a href={`/admin/cmp/sessions/new?year_id=${id}`}
+        style="padding: 8px 16px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; text-decoration: none;">
+        + Add session
+      </a>
+    </div>
+  </div>
+
+  <!-- Enrolment stat cards -->
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px;">
+    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; display: flex; align-items: center; gap: 16px;">
+      <div style="width: 44px; height: 44px; border-radius: 10px; background: #e0e7ff; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">👨‍🏫</div>
+      <div>
+        <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); margin: 0 0 2px;">Mentors active</p>
+        <p style="font-family: var(--font-heading); font-size: 28px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">{uniqueMentors.size}</p>
+      </div>
+    </div>
+    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; display: flex; align-items: center; gap: 16px;">
+      <div style="width: 44px; height: 44px; border-radius: 10px; background: #fef3c7; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">🎓</div>
+      <div>
+        <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); margin: 0 0 2px;">Mentees enrolled</p>
+        <p style="font-family: var(--font-heading); font-size: 28px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">{menteeRows.length}</p>
+      </div>
+    </div>
+    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; display: flex; align-items: center; gap: 16px;">
+      <div style="width: 44px; height: 44px; border-radius: 10px; background: #d1fae5; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">👨‍👩‍👧</div>
+      <div>
+        <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); margin: 0 0 2px;">Parents attended</p>
+        <p style="font-family: var(--font-heading); font-size: 28px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">{uniqueParents.size}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Session/attendance summary -->
+  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px;">
+    {[
+      { label: 'Total sessions', value: String(totalSessions), sub: '' },
+      { label: 'Upcoming', value: String(upcomingCount), sub: '' },
+      { label: 'Cancelled', value: String(cancelledCount), sub: '' },
+      { label: 'Mentee attendance', value: `${menteeAttendancePct}%`, sub: totalPossibleMenteeAttendances > 0 ? `${actualMenteeAttendances}/${totalPossibleMenteeAttendances} slots` : 'no data yet' },
+    ].map(stat => (
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 16px 20px;">
+        <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); margin: 0 0 4px;">{stat.label}</p>
+        <p style="font-family: var(--font-heading); font-size: 26px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">{stat.value}</p>
+        {stat.sub && <p style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); margin: 2px 0 0;">{stat.sub}</p>}
+      </div>
+    ))}
+  </div>
+
+  <!-- Enrolled mentees -->
+  <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 24px;">
+    <div style="padding: 14px 20px; border-bottom: 1px solid var(--color-neutral-200); display: flex; align-items: center; justify-content: space-between;">
+      <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">
+        Enrolled Mentees
+        <span style="font-family: var(--font-body); font-size: 13px; font-weight: 400; color: var(--color-neutral-400); margin-left: 6px;">{menteeRows.length}</span>
+      </h2>
+      <a href={`/admin/mentees/new?programme_year_id=${id}`}
+        style="padding: 6px 14px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; text-decoration: none;">
+        + Enrol mentee
+      </a>
+    </div>
+
+    {menteeRows.length === 0 ? (
+      <div style="padding: 36px; text-align: center;">
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0 0 14px;">No mentees enrolled in this programme year yet.</p>
+        <a href={`/admin/mentees/new?programme_year_id=${id}`}
+          style="padding: 8px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; text-decoration: none;">
+          Enrol first mentee
+        </a>
+      </div>
+    ) : (
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead style="background-color: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+          <tr>
+            <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Name</th>
+            <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">School</th>
+            <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Year</th>
+            <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Mentor</th>
+            <th style="padding: 9px 16px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {menteeRows.map((m, i) => (
+            <tr style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
+              <td style="padding: 12px 16px;">
+                <a href={`/admin/mentees/${m.id}`}
+                  style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none;">
+                  {m.full_name as string}
+                </a>
+                {m.email && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 2px 0 0;">{m.email as string}</p>}
+              </td>
+              <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">{(m.school as string | null) ?? '—'}</td>
+              <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">{(m.year_group as string | null) ?? '—'}</td>
+              <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px;">
+                {m.mentor_id ? (
+                  <a href={`/admin/members/${m.mentor_id}`}
+                    style="color: var(--color-brand-navy); text-decoration: none; font-family: var(--font-body); font-size: 13px;">
+                    {mentorMap.get(m.mentor_id as string) ?? '—'}
+                  </a>
+                ) : (
+                  <span style="color: var(--color-warning-600); font-size: 12px; font-weight: 500;">Unassigned</span>
+                )}
+              </td>
+              <td style="padding: 12px 16px; text-align: right;">
+                <a href={`/admin/mentees/${m.id}`}
+                  style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none;">
+                  View →
+                </a>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+
+  <!-- Sessions -->
+  <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+    <div style="padding: 14px 20px; border-bottom: 1px solid var(--color-neutral-200); display: flex; align-items: center; justify-content: space-between;">
+      <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">Sessions</h2>
+      <a href={`/admin/cmp/sessions/new?year_id=${id}`}
+        style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none;">
+        + Add
+      </a>
+    </div>
+
+    {sessions.length === 0 ? (
+      <div style="padding: 48px; text-align: center;">
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0 0 16px;">No sessions yet for this programme year.</p>
+        <a href={`/admin/cmp/sessions/new?year_id=${id}`}
+          style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+          Add first session
+        </a>
+      </div>
+    ) : (
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead style="background-color: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+          <tr>
+            <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Session</th>
+            <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Date</th>
+            <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Location</th>
+            <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Type</th>
+            <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Attendance</th>
+            <th style="padding: 9px 16px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {sessions.map((s, i) => {
+            const isPast = new Date(s.session_date) < new Date()
+            return (
+              <tr style={`${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}${s.is_cancelled ? 'opacity: 0.55;' : ''}`}>
+                <td style="padding: 13px 16px;">
+                  <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                    {s.is_cancelled && (
+                      <span style="padding: 1px 7px; border-radius: var(--radius-full); background: var(--color-danger-100); color: var(--color-danger-700); font-family: var(--font-body); font-size: 10px; font-weight: 700; letter-spacing: 0.04em;">CANCELLED</span>
+                    )}
+                    {!isPast && !s.is_cancelled && (
+                      <span style="padding: 1px 7px; border-radius: var(--radius-full); background: var(--color-success-100); color: var(--color-success-700); font-family: var(--font-body); font-size: 10px; font-weight: 600;">Upcoming</span>
+                    )}
+                    <a href={`/admin/cmp/sessions/${s.id}`}
+                      style={`font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none; ${s.is_cancelled ? 'text-decoration: line-through;' : ''}`}>
+                      {s.title}
+                    </a>
+                  </div>
+                </td>
+                <td style="padding: 13px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">
+                  {formatDate(s.session_date)}
+                  {s.session_time && <span style="color: var(--color-neutral-400); margin-left: 4px;">{formatTime(s.session_time)}</span>}
+                </td>
+                <td style="padding: 13px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">{s.location ?? '—'}</td>
+                <td style="padding: 13px 16px;">
+                  {s.type ? (
+                    <span style={`padding: 2px 10px; border-radius: var(--radius-full); background: ${TYPE_COLORS[s.type] ?? '#f3f4f6'}; font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-700);`}>
+                      {TYPE_LABELS[s.type] ?? s.type}
+                    </span>
+                  ) : <span style="color: var(--color-neutral-400);">—</span>}
+                </td>
+                <td style="padding: 13px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">{s.cmp_attendance?.length ?? 0}</td>
+                <td style="padding: 13px 16px; text-align: right; white-space: nowrap;">
+                  <a href={`/admin/cmp/sessions/${s.id}/attendance`}
+                    style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none; margin-right: 10px;">
+                    Attendance
+                  </a>
+                  <a href={`/admin/cmp/sessions/${s.id}`}
+                    style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); text-decoration: none;">
+                    View →
+                  </a>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    )}
+  </div>
+</DashboardLayout>

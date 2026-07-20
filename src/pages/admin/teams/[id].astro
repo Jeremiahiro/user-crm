@@ -1,0 +1,514 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import Badge from '@/components/ui/Badge.astro'
+import EmptyState from '@/components/ui/EmptyState.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin } from '@/lib/rbac'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const admin = isAdmin(Astro.locals.user)
+const currentPersonId = Astro.locals.user.person_id ?? null
+const { id } = Astro.params
+
+// Fetch team and pending requests in parallel — requests fetched without FK join to avoid
+// PostgREST ambiguity (team_join_requests has two FKs to people: person_id + reviewed_by)
+const [{ data: team }, { data: rawRequests }] = await Promise.all([
+  supabaseAdmin
+    .from('teams')
+    .select(`
+      *,
+      pillars(name),
+      person_teams(
+        is_team_lead,
+        joined_at,
+        people(id, full_name, email, status, profile_photo_url)
+      )
+    `)
+    .eq('id', id ?? '')
+    .single(),
+  supabaseAdmin
+    .from('team_join_requests')
+    .select('id, person_id, message, created_at')
+    .eq('team_id', id ?? '')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true }),
+])
+
+if (!team) return Astro.redirect('/admin/teams')
+
+// Resolve requester names via separate people lookup
+type RawRequest = { id: string; person_id: string; message: string | null; created_at: string }
+const rawReqs = (rawRequests ?? []) as RawRequest[]
+const requesterIds = rawReqs.map(r => r.person_id)
+const { data: requesterPeople } = requesterIds.length > 0
+  ? await supabaseAdmin.from('people').select('id, full_name, email').in('id', requesterIds)
+  : { data: [] }
+const requesterMap = new Map(((requesterPeople ?? []) as { id: string; full_name: string; email: string }[]).map(p => [p.id, p]))
+
+type JoinRequest = {
+  id: string
+  person_id: string
+  message: string | null
+  created_at: string
+  person: { id: string; full_name: string; email: string } | null
+}
+const joinRequests: JoinRequest[] = rawReqs.map(r => ({ ...r, person: requesterMap.get(r.person_id) ?? null }))
+
+type PersonTeamRow = {
+  is_team_lead: boolean
+  joined_at: string | null
+  people: {
+    id: string
+    full_name: string
+    email: string
+    status: string
+    profile_photo_url: string | null
+  } | null
+}
+
+// Filter out any rows where the person record was deleted
+const members = ((team.person_teams as PersonTeamRow[]) ?? []).filter(m => m.people != null) as (PersonTeamRow & { people: NonNullable<PersonTeamRow['people']> })[]
+const leads = members.filter(m => m.is_team_lead)
+const rest = members.filter(m => !m.is_team_lead)
+
+// Membership and permission checks
+const isMember    = currentPersonId ? members.some(m => m.people.id === currentPersonId) : false
+const isTeamLead  = currentPersonId ? leads.some(m => m.people.id === currentPersonId) : false
+const canReviewRequests = admin || isTeamLead
+// Only admins and current members can see who else is on the team
+const canSeeMemberList  = admin || isMember
+const canManageMembers  = admin || isTeamLead
+
+// Check chapter-level setting for team lead member removal
+const { data: removeSetting } = await supabaseAdmin
+  .from('org_settings')
+  .select('value')
+  .eq('key', 'allow_teamlead_remove_member')
+  .maybeSingle()
+const allowTeamleadRemoveMember = ((removeSetting as { value: string } | null)?.value ?? 'true') === 'true'
+const canRemoveMembers = admin || (isTeamLead && allowTeamleadRemoveMember)
+
+// For non-members: check if they have a pending or previously rejected request
+let existingRequestStatus: 'pending' | 'rejected' | null = null
+if (!admin && !isMember && currentPersonId) {
+  const { data: existingReq } = await supabaseAdmin
+    .from('team_join_requests')
+    .select('status')
+    .eq('team_id', id ?? '')
+    .eq('person_id', currentPersonId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (existingReq) existingRequestStatus = (existingReq as { status: string }).status as 'pending' | 'rejected'
+}
+---
+
+<DashboardLayout title={team.name as string}>
+  <Breadcrumb crumbs={[{ label: 'Teams', href: '/admin/teams' }, { label: team.name as string }]} />
+  <div>
+    <!-- Header -->
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--color-neutral-200);">
+      <div>
+        <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 8px;">{team.name}</h1>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          {team.pillars && (
+            <span style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500);">
+              {(team.pillars as { name: string }).name}
+            </span>
+          )}
+          <Badge variant={(team.is_active as boolean) ? 'success' : 'neutral'}>
+            {(team.is_active as boolean) ? 'Active' : 'Archived'}
+          </Badge>
+        </div>
+        {team.description && (
+          <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-600); margin: 8px 0 0; max-width: 480px;">{team.description}</p>
+        )}
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        {(admin || isTeamLead) && (
+          <a href={`/admin/teams/${id}/export`}
+             style="padding: 8px 16px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; text-decoration: none; border: 1px solid var(--color-neutral-200);">
+            ↓ Export CSV
+          </a>
+        )}
+        {admin && (
+          <a href={`/admin/teams/${id}/edit`}
+             style="padding: 8px 16px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; text-decoration: none;">
+            Edit
+          </a>
+        )}
+      </div>
+    </div>
+
+    <!-- Team leads (visible to members + admins only) -->
+    {canSeeMemberList && leads.length > 0 && (
+      <div style="margin-bottom: 32px;">
+        <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px;">Team Lead{leads.length > 1 ? 's' : ''}</h2>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+          {leads.map(m => (
+            <a href={`/admin/members/${m.people.id}`}
+               style="display: flex; align-items: center; gap: 10px; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 12px 16px; text-decoration: none;">
+              <div style="width: 36px; height: 36px; border-radius: var(--radius-full); background-color: var(--color-brand-gold); color: var(--color-brand-navy); display: flex; align-items: center; justify-content: center; font-family: var(--font-body); font-size: 13px; font-weight: 600; flex-shrink: 0;">
+                {m.people.profile_photo_url
+                  ? <img src={m.people.profile_photo_url} alt={m.people.full_name} width={36} height={36} style="border-radius: var(--radius-full); object-fit: cover;" />
+                  : m.people.full_name.split(' ').map((n: string) => n[0]).slice(0,2).join('')}
+              </div>
+              <div>
+                <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-brand-navy); margin: 0;">{m.people.full_name}</p>
+                <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0;">Team Lead</p>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    )}
+
+    <!-- Pending join requests (admins + team leads only) -->
+    {canReviewRequests && joinRequests.length > 0 && (
+      <div style="margin-bottom: 32px;">
+        <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px;">
+          Pending Requests ({joinRequests.length})
+        </h2>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          {joinRequests.map(req => (
+            <div id={`req-${req.id}`} style="background: white; border: 1px solid var(--color-warning-200); border-radius: var(--radius-lg); padding: 16px 20px;">
+              <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
+                <div>
+                  <a href={`/admin/members/${req.person_id}`}
+                    style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none; margin: 0 0 2px; display: block;">
+                    {req.person?.full_name ?? 'Unknown'}
+                  </a>
+                  <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0 0 8px;">{req.person?.email}</p>
+                  {req.message && (
+                    <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); margin: 0; font-style: italic;">"{req.message}"</p>
+                  )}
+                </div>
+                <div style="display: flex; gap: 8px; flex-shrink: 0;">
+                  <button
+                    onclick={`approveRequest('${req.id}')`}
+                    style="padding: 6px 14px; background: var(--color-success-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+                    Approve
+                  </button>
+                  <button
+                    onclick={`showRejectForm('${req.id}')`}
+                    style="padding: 6px 14px; background: var(--color-neutral-100); color: var(--color-danger-600); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+                    Decline
+                  </button>
+                </div>
+              </div>
+              <!-- Rejection reason form (hidden by default) -->
+              <div id={`reject-form-${req.id}`} style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--color-neutral-200);">
+                <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700); display: block; margin-bottom: 6px;">
+                  Reason for declining *
+                </label>
+                <textarea
+                  id={`reject-reason-${req.id}`}
+                  rows={2}
+                  placeholder="Briefly explain why the request was declined. This will be shared with the member."
+                  style="width: 100%; padding: 8px 10px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; resize: vertical; box-sizing: border-box;"
+                ></textarea>
+                <div style="display: flex; gap: 8px; margin-top: 8px;">
+                  <button
+                    onclick={`confirmReject('${req.id}')`}
+                    style="padding: 6px 14px; background: var(--color-danger-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+                    Confirm decline
+                  </button>
+                  <button
+                    onclick={`hideRejectForm('${req.id}')`}
+                    style="padding: 6px 14px; background: var(--color-neutral-100); color: var(--color-neutral-600); border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; cursor: pointer;">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    <!-- Members table — members and admins only -->
+    {canSeeMemberList ? (
+      <div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
+          <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">
+            Members ({members.length})
+          </h2>
+          {canManageMembers && (
+            <div id="add-member-section" style="position: relative;">
+              <input
+                id="member-search"
+                type="text"
+                placeholder="Add member by name…"
+                autocomplete="off"
+                style="padding: 7px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; width: 220px; outline: none;"
+              />
+              <div id="member-search-dropdown" style="display: none; position: absolute; top: calc(100% + 4px); right: 0; min-width: 280px; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); box-shadow: 0 4px 16px rgba(0,0,0,0.10); z-index: 200; max-height: 260px; overflow-y: auto;"></div>
+            </div>
+          )}
+        </div>
+
+        {members.length > 0 ? (
+          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background-color: var(--color-neutral-100);">
+                  <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Name</th>
+                  <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Status</th>
+                  <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Joined</th>
+                  {canManageMembers && (
+                    <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Actions</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {rest.map(m => (
+                  <tr style="border-top: 1px solid var(--color-neutral-100);" onmouseover="this.style.backgroundColor='var(--color-neutral-50)'" onmouseout="this.style.backgroundColor=''">
+                    <td style="padding: 14px 16px;">
+                      <a href={`/admin/members/${m.people.id}`}
+                         style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none;">
+                        {m.people.full_name}
+                      </a>
+                      <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0;">{m.people.email}</p>
+                    </td>
+                    <td style="padding: 14px 16px;">
+                      <Badge variant={m.people.status === 'active' ? 'success' : m.people.status === 'pending_review' ? 'warning' : 'neutral'}>
+                        {m.people.status}
+                      </Badge>
+                    </td>
+                    <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500);">
+                      {m.joined_at ? new Date(m.joined_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                    </td>
+                    {canManageMembers && (
+                      <td style="padding: 14px 16px;">
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                          <a href={`/admin/praise/new?person_id=${m.people.id}`}
+                             style="padding: 4px 10px; background: transparent; color: var(--color-warning-600, #d97706); border: 1px solid var(--color-warning-400, #fbbf24); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; font-weight: 500; text-decoration: none; white-space: nowrap;">
+                            Praise
+                          </a>
+                          <a href={`/admin/email/compose?person_id=${m.people.id}`}
+                             style="padding: 4px 10px; background: transparent; color: var(--color-neutral-700); border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; font-weight: 500; text-decoration: none; white-space: nowrap;">
+                            Email
+                          </a>
+                          <button
+                            onclick={`toggleLead('${m.people.id}', '${m.people.full_name.replace(/'/g, "\\'")}', true)`}
+                            style="padding: 4px 10px; background: transparent; color: var(--color-brand-navy); border: 1px solid var(--color-brand-navy); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap;">
+                            Make lead
+                          </button>
+                          {canRemoveMembers && (
+                            <button
+                              onclick={`removeMember('${m.people.id}', '${m.people.full_name.replace(/'/g, "\\'")}') `}
+                              style="padding: 4px 10px; background: transparent; color: var(--color-danger-600, #dc2626); border: 1px solid var(--color-danger-300, #fca5a5); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap;">
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState heading="No members yet" subtext="Members are added to teams from the member profile page." />
+        )}
+      </div>
+    ) : (
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 48px 32px; text-align: center;">
+        <p style="font-size: 32px; margin: 0 0 12px;">🔒</p>
+        <p style="font-family: var(--font-heading); font-size: 16px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 6px;">
+          Members are only visible to team members
+        </p>
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0 0 20px;">
+          This team has {members.length} member{members.length !== 1 ? 's' : ''}.
+          {existingRequestStatus === 'pending'
+            ? ' Your request to join is pending approval.'
+            : existingRequestStatus === 'rejected'
+              ? ' Your previous request was not approved.'
+              : ' Request to join to see who\'s on the team.'}
+        </p>
+        {existingRequestStatus === 'pending' ? (
+          <span style="display: inline-block; padding: 8px 18px; background: var(--color-warning-100); color: var(--color-warning-700); border-radius: var(--radius-full); font-family: var(--font-body); font-size: 13px; font-weight: 600;">
+            Request pending
+          </span>
+        ) : existingRequestStatus !== 'rejected' && (
+          <button
+            id="join-btn"
+            onclick="requestJoinFromDetail()"
+            style="padding: 10px 22px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+            Request to join
+          </button>
+        )}
+      </div>
+    )}
+  </div>
+</DashboardLayout>
+
+<script is:inline>
+  var TEAM_ID = window.location.pathname.split('/').filter(Boolean).pop()
+
+  function requestJoinFromDetail() {
+    var btn = document.getElementById('join-btn')
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending…' }
+    fetch('/api/teams/' + TEAM_ID + '/join-request', { method: 'POST' })
+      .then(function(res) {
+        if (res.ok) { location.reload() }
+        else { res.json().then(function(j) { alert(j.error || 'Failed to send request.'); if (btn) { btn.disabled = false; btn.textContent = 'Request to join' } }) }
+      })
+  }
+
+  function approveRequest(requestId) {
+    if (!confirm('Approve this join request?')) return
+    fetch('/api/teams/' + TEAM_ID + '/join-request', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId: requestId, action: 'approve' }),
+    }).then(function(res) {
+      if (res.ok) {
+        var el = document.getElementById('req-' + requestId)
+        if (el) el.remove()
+      } else {
+        res.json().then(function(j) { alert(j.error || 'Failed to approve.') })
+      }
+    })
+  }
+
+  function showRejectForm(requestId) {
+    var form = document.getElementById('reject-form-' + requestId)
+    if (form) form.style.display = 'block'
+  }
+
+  function hideRejectForm(requestId) {
+    var form = document.getElementById('reject-form-' + requestId)
+    if (form) form.style.display = 'none'
+  }
+
+  function confirmReject(requestId) {
+    var textarea = document.getElementById('reject-reason-' + requestId)
+    var reason = textarea ? textarea.value.trim() : ''
+    if (!reason) { alert('Please provide a reason for declining.'); return }
+
+    fetch('/api/teams/' + TEAM_ID + '/join-request', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId: requestId, action: 'reject', reason: reason }),
+    }).then(function(res) {
+      if (res.ok) {
+        var el = document.getElementById('req-' + requestId)
+        if (el) el.remove()
+      } else {
+        res.json().then(function(j) { alert(j.error || 'Failed to decline.') })
+      }
+    })
+  }
+
+  // ── Add Member search ────────────────────────────────────────────────────────
+  var _searchTimer = null
+
+  function initMemberSearch() {
+    var input = document.getElementById('member-search')
+    if (!input) return
+
+    input.addEventListener('input', function() {
+      clearTimeout(_searchTimer)
+      var q = input.value.trim()
+      if (q.length < 3) { hideMemberDropdown(); return }
+      _searchTimer = setTimeout(function() { searchMembers(q) }, 300)
+    })
+
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { hideMemberDropdown(); input.value = '' }
+    })
+
+    document.addEventListener('click', function(e) {
+      var section = document.getElementById('add-member-section')
+      if (section && !section.contains(e.target)) hideMemberDropdown()
+    })
+  }
+
+  function hideMemberDropdown() {
+    var dd = document.getElementById('member-search-dropdown')
+    if (dd) { dd.style.display = 'none'; dd.innerHTML = '' }
+  }
+
+  async function searchMembers(q) {
+    var dd = document.getElementById('member-search-dropdown')
+    if (!dd) return
+    dd.innerHTML = '<div style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500);">Searching…</div>'
+    dd.style.display = 'block'
+
+    try {
+      var res = await fetch('/api/people/search?q=' + encodeURIComponent(q) + '&exclude_team=' + TEAM_ID)
+      var data = await res.json()
+      var people = data.data ?? []
+
+      if (people.length === 0) {
+        dd.innerHTML = '<div style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500);">No matching members found.</div>'
+        return
+      }
+
+      dd.innerHTML = people.map(function(p) {
+        var initials = p.full_name.split(' ').map(function(n) { return n[0] || '' }).slice(0, 2).join('')
+        var avatar = p.profile_photo_url
+          ? '<img src="' + p.profile_photo_url + '" style="width:28px;height:28px;border-radius:50%;object-fit:cover;" />'
+          : '<span>' + initials + '</span>'
+        return (
+          '<div onclick="addMember(\'' + p.id + '\', \'' + p.full_name.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')" ' +
+          'style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--color-neutral-100);" ' +
+          'onmouseover="this.style.backgroundColor=\'var(--color-neutral-50)\'" onmouseout="this.style.backgroundColor=\'\'">' +
+          '<div style="width:28px;height:28px;border-radius:50%;background:var(--color-brand-gold);color:var(--color-brand-navy);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;">' + avatar + '</div>' +
+          '<div>' +
+          '<div style="font-family:var(--font-body);font-size:14px;font-weight:500;color:var(--color-brand-navy);">' + p.full_name + '</div>' +
+          '<div style="font-family:var(--font-body);font-size:12px;color:var(--color-neutral-500);">' + p.email + '</div>' +
+          '</div></div>'
+        )
+      }).join('')
+    } catch (e) {
+      dd.innerHTML = '<div style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-danger-600);">Search failed. Try again.</div>'
+    }
+  }
+
+  async function addMember(personId, name) {
+    hideMemberDropdown()
+    var input = document.getElementById('member-search')
+    if (input) { input.value = ''; input.disabled = true }
+
+    var res = await fetch('/api/teams/' + TEAM_ID + '/members', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ personId: personId }),
+    })
+
+    if (input) input.disabled = false
+
+    if (res.ok) {
+      location.reload()
+    } else {
+      var j = await res.json()
+      alert(j.error || 'Failed to add member.')
+    }
+  }
+
+  initMemberSearch()
+
+  // ── Member removal / lead toggle ─────────────────────────────────────────────
+  async function removeMember(personId, name) {
+    if (!confirm('Remove ' + name + ' from this team?')) return
+    var res = await fetch('/api/teams/' + TEAM_ID + '/members/' + personId, { method: 'DELETE' })
+    if (res.ok) location.reload()
+    else { var j = await res.json(); alert(j.error || 'Failed.') }
+  }
+
+  async function toggleLead(personId, name, makeLead) {
+    if (!confirm(makeLead ? 'Make ' + name + ' a team lead?' : 'Remove lead status from ' + name + '?')) return
+    var res = await fetch('/api/teams/' + TEAM_ID + '/members/' + personId, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_team_lead: makeLead }),
+    })
+    if (res.ok) location.reload()
+    else { var j = await res.json(); alert(j.error || 'Failed.') }
+  }
+</script>
+

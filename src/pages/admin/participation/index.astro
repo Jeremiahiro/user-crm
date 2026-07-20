@@ -1,0 +1,146 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const url = Astro.url
+const pillarId = url.searchParams.get('pillar_id') ?? ''
+const teamId = url.searchParams.get('team_id') ?? ''
+
+type EventRow = {
+  id: string
+  event_name: string
+  event_date: string | null
+  notes: string | null
+  created_at: string
+  people: { id: string; full_name: string } | null
+  teams: { id: string; name: string } | null
+  pillars: { id: string; name: string } | null
+}
+
+let query = supabaseAdmin
+  .from('participation_events')
+  .select('*, people(id, full_name), teams(id, name), pillars(id, name)')
+  .eq('is_archived', false)
+  .order('event_date', { ascending: false })
+
+if (pillarId) query = query.eq('pillar_id', pillarId)
+if (teamId) query = query.eq('team_id', teamId)
+
+const { data } = await query
+const rows = (data ?? []) as unknown as EventRow[]
+
+const { data: pillars } = await supabaseAdmin
+  .from('pillars')
+  .select('id, name')
+  .eq('is_active', true)
+  .order('display_order', { ascending: true })
+
+const { data: teams } = await supabaseAdmin
+  .from('teams')
+  .select('id, name')
+  .eq('is_active', true)
+  .order('name', { ascending: true })
+
+function formatDate(d: string | null) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+---
+
+<DashboardLayout title="Participation Events">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+    <div>
+      <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Participation Events</h1>
+      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">{rows.length} event{rows.length !== 1 ? 's' : ''}</p>
+    </div>
+    <a href="/admin/participation/new"
+      style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+      + Log event
+    </a>
+  </div>
+
+  <!-- Filters -->
+  <form method="GET" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+    <select name="pillar_id" onchange="this.form.submit()"
+      style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
+      <option value="" selected={!pillarId}>All pillars</option>
+      {(pillars ?? []).map(p => (
+        <option value={p.id} selected={pillarId === p.id}>{p.name as string}</option>
+      ))}
+    </select>
+    <select name="team_id" onchange="this.form.submit()"
+      style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
+      <option value="" selected={!teamId}>All teams</option>
+      {(teams ?? []).map(t => (
+        <option value={t.id} selected={teamId === t.id}>{t.name as string}</option>
+      ))}
+    </select>
+    {(pillarId || teamId) && (
+      <a href="/admin/participation"
+        style="padding: 8px 12px; background: var(--color-neutral-100); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); text-decoration: none;">
+        Clear
+      </a>
+    )}
+  </form>
+
+  <!-- Table -->
+  <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+    {rows.length === 0 ? (
+      <div style="padding: 48px; text-align: center;">
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">No participation events logged.</p>
+      </div>
+    ) : (
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead style="background-color: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+          <tr>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Event</th>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Member</th>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Date</th>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Team / Pillar</th>
+            <th style="padding: 10px 16px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((ev, i) => (
+            <tr style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
+              <td style="padding: 14px 16px;">
+                <p style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-800); margin: 0 0 2px;">{ev.event_name}</p>
+                {ev.notes && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">{ev.notes}</p>}
+              </td>
+              <td style="padding: 14px 16px;">
+                {ev.people ? (
+                  <a href={`/admin/members/${ev.people.id}`}
+                    style="font-family: var(--font-body); font-size: 13px; color: var(--color-brand-navy); text-decoration: none;">
+                    {ev.people.full_name}
+                  </a>
+                ) : <span style="color: var(--color-neutral-400);">—</span>}
+              </td>
+              <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">{formatDate(ev.event_date)}</td>
+              <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">
+                {ev.teams?.name ?? ev.pillars?.name ?? '—'}
+              </td>
+              <td style="padding: 14px 16px; text-align: right;">
+                <button onclick={`archiveEvent('${ev.id}')`}
+                  style="padding: 4px 10px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); cursor: pointer;">
+                  Archive
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+</DashboardLayout>
+
+<script>
+  async function archiveEvent(id: string) {
+    if (!confirm('Archive this participation event?')) return
+    const res = await fetch(`/api/participation/${id}`, { method: 'DELETE' })
+    if (res.ok) window.location.reload()
+    else alert('Failed to archive event.')
+  }
+  (window as unknown as Record<string, unknown>).archiveEvent = archiveEvent
+</script>

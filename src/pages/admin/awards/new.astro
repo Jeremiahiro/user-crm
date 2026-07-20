@@ -1,0 +1,148 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import MemberSearch from '@/components/ui/MemberSearch.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin } from '@/lib/rbac'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+if (!isAdmin(Astro.locals.user)) return Astro.redirect('/admin/awards')
+
+const currentYear = new Date().getFullYear()
+const years = Array.from({ length: 10 }, (_, i) => currentYear - i)
+
+const AWARD_TYPE_LABELS: Record<string, string> = {
+  member_of_the_year:    'Member of the Year',
+  volunteer_of_the_year: 'Volunteer of the Year',
+  mentor_of_the_year:    'Mentor of the Year',
+  rising_star:           'Rising Star',
+  community_impact:      'Community Impact',
+  leadership_excellence: 'Leadership Excellence',
+  special_recognition:   'Special Recognition',
+}
+const AWARD_TYPE_ENTRIES = Object.entries(AWARD_TYPE_LABELS)
+
+const personId = Astro.url.searchParams.get('person_id') ?? ''
+const returnTo = personId
+  ? `/admin/members/${personId}?tab=recognition`
+  : '/admin/awards'
+
+let errors: Record<string, string> = {}
+let globalError = ''
+let values: Record<string, string> = {
+  year: String(currentYear),
+  person_id: personId,
+}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  values = Object.fromEntries(form.entries()) as Record<string, string>
+
+  const res = await fetch(`${Astro.url.origin}/api/awards`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+    body: JSON.stringify({
+      person_id: values.person_id,
+      type: values.type,
+      year: parseInt(values.year ?? String(currentYear)),
+      citation: values.citation || null,
+    }),
+  })
+
+  if (res.ok) {
+    return Astro.redirect(values.return_to || returnTo)
+  } else {
+    const body = await res.json() as { error?: string; issues?: { fieldErrors?: Record<string, string[]> } }
+    globalError = body.error ?? 'Failed to give award.'
+    errors = Object.fromEntries(
+      Object.entries(body.issues?.fieldErrors ?? {}).map(([k, v]) => [k, v[0] ?? ''])
+    )
+  }
+}
+
+// Member name for breadcrumb
+let memberName = ''
+if (personId) {
+  const { data: person } = await supabaseAdmin.from('people').select('full_name').eq('id', personId).single()
+  memberName = (person?.full_name as string | null) ?? ''
+}
+
+const crumbs = personId
+  ? [
+      { label: 'Members', href: '/admin/members' },
+      { label: memberName || 'Member', href: `/admin/members/${personId}?tab=recognition` },
+      { label: 'Give Award' },
+    ]
+  : [
+      { label: 'Awards', href: '/admin/awards' },
+      { label: 'Give Award' },
+    ]
+---
+
+<DashboardLayout title="Give Award">
+  <div style="max-width: 560px;">
+    <Breadcrumb crumbs={crumbs} />
+    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">Give Award 🏆</h1>
+
+    {globalError && (
+      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+        {globalError}
+      </div>
+    )}
+
+    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+      <input type="hidden" name="return_to" value={returnTo} />
+
+      <MemberSearch
+        name="person_id"
+        label="Recipient"
+        required
+        value={values.person_id}
+        initialName={memberName}
+        error={errors.person_id}
+      />
+
+      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Award type *</label>
+          <select name="type" required
+            style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
+            <option value="">Select type…</option>
+            {AWARD_TYPE_ENTRIES.map(entry => (
+              <option value={entry[0]} selected={values.type === entry[0]}>{entry[1]}</option>
+            ))}
+          </select>
+          {errors.type && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-600); margin: 0;">{errors.type}</p>}
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Year *</label>
+          <select name="year" required
+            style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
+            {years.map(y => (
+              <option value={String(y)} selected={values.year === String(y)}>{y}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Citation (optional)</label>
+        <textarea name="citation" rows={3} placeholder="A brief description of why this award is being given…"
+          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; resize: vertical;">{values.citation ?? ''}</textarea>
+      </div>
+
+      <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0;">
+        A congratulatory email will be sent to the recipient automatically.
+      </p>
+
+      <div style="display: flex; gap: 12px; padding-top: 4px;">
+        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          Give award
+        </button>
+        <a href={returnTo} style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</DashboardLayout>

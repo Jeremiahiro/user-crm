@@ -1,0 +1,148 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Badge from '@/components/ui/Badge.astro'
+import EmptyState from '@/components/ui/EmptyState.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const { data: roles } = await supabaseAdmin
+  .from('roles')
+  .select('*, user_roles(count)')
+  .order('name')
+
+type RoleRow = {
+  id: string
+  name: string
+  description: string | null
+  is_system_protected: boolean
+  is_archived: boolean
+  user_roles: { count: number }[]
+}
+
+const rows = (roles ?? []) as RoleRow[]
+const active = rows.filter(r => !r.is_archived)
+const archived = rows.filter(r => r.is_archived)
+---
+
+<DashboardLayout title="Roles">
+  <div>
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+      <div>
+        <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Roles</h1>
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+          System roles define what members can access.
+        </p>
+      </div>
+      <a href="/admin/roles/new"
+         style="display: inline-flex; align-items: center; gap: 6px; background-color: var(--color-brand-navy); color: white; padding: 10px 18px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+        + Create role
+      </a>
+    </div>
+
+    {active.length > 0 ? (
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 32px;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background-color: var(--color-neutral-100);">
+              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Name</th>
+              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Members</th>
+              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Type</th>
+              <th style="padding: 12px 16px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {active.map((role) => (
+              <tr style="border-top: 1px solid var(--color-neutral-100);" onmouseover="this.style.backgroundColor='var(--color-neutral-50)'" onmouseout="this.style.backgroundColor=''">
+                <td style="padding: 14px 16px;">
+                  <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-brand-navy); margin: 0 0 2px;">{role.name}</p>
+                  {role.description && (
+                    <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0;">{role.description}</p>
+                  )}
+                </td>
+                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+                  {(role.user_roles?.[0]?.count ?? 0) > 0
+                    ? <a href={`/admin/roles/${role.id}`} style="color: var(--color-brand-navy); font-weight: 600; text-decoration: none;">{role.user_roles[0].count}</a>
+                    : <span style="color: var(--color-neutral-400);">0</span>}
+                </td>
+                <td style="padding: 14px 16px;">
+                  {role.is_system_protected
+                    ? <Badge variant="info">System</Badge>
+                    : <Badge variant="neutral">Custom</Badge>}
+                </td>
+                <td style="padding: 14px 16px; text-align: right; white-space: nowrap;">
+                  <a href={`/admin/roles/${role.id}/edit`}
+                     style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-600); text-decoration: none; padding: 4px 10px; border-radius: var(--radius-md);"
+                     onmouseover="this.style.backgroundColor='var(--color-neutral-100)'"
+                     onmouseout="this.style.backgroundColor=''">
+                    Edit
+                  </a>
+                  {!role.is_system_protected && (
+                    <button
+                      class="delete-role-btn"
+                      data-role-id={role.id}
+                      data-role-name={role.name}
+                      data-member-count={String(role.user_roles?.[0]?.count ?? 0)}
+                      style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-danger-600); background: none; border: none; cursor: pointer; padding: 4px 10px; border-radius: var(--radius-md);">
+                      {(role.user_roles?.[0]?.count ?? 0) > 0 ? 'Archive' : 'Delete'}
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <EmptyState heading="No roles" subtext="Create a role to assign permissions to members." />
+    )}
+
+    {archived.length > 0 && (
+      <details>
+        <summary style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); cursor: pointer; margin-bottom: 12px;">
+          Archived roles ({archived.length})
+        </summary>
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tbody>
+              {archived.map((role) => (
+                <tr style="border-top: 1px solid var(--color-neutral-100);">
+                  <td style="padding: 12px 16px;">
+                    <span style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400);">{role.name}</span>
+                  </td>
+                  <td style="padding: 12px 16px;">
+                    <Badge variant="neutral">Archived</Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    )}
+  </div>
+</DashboardLayout>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('.delete-role-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.roleId as string
+      const name = btn.dataset.roleName as string
+      const memberCount = parseInt(btn.dataset.memberCount ?? '0', 10)
+      const action = memberCount > 0 ? 'archive' : 'delete'
+      const msg = memberCount > 0
+        ? `Archive "${name}"? This role has ${memberCount} member(s) assigned and will be archived, not deleted.`
+        : `Delete "${name}"? This role has no members and will be permanently deleted.`
+      if (!confirm(msg)) return
+      btn.disabled = true
+      const res = await fetch(`/api/roles/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        window.location.reload()
+      } else {
+        const e = await res.json() as { error?: string }
+        alert(e.error ?? `Failed to ${action} role`)
+        btn.disabled = false
+      }
+    })
+  })
+</script>

@@ -1,0 +1,68 @@
+---
+/**
+ * Pagination
+ * Props:
+ *   page       — current page (1-based)
+ *   totalPages — total number of pages
+ *   baseUrl    — URL string with all other query params already set, WITHOUT page=
+ *                e.g. "/admin/members?status=active&q=smith"
+ */
+interface Props {
+  page: number
+  totalPages: number
+  baseUrl: string
+}
+
+const { page, totalPages, baseUrl } = Astro.props
+if (totalPages <= 1) return
+
+function pageUrl(p: number): string {
+  const sep = baseUrl.includes('?') ? '&' : '?'
+  return `${baseUrl}${sep}page=${p}`
+}
+
+// Show up to 5 page numbers around current
+const range: number[] = []
+const delta = 2
+for (let i = Math.max(1, page - delta); i <= Math.min(totalPages, page + delta); i++) {
+  range.push(i)
+}
+---
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; flex-wrap: wrap; gap: 8px;">
+  <span style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500);">
+    Page {page} of {totalPages}
+  </span>
+  <div style="display: flex; gap: 6px; align-items: center;">
+    {page > 1 && (
+      <a href={pageUrl(1)}
+         style="padding: 6px 10px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); text-decoration: none; background: white;">
+        «
+      </a>
+    )}
+    {page > 1 && (
+      <a href={pageUrl(page - 1)}
+         style="padding: 6px 12px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); text-decoration: none; background: white;">
+        Previous
+      </a>
+    )}
+    {range.map(p => (
+      <a href={pageUrl(p)}
+         style={`padding: 6px 10px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; text-decoration: none; border: 1px solid ${p === page ? 'var(--color-brand-navy)' : 'var(--color-neutral-200)'}; background: ${p === page ? 'var(--color-brand-navy)' : 'white'}; color: ${p === page ? 'white' : 'var(--color-neutral-700)'}; font-weight: ${p === page ? '600' : '400'};`}>
+        {p}
+      </a>
+    ))}
+    {page < totalPages && (
+      <a href={pageUrl(page + 1)}
+         style="padding: 6px 12px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); text-decoration: none; background: white;">
+        Next
+      </a>
+    )}
+    {page < totalPages && (
+      <a href={pageUrl(totalPages)}
+         style="padding: 6px 10px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); text-decoration: none; background: white;">
+        »
+      </a>
+    )}
+  </div>
+</div>

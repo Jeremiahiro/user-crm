@@ -1,0 +1,10 @@
+---
+// Root page: redirect based on auth state
+const user = Astro.locals.user
+
+if (user) {
+  return Astro.redirect('/dashboard')
+} else {
+  return Astro.redirect('/login')
+}
+---

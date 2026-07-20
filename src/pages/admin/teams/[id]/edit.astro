@@ -1,0 +1,191 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import Input from '@/components/ui/Input.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin } from '@/lib/rbac'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const admin = isAdmin(Astro.locals.user)
+
+const { id } = Astro.params
+
+const [{ data: team }, { data: pillars }, { count: memberCount }] = await Promise.all([
+  supabaseAdmin.from('teams').select('*').eq('id', id ?? '').single(),
+  supabaseAdmin.from('pillars').select('id, name').eq('is_active', true).order('name'),
+  supabaseAdmin
+    .from('person_teams')
+    .select('*', { count: 'exact', head: true })
+    .eq('team_id', id ?? ''),
+])
+
+if (!team) return Astro.redirect('/admin/teams')
+
+const hasMembers = (memberCount ?? 0) > 0
+const isActive = team.is_active as boolean
+
+let errors: Record<string, string> = {}
+let globalError = ''
+let values: Record<string, string> = {
+  name: team.name as string,
+  description: (team.description as string | null) ?? '',
+  pillar_id: (team.pillar_id as string | null) ?? '',
+}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  values = Object.fromEntries(form.entries()) as Record<string, string>
+
+  const res = await fetch(`${Astro.url.origin}/api/teams/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+    body: JSON.stringify({
+      name: values.name,
+      description: values.description || undefined,
+      pillar_id: values.pillar_id || null,
+    }),
+  })
+
+  if (res.ok) {
+    return Astro.redirect('/admin/teams')
+  } else {
+    const body = await res.json() as { error?: string; issues?: { fieldErrors?: Record<string, string[]> } }
+    globalError = body.error ?? ''
+    errors = Object.fromEntries(Object.entries(body.issues?.fieldErrors ?? {}).map(([k, v]) => [k, v[0] ?? '']))
+  }
+}
+---
+
+<DashboardLayout title={`Edit ${team.name}`}>
+  <div style="max-width: 600px;" id="edit-team-root" data-team-id={id} data-team-name={team.name as string}>
+    <Breadcrumb crumbs={[
+      { label: 'Teams', href: '/admin/teams' },
+      { label: team.name as string, href: `/admin/teams/${id}` },
+      { label: 'Edit' },
+    ]} />
+    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">Edit Team</h1>
+
+    {globalError && (
+      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+        {globalError}
+      </div>
+    )}
+
+    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px; margin-bottom: 24px;">
+      <Input label="Name *" name="name" value={values.name} error={errors.name} required />
+      <Input label="Description" name="description" value={values.description} placeholder="Optional — what does this team focus on?" />
+
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Pillar</label>
+        <select name="pillar_id"
+          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+          <option value="">— None —</option>
+          {(pillars ?? []).map((p: { id: string; name: string }) => (
+            <option value={p.id} selected={values.pillar_id === p.id}>{p.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div style="display: flex; gap: 12px; padding-top: 8px;">
+        <button type="submit"
+          style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          Save changes
+        </button>
+        <a href="/admin/teams"
+          style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+          Cancel
+        </a>
+      </div>
+    </form>
+
+    <!-- ── Danger zone (admin only) ──────────────────────────────────── -->
+    {admin && (
+      <div style="border: 1px solid var(--color-danger-200); border-radius: var(--radius-lg); overflow: hidden;">
+        <div style="background: var(--color-danger-50); padding: 14px 20px; border-bottom: 1px solid var(--color-danger-200);">
+          <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-danger-700); margin: 0; text-transform: uppercase; letter-spacing: 0.06em;">Danger zone</h2>
+        </div>
+
+        <!-- Archive -->
+        <div style="background: white; padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--color-neutral-100);">
+          <div>
+            <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-neutral-800); margin: 0 0 2px;">Archive this team</p>
+            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0;">
+              {hasMembers
+                ? `${memberCount} member${memberCount !== 1 ? 's' : ''} assigned — reassign them first.`
+                : isActive
+                  ? 'Hides the team from active views. Can be reversed by contacting an admin.'
+                  : 'This team is already archived.'}
+            </p>
+          </div>
+          <button
+            id="archive-btn"
+            disabled={hasMembers || !isActive}
+            style={`flex-shrink: 0; padding: 8px 16px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: ${hasMembers || !isActive ? 'not-allowed' : 'pointer'};
+              border: 1px solid ${hasMembers || !isActive ? 'var(--color-neutral-200)' : 'var(--color-danger-300)'};
+              background: white;
+              color: ${hasMembers || !isActive ? 'var(--color-neutral-400)' : 'var(--color-danger-600)'};`}>
+            {isActive ? 'Archive' : 'Archived'}
+          </button>
+        </div>
+
+        <!-- Permanent delete -->
+        <div style="background: white; padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px;">
+          <div>
+            <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-neutral-800); margin: 0 0 2px;">Delete permanently</p>
+            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0;">
+              {hasMembers
+                ? `${memberCount} member${memberCount !== 1 ? 's' : ''} assigned — reassign them first.`
+                : 'Permanently removes the team. This cannot be undone.'}
+            </p>
+          </div>
+          <button
+            id="delete-btn"
+            disabled={hasMembers}
+            style={`flex-shrink: 0; padding: 8px 16px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: ${hasMembers ? 'not-allowed' : 'pointer'};
+              border: none;
+              background: ${hasMembers ? 'var(--color-neutral-100)' : 'var(--color-danger-600)'};
+              color: ${hasMembers ? 'var(--color-neutral-400)' : 'white'};`}>
+            Delete
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+
+  <script is:inline>
+    (function () {
+      var root = document.getElementById('edit-team-root')
+      var teamId = root ? root.dataset.teamId : ''
+      var teamName = root ? root.dataset.teamName : ''
+
+      var archiveBtn = document.getElementById('archive-btn')
+      if (archiveBtn && !archiveBtn.disabled) {
+        archiveBtn.addEventListener('click', function () {
+          if (!confirm('Archive "' + teamName + '"? It will be hidden from active views.')) return
+          archiveBtn.disabled = true
+          archiveBtn.textContent = 'Archiving…'
+          fetch('/api/teams/' + teamId, { method: 'DELETE' })
+            .then(function (r) {
+              if (r.ok) { window.location.href = '/admin/teams' }
+              else { r.json().then(function (e) { alert(e.error || 'Failed to archive'); archiveBtn.disabled = false; archiveBtn.textContent = 'Archive' }) }
+            })
+        })
+      }
+
+      var deleteBtn = document.getElementById('delete-btn')
+      if (deleteBtn && !deleteBtn.disabled) {
+        deleteBtn.addEventListener('click', function () {
+          if (!confirm('Permanently delete "' + teamName + '"? This cannot be undone.')) return
+          deleteBtn.disabled = true
+          deleteBtn.textContent = 'Deleting…'
+          fetch('/api/teams/' + teamId + '?permanent=true', { method: 'DELETE' })
+            .then(function (r) {
+              if (r.ok) { window.location.href = '/admin/teams' }
+              else { r.json().then(function (e) { alert(e.error || 'Failed to delete'); deleteBtn.disabled = false; deleteBtn.textContent = 'Delete' }) }
+            })
+        })
+      }
+    })()
+  </script>
+</DashboardLayout>

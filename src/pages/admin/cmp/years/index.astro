@@ -1,0 +1,81 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const { data: years } = await supabaseAdmin
+  .from('cmp_programme_years')
+  .select('*, cmp_sessions(id)')
+  .order('start_date', { ascending: false })
+
+const rows = years ?? []
+
+function formatDate(d: string | null) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+// Count sessions per year
+function sessionCount(year: typeof rows[number]) {
+  const sessions = (year as unknown as { cmp_sessions: { id: string }[] }).cmp_sessions
+  return sessions?.length ?? 0
+}
+---
+
+<DashboardLayout title="CMP — Programme Years">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+    <div>
+      <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0 0 4px;">
+        <a href="/admin/cmp" style="color: var(--color-neutral-400); text-decoration: none;">CMP</a>
+      </p>
+      <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Programme Years</h1>
+      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">{rows.length} year{rows.length !== 1 ? 's' : ''}</p>
+    </div>
+    <a href="/admin/cmp/years/new"
+      style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+      + New year
+    </a>
+  </div>
+
+  {rows.length === 0 ? (
+    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 48px; text-align: center;">
+      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0 0 16px;">No programme years yet.</p>
+      <a href="/admin/cmp/years/new"
+        style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+        Create first year
+      </a>
+    </div>
+  ) : (
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      {rows.map(year => (
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 20px;">
+            <div>
+              <h2 style="font-family: var(--font-heading); font-size: 16px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">
+                <a href={`/admin/cmp/years/${year.id}`}
+                  style="color: var(--color-brand-navy); text-decoration: none;">{year.name as string}</a>
+              </h2>
+              <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">
+                {formatDate(year.start_date as string | null)} → {formatDate(year.end_date as string | null)}
+              </p>
+            </div>
+            <span style="display: inline-block; padding: 4px 12px; border-radius: var(--radius-full); background-color: var(--color-brand-navy-10, #f0f0f7); font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-brand-navy);">
+              {sessionCount(year)} session{sessionCount(year) !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <div style="display: flex; gap: 12px;">
+            <a href={`/admin/cmp/years/${year.id}/edit`}
+              style="padding: 6px 14px; background: var(--color-neutral-100); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); text-decoration: none;">
+              Edit
+            </a>
+            <a href={`/admin/cmp/years/${year.id}`}
+              style="padding: 6px 14px; background: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; text-decoration: none;">
+              View sessions →
+            </a>
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+</DashboardLayout>

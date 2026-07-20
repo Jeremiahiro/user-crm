@@ -1,0 +1,346 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin, getTeamMemberIds } from '@/lib/rbac'
+
+const user = Astro.locals.user
+if (!user) return Astro.redirect('/login')
+const admin = isAdmin(user)
+const docId = Astro.params.id ?? ''
+
+const { data: doc } = await supabaseAdmin
+  .from('documents')
+  .select('*, document_type:document_types(*), training:trainings(id, title), uploader:people!person_id(id, full_name, email), reviewer:people!reviewer_id(full_name)')
+  .eq('id', docId)
+  .single()
+if (!doc) return Astro.redirect('/admin/documents')
+
+const isOwn = (doc as any).uploader?.id === user.person_id
+if (!admin && !isOwn) {
+  const leadMemberIds = await getTeamMemberIds(user.person_id ?? '')
+  if (!leadMemberIds.has((doc as any).person_id)) return Astro.redirect('/admin/documents')
+}
+const canReviewDoc = admin || !isOwn
+
+const { data: signedData } = await supabaseAdmin.storage
+  .from('member-documents')
+  .createSignedUrl((doc as any).storage_path, 3600)
+const viewUrl = signedData?.signedUrl ?? null
+
+let actionError = ''
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  const action = form.get('action') as string
+
+  if (action === 'reassign') {
+    if (!admin) { actionError = 'Only admins can reassign documents.' }
+    else {
+      const newPersonId = (form.get('person_id') as string | null) ?? ''
+      if (!newPersonId) { actionError = 'Please select a person first.' }
+      else {
+        const res = await fetch(`${Astro.url.origin}/api/documents/${docId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+          body: JSON.stringify({ person_id: newPersonId }),
+        })
+        if (res.ok) return Astro.redirect(`/admin/documents/${docId}`)
+        else {
+          const body = await res.json() as { error?: string }
+          actionError = body.error ?? 'Reassign failed.'
+        }
+      }
+    }
+  } else {
+    const reviewer_notes = (form.get('reviewer_notes') as string | null) || null
+    const res = await fetch(`${Astro.url.origin}/api/documents/${docId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+      body: JSON.stringify({ action, reviewer_notes }),
+    })
+    if (res.ok) return Astro.redirect(`/admin/documents/${docId}`)
+    else {
+      const body = await res.json() as { error?: string }
+      actionError = body.error ?? 'Action failed.'
+    }
+  }
+}
+
+function fmt(d: string | null) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+const STATUS_BG: Record<string, string> = {
+  pending: 'var(--color-warning-50)',
+  approved: 'var(--color-success-50)',
+  rejected: 'var(--color-danger-50)',
+}
+const STATUS_COLOR: Record<string, string> = {
+  pending: 'var(--color-warning-700)',
+  approved: 'var(--color-success-700)',
+  rejected: 'var(--color-danger-700)',
+}
+const STATUS_BORDER: Record<string, string> = {
+  pending: 'var(--color-warning-300)',
+  approved: 'var(--color-success-100)',
+  rejected: 'var(--color-danger-100)',
+}
+const d = doc as any
+---
+
+<DashboardLayout title={d.title}>
+  <div style="max-width: 900px;">
+    <Breadcrumb crumbs={[{ label: 'Documents', href: '/admin/documents' }, { label: d.title }]} />
+
+    <!-- Header -->
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;">
+      <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">{d.title}</h1>
+      <span style={`display: inline-block; padding: 3px 12px; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 12px; font-weight: 600; background-color: ${STATUS_BG[d.status] ?? 'var(--color-neutral-100)'}; color: ${STATUS_COLOR[d.status] ?? 'var(--color-neutral-700)'}; border: 1px solid ${STATUS_BORDER[d.status] ?? 'var(--color-neutral-200)'};`}>
+        {d.status.charAt(0).toUpperCase() + d.status.slice(1)}
+      </span>
+    </div>
+
+    <!-- Two-column layout -->
+    <div style="display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start;">
+
+      <!-- Left: document info card -->
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 28px; display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div>
+            <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px;">Document Type</p>
+            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); margin: 0;">{d.document_type?.name ?? '—'}</p>
+          </div>
+          <div>
+            <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px;">Uploaded</p>
+            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); margin: 0;">{fmt(d.created_at)}</p>
+          </div>
+          {d.issued_by && (
+            <div>
+              <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px;">Issued by</p>
+              <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); margin: 0;">{d.issued_by}</p>
+            </div>
+          )}
+          {d.expiry_date && (
+            <div>
+              <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px;">Expiry date</p>
+              <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); margin: 0;">{fmt(d.expiry_date)}</p>
+            </div>
+          )}
+        </div>
+
+        {d.training && (
+          <div style="padding-top: 4px; border-top: 1px solid var(--color-neutral-100);">
+            <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px;">Linked Training</p>
+            <a href={`/admin/trainings/${d.training.id}`}
+              style="font-family: var(--font-body); font-size: 14px; color: var(--color-brand-navy); text-decoration: none; font-weight: 500;">
+              {d.training.title}
+            </a>
+          </div>
+        )}
+
+        <div style="padding-top: 4px; border-top: 1px solid var(--color-neutral-100);">
+          <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 6px;">Uploaded by</p>
+          {d.uploader ? (
+            <div>
+              <a href={`/admin/members/${d.uploader.id}`}
+                style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none;">
+                {d.uploader.full_name}
+              </a>
+              <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 2px 0 0;">{d.uploader.email}</p>
+            </div>
+          ) : (
+            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">—</p>
+          )}
+        </div>
+
+        {viewUrl && (
+          <div style="padding-top: 8px;">
+            <a href={viewUrl} target="_blank" rel="noopener noreferrer"
+              style="display: inline-block; padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+              View file &#8599;
+            </a>
+          </div>
+        )}
+      </div>
+
+      <!-- Right: review panel -->
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+        <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">Review</h2>
+
+        {d.status === 'approved' && (
+          <div style="background-color: var(--color-success-50); border: 1px solid var(--color-success-100); border-radius: var(--radius-md); padding: 14px 16px;">
+            <p style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-success-700); margin: 0 0 4px;">Approved</p>
+            {d.reviewer && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-success-700); margin: 0 0 2px;">by {d.reviewer.full_name}</p>}
+            {d.reviewed_at && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-success-700); margin: 0 0 6px;">{fmt(d.reviewed_at)}</p>}
+            {d.reviewer_notes && <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-success-700); margin: 0; white-space: pre-wrap;">{d.reviewer_notes}</p>}
+          </div>
+        )}
+
+        {d.status === 'rejected' && (
+          <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-100); border-radius: var(--radius-md); padding: 14px 16px;">
+            <p style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-danger-700); margin: 0 0 4px;">Rejected</p>
+            {d.reviewer && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-700); margin: 0 0 2px;">by {d.reviewer.full_name}</p>}
+            {d.reviewed_at && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-700); margin: 0 0 6px;">{fmt(d.reviewed_at)}</p>}
+            {d.reviewer_notes && <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-danger-700); margin: 0; white-space: pre-wrap;">{d.reviewer_notes}</p>}
+          </div>
+        )}
+
+        {d.status === 'pending' && canReviewDoc && (
+          <form method="POST" style="display: flex; flex-direction: column; gap: 14px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label for="reviewerNotes" style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Notes (required to reject)</label>
+              <textarea id="reviewerNotes" name="reviewer_notes" rows={4}
+                placeholder="Optional notes for the member..."
+                style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); resize: vertical;"></textarea>
+            </div>
+
+            {actionError && (
+              <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 10px 14px; font-family: var(--font-body); font-size: 13px; color: var(--color-danger-700);">
+                {actionError}
+              </div>
+            )}
+
+            <div style="display: flex; gap: 8px;">
+              <button type="submit" name="action" value="approve"
+                style="flex: 1; padding: 10px 0; background-color: var(--color-success-700); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+                Approve
+              </button>
+              <button type="submit" name="action" value="reject" id="rejectBtn"
+                style="flex: 1; padding: 10px 0; background-color: var(--color-danger-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+                Reject
+              </button>
+            </div>
+          </form>
+        )}
+
+        {d.status === 'pending' && !canReviewDoc && (
+          <div style="background-color: var(--color-neutral-50); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); padding: 14px 16px;">
+            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); margin: 0;">Awaiting review by an admin or team lead.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Assigned to — admin only */}
+      {admin && (
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; margin-top: 16px; display: flex; flex-direction: column; gap: 12px;">
+          <div>
+            <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 4px;">Assigned to</h2>
+            <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">Change who this document belongs to.</p>
+          </div>
+
+          {actionError && (
+            <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 10px 14px; font-family: var(--font-body); font-size: 13px; color: var(--color-danger-700);">
+              {actionError}
+            </div>
+          )}
+
+          <form method="POST" id="reassignForm" style="display: flex; flex-direction: column; gap: 10px;">
+            <input type="hidden" name="action" value="reassign" />
+            <input type="hidden" name="person_id" id="reassignPersonId" value="" />
+
+            <div style="position: relative;">
+              <input id="reassignSearch" type="text" placeholder="Search by name or email…" autocomplete="off"
+                value={d.uploader?.full_name ?? ''}
+                style="width: 100%; padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); box-sizing: border-box;" />
+              <div id="reassignDropdown"
+                style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid var(--color-neutral-300); border-top: none; border-radius: 0 0 var(--radius-md) var(--radius-md); max-height: 200px; overflow-y: auto; z-index: 200; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+              </div>
+            </div>
+
+            <div id="reassignSelected" style="display: none; background: var(--color-neutral-50); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); padding: 10px 12px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+            </div>
+
+            <button type="submit" id="reassignBtn" disabled
+              style="padding: 9px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer; opacity: 0.4; transition: opacity .15s;">
+              Reassign document
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
+  </div>
+</DashboardLayout>
+
+<style>
+  @media (max-width: 700px) {
+    div[style*="grid-template-columns: 1fr 340px"] {
+      grid-template-columns: 1fr !important;
+    }
+  }
+</style>
+
+<script is:inline>
+  var reassignSearch = document.getElementById('reassignSearch')
+  if (reassignSearch) {
+    var reassignDropdown = document.getElementById('reassignDropdown')
+    var reassignPersonId = document.getElementById('reassignPersonId')
+    var reassignSelected = document.getElementById('reassignSelected')
+    var reassignBtn = document.getElementById('reassignBtn')
+    var reassignDebounce
+
+    function renderReassignDropdown(people) {
+      reassignDropdown.innerHTML = ''
+      if (!people || !people.length) {
+        var empty = document.createElement('div')
+        empty.textContent = reassignSearch.value.trim().length < 3 ? 'Type at least 3 characters…' : 'No results'
+        empty.style.cssText = 'padding: 10px 14px; font-size: 13px; color: var(--color-neutral-400); font-family: var(--font-body);'
+        reassignDropdown.appendChild(empty)
+      } else {
+        people.forEach(function(p) {
+          var el = document.createElement('div')
+          el.style.cssText = 'padding: 10px 14px; cursor: pointer; font-family: var(--font-body); font-size: 13px;'
+          el.innerHTML = '<span style="font-weight:500;color:var(--color-neutral-800);">' + p.full_name + '</span>' +
+            '<span style="font-size:12px;color:var(--color-neutral-400);margin-left:8px;">' + p.email + '</span>'
+          el.addEventListener('mouseenter', function() { el.style.background = 'var(--color-neutral-50)' })
+          el.addEventListener('mouseleave', function() { el.style.background = '' })
+          el.addEventListener('mousedown', function(e) {
+            e.preventDefault()
+            reassignPersonId.value = p.id
+            reassignSearch.value = p.full_name
+            reassignDropdown.style.display = 'none'
+            reassignSelected.textContent = 'Will assign to: ' + p.full_name + ' (' + p.email + ')'
+            reassignSelected.style.display = 'block'
+            reassignBtn.disabled = false
+            reassignBtn.style.opacity = '1'
+          })
+          reassignDropdown.appendChild(el)
+        })
+      }
+      reassignDropdown.style.display = 'block'
+    }
+
+    reassignSearch.addEventListener('input', function() {
+      clearTimeout(reassignDebounce)
+      reassignPersonId.value = ''
+      reassignSelected.style.display = 'none'
+      reassignBtn.disabled = true
+      reassignBtn.style.opacity = '0.4'
+      if (reassignSearch.value.trim().length < 3) { reassignDropdown.style.display = 'none'; return }
+      reassignDebounce = setTimeout(async function() {
+        try {
+          var res = await fetch('/api/people/search?q=' + encodeURIComponent(reassignSearch.value.trim()))
+          var json = await res.json()
+          renderReassignDropdown(json.data ?? [])
+        } catch (e) { reassignDropdown.style.display = 'none' }
+      }, 250)
+    })
+
+    reassignSearch.addEventListener('focus', function() {
+      if (reassignSearch.value.trim().length >= 3) {
+        fetch('/api/people/search?q=' + encodeURIComponent(reassignSearch.value.trim()))
+          .then(function(r) { return r.json() })
+          .then(function(j) { renderReassignDropdown(j.data ?? []) })
+      }
+    })
+
+    reassignSearch.addEventListener('blur', function() {
+      setTimeout(function() { reassignDropdown.style.display = 'none' }, 150)
+    })
+
+    document.getElementById('reassignForm').addEventListener('submit', function(e) {
+      if (!reassignPersonId.value) { e.preventDefault(); return }
+      if (!confirm('Reassign this document to the selected person?')) e.preventDefault()
+    })
+  }
+</script>

@@ -1,0 +1,273 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Badge from '@/components/ui/Badge.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { formatDate } from '@/lib/utils'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const currentYear = new Date().getFullYear()
+
+// ── Fetch all in-pipeline members (applicant, pending_review, approved)
+// + recently activated (last 30 days) so admins can see completed onboardings
+
+const thirtyDaysAgo = new Date()
+thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+type PersonRow = {
+  id: string
+  full_name: string
+  email: string
+  status: string
+  applied_at: string | null
+  date_joined: string | null
+  phone: string | null
+  address: string | null
+  date_of_birth: string | null
+}
+
+const { data: pipeline } = await supabaseAdmin
+  .from('people')
+  .select('id, full_name, email, status, applied_at, date_joined, phone, address, date_of_birth')
+  .in('status', ['applicant', 'pending_review', 'approved', 'active', 'cancelled'])
+  .eq('is_archived', false)
+  .order('applied_at', { ascending: true })
+
+const people = (pipeline ?? []) as PersonRow[]
+
+// For active members, only show recently joined (last 30 days)
+const filtered = people.filter(p =>
+  p.status !== 'active' ||
+  (p.date_joined && new Date(p.date_joined) >= thirtyDaysAgo),
+)
+
+// ── Derived checklist status — batch queries
+const personIds = filtered.map(p => p.id)
+
+const [
+  { data: dbsRecords },
+  { data: duesRecords },
+  { data: documents },
+  { data: teamAssignments },
+  { data: checklists },
+] = await Promise.all([
+  supabaseAdmin.from('dbs_records').select('person_id').eq('is_archived', false).in('person_id', personIds),
+  supabaseAdmin.from('dues').select('person_id').eq('year', currentYear).not('paid_at', 'is', null).in('person_id', personIds),
+  supabaseAdmin.from('documents').select('person_id').eq('upload_status', 'matched').in('person_id', personIds),
+  supabaseAdmin.from('person_teams').select('person_id').in('person_id', personIds),
+  supabaseAdmin.from('onboarding_checklists').select('*, training_completed_at').in('person_id', personIds),
+])
+
+// Build lookup sets
+const hasDbsIds = new Set((dbsRecords ?? []).map(r => r.person_id))
+const hasDuesIds = new Set((duesRecords ?? []).map(r => r.person_id))
+const hasDocIds = new Set((documents ?? []).map(r => r.person_id))
+const hasTeamIds = new Set((teamAssignments ?? []).map(r => r.person_id))
+
+type ChecklistRow = {
+  person_id: string
+  welcome_sent_at: string | null
+  dbs_completed_at: string | null
+  reference_checked_at: string | null
+  induction_done_at: string | null
+  agreement_signed_at: string | null
+  training_completed_at: string | null
+  completed_at: string | null
+}
+
+const checklistMap = new Map<string, ChecklistRow>(
+  ((checklists ?? []) as ChecklistRow[]).map(c => [c.person_id, c]),
+)
+
+function profileComplete(p: PersonRow): boolean {
+  return !!(p.full_name && p.email && p.phone && p.address && p.date_of_birth)
+}
+
+function checkedCount(p: PersonRow): number {
+  const cl = checklistMap.get(p.id)
+  let count = 0
+  if (profileComplete(p)) count++
+  if (hasDbsIds.has(p.id)) count++
+  if (hasDuesIds.has(p.id)) count++
+  if (hasDocIds.has(p.id)) count++
+  if (hasTeamIds.has(p.id)) count++
+  if (cl?.welcome_sent_at) count++
+  if (cl?.dbs_completed_at) count++
+  if (cl?.reference_checked_at) count++
+  if (cl?.induction_done_at) count++
+  if (cl?.agreement_signed_at) count++
+  if (cl?.training_completed_at) count++
+  return count
+}
+
+const TOTAL_ITEMS = 11
+
+// ── Group by status
+const stages = [
+  { key: 'applicant',      label: 'Applicant',     color: 'var(--color-neutral-400)',  advance: 'Move to In Progress' },
+  { key: 'pending_review', label: 'In Progress',   color: 'var(--color-warning-500)',  advance: 'Approve' },
+  { key: 'approved',       label: 'Approved',      color: 'var(--color-info-500)',     advance: 'Activate' },
+  { key: 'active',         label: 'Activated',     color: 'var(--color-success-500)',  advance: '' },
+  { key: 'cancelled',      label: 'Cancelled',     color: 'var(--color-danger-400)',   advance: '' },
+] as const
+
+function daysInStage(p: PersonRow): number {
+  const d = p.status === 'active' ? p.date_joined : p.applied_at
+  if (!d) return 0
+  return Math.floor((Date.now() - new Date(d).getTime()) / 86_400_000)
+}
+---
+
+<DashboardLayout title="Onboarding Pipeline">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px;">
+    <div>
+      <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Onboarding Pipeline</h1>
+      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+        {filtered.filter(p => !['active','cancelled'].includes(p.status)).length} member{filtered.filter(p => !['active','cancelled'].includes(p.status)).length !== 1 ? 's' : ''} in progress
+      </p>
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <a href="/admin/onboarding/analytics"
+        style="padding: 10px 16px; background: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+        Analytics
+      </a>
+      <a href="/admin/members/new"
+        style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+        + Add applicant
+      </a>
+    </div>
+  </div>
+
+  <!-- Status flash -->
+  <div id="statusBanner" style="display: none; padding: 14px 20px; border-radius: var(--radius-md); margin-bottom: 20px; font-family: var(--font-body); font-size: 14px;"></div>
+
+  <!-- ── Pipeline kanban ── -->
+  <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; align-items: start;">
+
+    {stages.map(stage => {
+      const stagePeople = filtered.filter(p => p.status === stage.key)
+      return (
+        <div>
+          <!-- Column header -->
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+            <div style={`width: 10px; height: 10px; border-radius: 50%; background-color: ${stage.color}; flex-shrink: 0;`}></div>
+            <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 700; color: var(--color-neutral-700); margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">{stage.label}</h2>
+            <span style="font-family: var(--font-heading); font-size: 12px; font-weight: 600; color: var(--color-neutral-400); margin-left: auto;">{stagePeople.length}</span>
+          </div>
+
+          <!-- Cards -->
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            {stagePeople.length === 0 ? (
+              <div style="padding: 20px; text-align: center; border: 1px dashed var(--color-neutral-200); border-radius: var(--radius-lg);">
+                <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-300); margin: 0;">None</p>
+              </div>
+            ) : stagePeople.map(person => {
+              const checked = checkedCount(person)
+              const progress = Math.round((checked / TOTAL_ITEMS) * 100)
+              const days = daysInStage(person)
+              const cl = checklistMap.get(person.id)
+              return (
+                <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 16px;">
+
+                  <!-- Name + days badge -->
+                  <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 4px; gap: 8px;">
+                    <a href={`/admin/onboarding/${person.id}`}
+                      style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none; line-height: 1.3;">
+                      {person.full_name}
+                    </a>
+                    <span style={`font-family: var(--font-body); font-size: 11px; font-weight: 500; white-space: nowrap; flex-shrink: 0; padding: 2px 7px; border-radius: var(--radius-full); ${days > 30 ? 'background: var(--color-danger-50); color: var(--color-danger-600);' : 'background: var(--color-neutral-100); color: var(--color-neutral-500);'}`}>{days}d</span>
+                  </div>
+
+                  <!-- Email -->
+                  <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0 0 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{person.email}</p>
+
+                  <!-- Progress bar -->
+                  <div style="margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                      <span style="font-family: var(--font-body); font-size: 11px; font-weight: 500; color: var(--color-neutral-500);">Checklist</span>
+                      <span style="font-family: var(--font-heading); font-size: 11px; font-weight: 700; color: var(--color-neutral-700);">{checked}/{TOTAL_ITEMS}</span>
+                    </div>
+                    <div style="height: 4px; background-color: var(--color-neutral-100); border-radius: var(--radius-full); overflow: hidden;">
+                      <div style={`height: 100%; width: ${progress}%; background-color: ${progress === 100 ? 'var(--color-success-500)' : 'var(--color-brand-gold)'}; border-radius: var(--radius-full); transition: width 0.3s;`}></div>
+                    </div>
+                  </div>
+
+                  <!-- Key missing items -->
+                  {(() => {
+                    const missing: string[] = []
+                    if (!profileComplete(person)) missing.push('Profile incomplete')
+                    if (!hasDbsIds.has(person.id)) missing.push('No DBS')
+                    if (!cl?.welcome_sent_at) missing.push('Welcome not sent')
+                    if (!hasDuesIds.has(person.id) && person.status !== 'applicant') missing.push('Dues unpaid')
+                    if (missing.length === 0) return null
+                    return (
+                      <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px;">
+                        {missing.slice(0, 2).map(m => (
+                          <span style="padding: 2px 8px; border-radius: var(--radius-full); background: #fff7ed; color: #c2410c; font-family: var(--font-body); font-size: 11px; font-weight: 500; border: 1px solid #fed7aa;">
+                            {m}
+                          </span>
+                        ))}
+                        {missing.length > 2 && (
+                          <span style="padding: 2px 8px; border-radius: var(--radius-full); background: var(--color-neutral-100); color: var(--color-neutral-500); font-family: var(--font-body); font-size: 11px;">+{missing.length - 2} more</span>
+                        )}
+                      </div>
+                    )
+                  })()}
+
+                  <!-- Actions -->
+                  <div style="display: flex; gap: 6px; margin-top: 4px;">
+                    <a href={`/admin/onboarding/${person.id}`}
+                      style="flex: 1; text-align: center; padding: 7px 8px; background: var(--color-neutral-100); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-600); text-decoration: none;">
+                      Details
+                    </a>
+                    {stage.advance && (
+                      <button
+                        data-person-id={person.id}
+                        data-advance-label={stage.advance}
+                        onclick={`advanceMember('${person.id}', '${stage.advance}')`}
+                        style={`flex: 1.5; padding: 7px 8px; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; font-weight: 600; cursor: pointer; ${stage.key === 'approved' ? 'background: var(--color-success-600); color: white;' : stage.key === 'pending_review' ? 'background: var(--color-info-600); color: white;' : 'background: var(--color-brand-navy); color: white;'}`}>
+                        {stage.advance}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )
+    })}
+
+  </div>
+</DashboardLayout>
+
+<script is:inline>
+  const banner = document.getElementById('statusBanner')
+
+  function showBanner(message, type) {
+    if (!banner) return
+    banner.textContent = message
+    banner.style.display = 'block'
+    banner.style.backgroundColor = type === 'success' ? 'var(--color-success-50)' : 'var(--color-danger-50)'
+    banner.style.border = `1px solid ${type === 'success' ? 'var(--color-success-200)' : 'var(--color-danger-200)'}`
+    banner.style.color = type === 'success' ? 'var(--color-success-700)' : 'var(--color-danger-700)'
+  }
+
+  async function advanceMember(personId, label) {
+    const sendEmail = confirm(`${label} this member?\n\nOK = advance and send status email\nCancel = advance without email`)
+    const res = await fetch(`/api/onboarding/${personId}/advance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ send_email: sendEmail }),
+    })
+    const data = await res.json()
+    if (res.ok && data.success) {
+      showBanner(`Member moved to "${data.newStatus}".${data.emailSent ? ' Email sent.' : ''}`, 'success')
+      setTimeout(() => window.location.reload(), 1500)
+    } else {
+      showBanner(`Failed: ${data.error ?? 'Unknown error'}`, 'error')
+    }
+  }
+
+  window.advanceMember = advanceMember
+</script>

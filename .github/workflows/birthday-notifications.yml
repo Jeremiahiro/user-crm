@@ -1,0 +1,29 @@
+name: Birthday Notifications
+
+on:
+  schedule:
+    # Runs every day at 08:00 UTC
+    - cron: '0 8 * * *'
+  # Allow manual trigger from GitHub Actions UI (useful for testing)
+  workflow_dispatch:
+
+jobs:
+  notify:
+    name: Send birthday notifications
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call birthday notifications endpoint
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.APP_URL }}/api/cron/birthday-notifications" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+
+          echo "Response status: $response"
+
+          if [ "$response" -ne 200 ]; then
+            echo "❌ Endpoint returned $response — treating as failure"
+            exit 1
+          fi
+
+          echo "✅ Birthday notifications sent successfully"

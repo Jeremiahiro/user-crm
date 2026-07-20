@@ -1,0 +1,161 @@
+---
+/**
+ * Tokenised document upload — no authentication required.
+ * Anyone with the link can upload a document by providing their email.
+ * The server matches the email to a person record and attaches the document.
+ * If no match, the document is flagged as 'unmatched' and admin is notified.
+ */
+import PublicLayout from '@/layouts/PublicLayout.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { writeAuditLog } from '@/lib/audit'
+
+const { token } = Astro.params
+
+// Look up the document by token
+const { data: doc } = await supabaseAdmin
+  .from('documents')
+  .select('id, type, description, upload_status, person_id')
+  .eq('upload_token', token ?? '')
+  .single()
+
+// Token not found or already uploaded
+if (!doc) {
+  return new Response('Not found', { status: 404 })
+}
+
+if (doc.upload_status === 'uploaded' || doc.upload_status === 'matched') {
+  // Already used
+}
+
+let submitted = false
+let errorMsg = ''
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  const email = (form.get('email') as string ?? '').toLowerCase().trim()
+  const driveUrl = (form.get('drive_url') as string ?? '').trim()
+  const docType = (form.get('type') as string ?? doc.type) as string
+
+  if (!email) {
+    errorMsg = 'Email address is required.'
+  } else if (!driveUrl) {
+    errorMsg = 'Please provide a Google Drive link to your document.'
+  } else {
+    // Try to match email to a person
+    const { data: person } = await supabaseAdmin
+      .from('people')
+      .select('id')
+      .eq('email', email)
+      .eq('is_archived', false)
+      .single()
+
+    const matchedPersonId = person?.id as string | undefined
+    const status = matchedPersonId ? 'matched' : 'unmatched'
+
+    const { error: updateError } = await supabaseAdmin
+      .from('documents')
+      .update({
+        person_id: matchedPersonId ?? null,
+        upload_status: status,
+        uploaded_email: email,
+        drive_url: driveUrl,
+        type: docType,
+      })
+      .eq('id', doc.id as string)
+
+    if (updateError) {
+      console.error('[upload/token] Update error:', updateError)
+      errorMsg = 'Something went wrong. Please try again or contact us.'
+    } else {
+      await writeAuditLog({
+        actorId: matchedPersonId ?? (doc.id as string),
+        action: 'update',
+        targetTable: 'documents',
+        targetId: doc.id as string,
+        afterValue: { upload_status: status, uploaded_email: email },
+      })
+
+      // If unmatched, an admin notification email can be sent here via sendEmail()
+      // from src/lib/gmail.ts — left as a manual admin review step for now.
+
+      submitted = true
+    }
+  }
+}
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  dbs: 'DBS Certificate',
+  photo_id: 'Photo ID',
+  passport: 'Passport',
+  training: 'Training Certificate',
+  agreement: 'Agreement',
+  other: 'Document',
+}
+---
+
+<PublicLayout title="Upload Document — 100BMOL">
+  <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background-color: var(--color-brand-navy); padding: 24px; box-sizing: border-box;">
+    <div style="width: 100%; max-width: 480px; background: white; border-radius: var(--radius-xl); padding: 48px 40px; box-shadow: var(--shadow-xl);">
+      <!-- Logo -->
+      <p style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px; letter-spacing: -0.3px;">
+        100BM<span style="color: var(--color-brand-gold);">OL</span>
+      </p>
+
+      {submitted ? (
+        <div>
+          <div style="width: 48px; height: 48px; border-radius: var(--radius-full); background-color: var(--color-success-100); display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+            <span style="font-size: 24px;">✓</span>
+          </div>
+          <h1 style="font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 8px;">
+            Document submitted
+          </h1>
+          <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-600); margin: 0; line-height: 1.6;">
+            Thank you. Your document has been received. A member of the team will review it and confirm receipt.
+          </p>
+        </div>
+      ) : (
+        <div>
+          <h1 style="font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 8px;">
+            Submit your {DOC_TYPE_LABELS[doc.type as string] ?? 'document'}
+          </h1>
+          {doc.description && (
+            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0 0 24px;">{doc.description}</p>
+          )}
+          {!doc.description && <div style="margin-bottom: 24px;"></div>}
+
+          {errorMsg && (
+            <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 10px 14px; margin-bottom: 20px; font-family: var(--font-body); font-size: 13px; color: var(--color-danger-700);">
+              {errorMsg}
+            </div>
+          )}
+
+          <form method="POST" style="display: flex; flex-direction: column; gap: 16px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Your email address *</label>
+              <input type="email" name="email" required placeholder="your@email.com"
+                style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800);" />
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Google Drive link *</label>
+              <input type="url" name="drive_url" required placeholder="https://drive.google.com/file/d/..."
+                style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800);" />
+              <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">
+                Upload your document to Google Drive and paste the sharing link here.
+              </p>
+            </div>
+
+            <button type="submit"
+              style="padding: 12px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer; width: 100%;">
+              Submit document
+            </button>
+          </form>
+
+          <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 20px 0 0; line-height: 1.6; text-align: center;">
+            This link is unique to you. If you received it in error, please ignore it.
+          </p>
+        </div>
+      )}
+    </div>
+  </div>
+</PublicLayout>

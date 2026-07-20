@@ -1,0 +1,141 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import Input from '@/components/ui/Input.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const { id } = Astro.params
+const { data: pillar } = await supabaseAdmin.from('pillars').select('*').eq('id', id ?? '').single()
+if (!pillar) return Astro.redirect('/admin/pillars')
+
+let errors: Record<string, string> = {}
+let values: Record<string, string> = {
+  name: pillar.name as string,
+  description: (pillar.description as string | null) ?? '',
+}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  values = Object.fromEntries(form.entries()) as Record<string, string>
+
+  const res = await fetch(`${Astro.url.origin}/api/pillars/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: Astro.request.headers.get('cookie') ?? '',
+    },
+    body: JSON.stringify({
+      name: values.name,
+      description: values.description || undefined,
+    }),
+  })
+
+  if (res.ok) {
+    return Astro.redirect('/admin/pillars')
+  } else {
+    const body = await res.json() as { issues?: { fieldErrors?: Record<string, string[]> } }
+    const fieldErrors = body.issues?.fieldErrors ?? {}
+    errors = Object.fromEntries(
+      Object.entries(fieldErrors).map(([k, v]) => [k, v[0] ?? ''])
+    )
+  }
+}
+---
+
+<DashboardLayout title={`Edit ${pillar.name}`}>
+  <div style="max-width: 600px;">
+    <Breadcrumb crumbs={[{ label: 'Pillars', href: '/admin/pillars' }, { label: pillar.name as string, href: '/admin/pillars' }, { label: 'Edit' }]} />
+
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+      <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">
+        Edit Pillar
+      </h1>
+      {!pillar.is_active && (
+        <span style="padding: 4px 10px; background: var(--color-neutral-100); border-radius: 20px; font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500);">
+          Archived
+        </span>
+      )}
+    </div>
+
+    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px; margin-bottom: 24px;">
+      <Input label="Name *" name="name" value={values.name} error={errors.name} required />
+      <Input label="Description" name="description" value={values.description} error={errors.description} />
+
+      <div style="display: flex; gap: 12px; padding-top: 8px;">
+        <button type="submit"
+          style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          Save changes
+        </button>
+        <a href="/admin/pillars"
+          style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+          Cancel
+        </a>
+      </div>
+    </form>
+
+    {pillar.is_active ? (
+      <!-- Archive zone -->
+      <div style="background: white; border: 1px solid var(--color-danger-200); border-radius: var(--radius-lg); padding: 24px;">
+        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--color-danger-700); margin: 0 0 8px;">
+          Archive pillar
+        </h2>
+        <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); margin: 0 0 16px; line-height: 1.5;">
+          Archiving removes this pillar from active lists. It cannot be archived while it has active teams assigned.
+        </p>
+        <button id="btn-archive"
+          style="padding: 8px 16px; background-color: white; color: var(--color-danger-600); border: 1px solid var(--color-danger-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
+          Archive pillar
+        </button>
+      </div>
+    ) : (
+      <!-- Unarchive zone -->
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
+        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--color-neutral-700); margin: 0 0 8px;">
+          Restore pillar
+        </h2>
+        <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); margin: 0 0 16px; line-height: 1.5;">
+          This pillar is archived and hidden from active lists. Restore it to make it active again.
+        </p>
+        <button id="btn-unarchive"
+          style="padding: 8px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
+          Restore pillar
+        </button>
+      </div>
+    )}
+  </div>
+</DashboardLayout>
+
+<script is:inline>
+  var btnArchive = document.getElementById('btn-archive')
+  var btnUnarchive = document.getElementById('btn-unarchive')
+  var pillarId = location.pathname.split('/')[3]
+
+  if (btnArchive) {
+    btnArchive.addEventListener('click', function () {
+      if (!confirm('Archive this pillar? It will be hidden from active lists but can be restored at any time.')) return
+      fetch('/api/pillars/' + pillarId, { method: 'DELETE' })
+        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b } }) })
+        .then(function (res) {
+          if (res.ok) window.location.href = '/admin/pillars'
+          else alert(res.body.error ?? 'Failed to archive pillar.')
+        })
+    })
+  }
+
+  if (btnUnarchive) {
+    btnUnarchive.addEventListener('click', function () {
+      fetch('/api/pillars/' + pillarId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: true }),
+      })
+        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b } }) })
+        .then(function (res) {
+          if (res.ok) window.location.href = '/admin/pillars'
+          else alert(res.body.error ?? 'Failed to restore pillar.')
+        })
+    })
+  }
+</script>

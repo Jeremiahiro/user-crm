@@ -1,0 +1,161 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Pagination from '@/components/ui/Pagination.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const PAGE_SIZE = 25
+const url = Astro.url
+const q = url.searchParams.get('q') ?? ''
+const mentorId = url.searchParams.get('mentor_id') ?? ''
+const programmeYearId = url.searchParams.get('programme_year_id') ?? ''
+const page = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'))
+const offset = (page - 1) * PAGE_SIZE
+
+let query = supabaseAdmin
+  .from('mentees')
+  .select('*, people!mentees_mentor_id_fkey(id, full_name), cmp_programme_years(id, name)', { count: 'exact' })
+  .eq('is_archived', false)
+  .order('full_name', { ascending: true })
+
+if (q) query = query.or(`full_name.ilike.%${q}%,email.ilike.%${q}%,school.ilike.%${q}%`)
+if (mentorId) query = query.eq('mentor_id', mentorId)
+if (programmeYearId) query = query.eq('programme_year_id', programmeYearId)
+
+query = query.range(offset, offset + PAGE_SIZE - 1)
+
+const { data: mentees, count: menteeCount } = await query
+const rows = mentees ?? []
+const totalPages = Math.ceil((menteeCount ?? 0) / PAGE_SIZE)
+
+const filterParams = new URLSearchParams()
+if (q) filterParams.set('q', q)
+if (mentorId) filterParams.set('mentor_id', mentorId)
+if (programmeYearId) filterParams.set('programme_year_id', programmeYearId)
+const paginationBase = `/admin/mentees${filterParams.toString() ? `?${filterParams}` : ''}`
+
+// For filter dropdowns
+const { data: members } = await supabaseAdmin
+  .from('people')
+  .select('id, full_name')
+  .eq('is_archived', false)
+  .order('full_name', { ascending: true })
+
+const { data: programmeYears } = await supabaseAdmin
+  .from('cmp_programme_years')
+  .select('id, year_label')
+  .order('year_label', { ascending: false })
+---
+
+<DashboardLayout title="Mentees">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+    <div>
+      <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Mentees</h1>
+      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">{rows.length} mentee{rows.length !== 1 ? 's' : ''}</p>
+    </div>
+    <a href="/admin/mentees/new"
+      style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+      + New mentee
+    </a>
+  </div>
+
+  <!-- Filters -->
+  <form method="GET" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: flex-end;">
+    <input type="text" name="q" value={q} placeholder="Search name, email, school…"
+      style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; min-width: 220px;" />
+    <select name="mentor_id" onchange="this.form.submit()"
+      style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
+      <option value="" selected={!mentorId}>All mentors</option>
+      {(members ?? []).map(m => (
+        <option value={m.id} selected={mentorId === m.id}>{m.full_name}</option>
+      ))}
+    </select>
+    <select name="programme_year_id" onchange="this.form.submit()"
+      style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
+      <option value="" selected={!programmeYearId}>All years</option>
+      {(programmeYears ?? []).map(py => (
+        <option value={py.id} selected={programmeYearId === py.id}>{py.name as string}</option>
+      ))}
+    </select>
+    <button type="submit"
+      style="padding: 8px 14px; background: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; cursor: pointer;">
+      Search
+    </button>
+    {(q || mentorId || programmeYearId) && (
+      <a href="/admin/mentees"
+        style="padding: 8px 12px; background: var(--color-neutral-100); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); text-decoration: none;">
+        Clear
+      </a>
+    )}
+  </form>
+
+  <!-- Mentees table -->
+  <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+    {rows.length === 0 ? (
+      <div style="padding: 48px; text-align: center;">
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">No mentees found.</p>
+      </div>
+    ) : (
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead style="background-color: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+          <tr>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Name</th>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">School</th>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Year group</th>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Mentor</th>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Programme year</th>
+            <th style="padding: 10px 16px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((mentee, i) => {
+            const mentor = (mentee as unknown as { people: { id: string; full_name: string } | null }).people
+            const py = (mentee as unknown as { cmp_programme_years: { id: string; name: string } | null }).cmp_programme_years
+            return (
+              <tr style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
+                <td style="padding: 14px 16px;">
+                  <a href={`/admin/mentees/${mentee.id}`}
+                    style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none;">
+                    {mentee.full_name as string}
+                  </a>
+                  <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 2px 0 0;">{mentee.email as string}</p>
+                </td>
+                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+                  {(mentee.school as string | null) ?? '—'}
+                </td>
+                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+                  {(mentee.year_group as string | null) ?? '—'}
+                </td>
+                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+                  {mentor ? (
+                    <a href={`/admin/members/${mentor.id}`}
+                      style="color: var(--color-brand-navy); text-decoration: none; font-size: 13px; font-family: var(--font-body);">
+                      {mentor.full_name}
+                    </a>
+                  ) : (
+                    <span style="color: var(--color-neutral-400);">Unassigned</span>
+                  )}
+                </td>
+                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+                  {py?.year_label ?? '—'}
+                </td>
+                <td style="padding: 14px 16px; text-align: right;">
+                  <a href={`/admin/mentees/${mentee.id}/edit`}
+                    style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); text-decoration: none; margin-right: 12px;">
+                    Edit
+                  </a>
+                  <a href={`/admin/mentees/${mentee.id}`}
+                    style="font-family: var(--font-body); font-size: 13px; color: var(--color-brand-navy); text-decoration: none;">
+                    View →
+                  </a>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    )}
+    <Pagination page={page} totalPages={totalPages} baseUrl={paginationBase} />
+  </div>
+</DashboardLayout>

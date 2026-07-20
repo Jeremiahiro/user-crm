@@ -1,0 +1,254 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Pagination from '@/components/ui/Pagination.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { classifyDbs } from '@/lib/compliance'
+import type { DbsStatus } from '@/lib/compliance'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const PAGE_SIZE = 50
+const page = Math.max(1, parseInt(Astro.url.searchParams.get('page') ?? '1'))
+
+// ── Org settings ─────────────────────────────────────────────────────────────
+const { data: settingsRows } = await supabaseAdmin
+  .from('org_settings')
+  .select('key, value')
+  .in('key', ['dbs_validity_years', 'dbs_warn_days'])
+
+const warnDays = parseInt(settingsRows?.find(s => s.key === 'dbs_warn_days')?.value ?? '60')
+const validityYears = parseInt(settingsRows?.find(s => s.key === 'dbs_validity_years')?.value ?? '3')
+
+// ── Members + their DBS records (fetch all — filter is computed, not a DB column) ──
+type DbsRecordRow = { expiry_date: string | null; clearance_date: string | null; created_at: string }
+type PersonRow = { id: string; full_name: string; email: string; dbs_records: DbsRecordRow[] }
+
+const { data: rawMembers } = await supabaseAdmin
+  .from('people')
+  .select('id, full_name, email, dbs_records!dbs_records_person_id_fkey(expiry_date, clearance_date, created_at)')
+  .eq('is_archived', false)
+  .order('full_name')
+
+const members = (rawMembers ?? []) as unknown as PersonRow[]
+
+// ── Classify each member ──────────────────────────────────────────────────────
+const today = new Date()
+
+type MemberRow = {
+  id: string
+  full_name: string
+  email: string
+  clearance_date: string | null
+  expiry_date: string | null
+  status: DbsStatus
+  days_remaining: number | null
+}
+
+const rows: MemberRow[] = members.map(m => {
+  // Sort DBS records newest first by clearance_date, fall back to created_at
+  const sorted = [...m.dbs_records].sort((a, b) => {
+    const da = a.clearance_date ?? a.created_at
+    const db_ = b.clearance_date ?? b.created_at
+    return da > db_ ? -1 : 1
+  })
+  const latest = sorted[0] ?? null
+
+  let expiryDate = latest?.expiry_date ?? null
+
+  // If no expiry_date stored but clearance_date present, compute it
+  if (!expiryDate && latest?.clearance_date) {
+    const d = new Date(latest.clearance_date)
+    d.setFullYear(d.getFullYear() + validityYears)
+    expiryDate = d.toISOString().slice(0, 10)
+  }
+
+  const status = classifyDbs(expiryDate, today, warnDays)
+
+  const daysRemaining = expiryDate
+    ? Math.ceil((new Date(expiryDate).getTime() - today.getTime()) / 86_400_000)
+    : null
+
+  return {
+    id: m.id,
+    full_name: m.full_name,
+    email: m.email,
+    clearance_date: latest?.clearance_date ?? null,
+    expiry_date: expiryDate,
+    status,
+    days_remaining: daysRemaining,
+  }
+})
+
+// Sort: expired first, then expiring_soon, then missing, then valid — within each group sort by days_remaining asc
+const statusOrder: Record<DbsStatus, number> = { expired: 0, expiring_soon: 1, missing: 2, valid: 3 }
+rows.sort((a, b) => {
+  const so = statusOrder[a.status] - statusOrder[b.status]
+  if (so !== 0) return so
+  if (a.days_remaining === null && b.days_remaining === null) return 0
+  if (a.days_remaining === null) return 1
+  if (b.days_remaining === null) return -1
+  return a.days_remaining - b.days_remaining
+})
+
+// ── Filter + paginate in memory (status is computed, not a DB column) ─────────
+const filter = (Astro.url.searchParams.get('status') ?? 'all') as DbsStatus | 'all'
+
+const counts = {
+  all: rows.length,
+  valid: rows.filter(r => r.status === 'valid').length,
+  expiring_soon: rows.filter(r => r.status === 'expiring_soon').length,
+  expired: rows.filter(r => r.status === 'expired').length,
+  missing: rows.filter(r => r.status === 'missing').length,
+}
+
+const allFiltered = filter === 'all' ? rows : rows.filter(r => r.status === filter)
+const totalPages = Math.max(1, Math.ceil(allFiltered.length / PAGE_SIZE))
+const safePage = Math.min(page, totalPages)
+const offset = (safePage - 1) * PAGE_SIZE
+const filtered = allFiltered.slice(offset, offset + PAGE_SIZE)
+const paginationBase = filter === 'all' ? '/admin/dbs' : `/admin/dbs?status=${filter}`
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtDate(iso: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function statusBadge(status: DbsStatus): { label: string; bg: string; color: string } {
+  switch (status) {
+    case 'valid':         return { label: 'Valid',          bg: '#f0fdf4', color: '#166534' }
+    case 'expiring_soon': return { label: 'Expiring soon',  bg: '#fffbeb', color: '#92400e' }
+    case 'expired':       return { label: 'Expired',        bg: '#fef2f2', color: '#991b1b' }
+    case 'missing':       return { label: 'No DBS record',  bg: '#f8fafc', color: '#64748b' }
+  }
+}
+
+function daysLabel(row: MemberRow): string {
+  if (row.status === 'missing') return '—'
+  if (row.days_remaining === null) return '—'
+  if (row.days_remaining < 0) return `${Math.abs(row.days_remaining)}d overdue`
+  if (row.days_remaining === 0) return 'Expires today'
+  return `${row.days_remaining}d left`
+}
+---
+
+<DashboardLayout title="DBS Status">
+  <div>
+    <!-- Header -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <h1 style="font-family: var(--font-heading); font-size: 28px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 6px;">
+          DBS Status Board
+        </h1>
+        <p style="color: var(--color-neutral-600); font-size: 15px; margin: 0;">
+          All members · validity {validityYears} yr · warning {warnDays} days
+        </p>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <a
+          href="/admin/dbs/export"
+          style="
+            padding: 8px 16px;
+            border: 1px solid var(--color-neutral-300);
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--color-neutral-700);
+            text-decoration: none;
+            background: white;
+          "
+        >Export CSV</a>
+      </div>
+    </div>
+
+    <!-- Status filter tabs -->
+    <div style="display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--color-neutral-200); padding-bottom: 0;">
+      {(['all', 'expired', 'expiring_soon', 'missing', 'valid'] as const).map(tab => {
+        const labels: Record<string, string> = {
+          all: 'All', expired: 'Expired', expiring_soon: 'Expiring soon', missing: 'No record', valid: 'Valid',
+        }
+        const active = filter === tab
+        return (
+          <a
+            href={`/admin/dbs${tab === 'all' ? '' : `?status=${tab}`}`}
+            style={`
+              padding: 8px 14px;
+              font-size: 13px;
+              font-weight: ${active ? '600' : '500'};
+              font-family: var(--font-body);
+              text-decoration: none;
+              border-bottom: 2px solid ${active ? 'var(--color-brand-navy)' : 'transparent'};
+              color: ${active ? 'var(--color-brand-navy)' : 'var(--color-neutral-600)'};
+              white-space: nowrap;
+              margin-bottom: -1px;
+            `}
+          >
+            {labels[tab]}
+            <span style={`
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              width: 20px;
+              height: 18px;
+              border-radius: 9px;
+              font-size: 11px;
+              font-weight: 600;
+              margin-left: 6px;
+              background-color: ${active ? 'var(--color-brand-navy)' : 'var(--color-neutral-200)'};
+              color: ${active ? 'white' : 'var(--color-neutral-600)'};
+            `}>{counts[tab]}</span>
+          </a>
+        )
+      })}
+    </div>
+
+    <!-- Table -->
+    <div style="background: white; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-lg); overflow: hidden;">
+      {filtered.length === 0 ? (
+        <div style="padding: 48px 24px; text-align: center; color: var(--color-neutral-500); font-size: 14px;">
+          No members in this category.
+        </div>
+      ) : (
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px; font-family: var(--font-body);">
+          <thead>
+            <tr style="background-color: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+              <th style="text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.04em;">Name</th>
+              <th style="text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.04em;">Email</th>
+              <th style="text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.04em;">Clearance date</th>
+              <th style="text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.04em;">Expiry date</th>
+              <th style="text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.04em;">Status</th>
+              <th style="text-align: right; padding: 12px 16px; font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.04em;">Days</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((row, i) => {
+              const badge = statusBadge(row.status)
+              return (
+                <tr style={`border-bottom: ${i < filtered.length - 1 ? '1px solid var(--color-neutral-100)' : 'none'};`}>
+                  <td style="padding: 12px 16px; font-weight: 500; color: var(--color-neutral-900);">
+                    <a href={`/admin/members/${row.id}`} style="color: inherit; text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                      {row.full_name}
+                    </a>
+                  </td>
+                  <td style="padding: 12px 16px; color: var(--color-neutral-600);">{row.email}</td>
+                  <td style="padding: 12px 16px; color: var(--color-neutral-600);">{fmtDate(row.clearance_date)}</td>
+                  <td style="padding: 12px 16px; color: var(--color-neutral-600);">{fmtDate(row.expiry_date)}</td>
+                  <td style="padding: 12px 16px;">
+                    <span style={`display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; background-color: ${badge.bg}; color: ${badge.color};`}>
+                      {badge.label}
+                    </span>
+                  </td>
+                  <td style={`padding: 12px 16px; text-align: right; font-size: 13px; font-weight: 500; color: ${row.days_remaining !== null && row.days_remaining < 0 ? '#991b1b' : row.days_remaining !== null && row.days_remaining <= warnDays ? '#92400e' : 'var(--color-neutral-600)'};`}>
+                    {daysLabel(row)}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+    <Pagination page={safePage} totalPages={totalPages} baseUrl={paginationBase} />
+  </div>
+
+</DashboardLayout>

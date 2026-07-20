@@ -1,0 +1,736 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin as checkIsAdmin, isMentor as checkIsMentor } from '@/lib/rbac'
+
+const user = Astro.locals.user
+if (!user) return Astro.redirect('/login')
+
+const today = new Date()
+const todayStr = today.toISOString().split('T')[0] as string
+const sixtyDaysOut = new Date(today)
+sixtyDaysOut.setDate(today.getDate() + 60)
+const sixtyDaysStr = sixtyDaysOut.toISOString().split('T')[0] as string
+const currentYear = today.getFullYear()
+const currentMonth = today.getMonth() + 1
+
+const userIsAdmin = checkIsAdmin(user)
+const userIsMentor = checkIsMentor(user)
+
+function formatDate(d: string) {
+  return new Date(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+function formatTime(t: string | null) {
+  if (!t) return ''
+  const [h, m] = t.split(':')
+  const hour = parseInt(h ?? '0')
+  return `${hour % 12 || 12}:${m}${hour >= 12 ? 'pm' : 'am'}`
+}
+function timeAgo(d: string): string {
+  const diff = Date.now() - new Date(d).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  return `${days}d ago`
+}
+
+// ── Admin dashboard data ──────────────────────────────────────────────────────
+let totalMembers = 0, activeMembers = 0, pendingMembers = 0, volunteersCount = 0
+let dbsExpiring = 0, dbsExpired = 0, duesCompliancePct = 0, membersPaidThisYear = 0, eligibleCount = 0
+
+type Session = {
+  id: string; title: string; session_date: string; session_time: string | null
+  location: string | null; cmp_programme_years: { name: string } | null
+}
+type PraiseRow = {
+  id: string; message: string; visibility: string; created_at: string
+  'people!praise_recipient_id_fkey': { id: string; full_name: string } | null
+  'people!praise_given_by_fkey': { id: string; full_name: string } | null
+}
+type ActivityRow = {
+  id: string; action: string; target_table: string; created_at: string
+  'people!audit_log_actor_id_fkey': { id: string; full_name: string } | null
+}
+
+let sessions: Session[] = []
+let praiseRows: PraiseRow[] = []
+let activityRows: ActivityRow[] = []
+
+const TABLE_LABELS: Record<string, string> = {
+  people: 'member', teams: 'team', pillars: 'pillar', roles: 'role',
+  elected_position_tenures: 'position tenure', documents: 'document',
+  dbs_records: 'DBS record', dues: 'dues', awards: 'award', praise: 'praise',
+  mentees: 'mentee', cmp_sessions: 'CMP session', cmp_attendance: 'attendance',
+  participation_events: 'participation event',
+}
+const ACTION_LABELS: Record<string, string> = {
+  create: 'Created', update: 'Updated', archive: 'Archived',
+  delete: 'Deleted', role_grant: 'Granted role', tenure_create: 'Assigned to position', tenure_end: 'Closed tenure',
+}
+
+if (userIsAdmin) {
+  const [
+    { count: tm },
+    { count: am },
+    { count: pm },
+    { count: vc },
+    { count: de },
+    { count: dex },
+    { data: upcomingSessions },
+    { data: recentPraise },
+    { data: recentActivity },
+  ] = await Promise.all([
+    supabaseAdmin.from('people').select('*', { count: 'exact', head: true }).eq('is_archived', false),
+    supabaseAdmin.from('people').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('is_archived', false),
+    supabaseAdmin.from('people').select('*', { count: 'exact', head: true }).eq('status', 'pending_review').eq('is_archived', false),
+    supabaseAdmin.from('people').select('*', { count: 'exact', head: true }).contains('person_types', ['volunteer']).eq('is_archived', false),
+    supabaseAdmin.from('dbs_records').select('*', { count: 'exact', head: true })
+      .lte('expiry_date', sixtyDaysStr).gte('expiry_date', todayStr),
+    supabaseAdmin.from('dbs_records').select('*', { count: 'exact', head: true })
+      .lt('expiry_date', todayStr),
+    supabaseAdmin.from('cmp_sessions')
+      .select('id, title, session_date, session_time, location, cmp_programme_years(name)')
+      .gte('session_date', todayStr)
+      .eq('is_cancelled', false)
+      .order('session_date', { ascending: true })
+      .limit(5),
+    supabaseAdmin.from('praise')
+      .select('id, message, visibility, created_at, people!praise_recipient_id_fkey(id, full_name), people!praise_given_by_fkey(id, full_name)')
+      .eq('is_archived', false)
+      .order('created_at', { ascending: false })
+      .limit(5),
+    supabaseAdmin.from('audit_log')
+      .select('id, action, target_table, created_at, people!audit_log_actor_id_fkey(id, full_name)')
+      .order('created_at', { ascending: false })
+      .limit(10),
+  ])
+
+  totalMembers = tm ?? 0
+  activeMembers = am ?? 0
+  pendingMembers = pm ?? 0
+  volunteersCount = vc ?? 0
+  dbsExpiring = de ?? 0
+  dbsExpired = dex ?? 0
+  sessions = (upcomingSessions ?? []) as unknown as Session[]
+  praiseRows = (recentPraise ?? []) as unknown as PraiseRow[]
+  activityRows = (recentActivity ?? []) as unknown as ActivityRow[]
+
+  // Dues compliance
+  const { data: dueEligiblePeople } = await supabaseAdmin
+    .from('people')
+    .select('id')
+    .eq('is_archived', false)
+    .or('gender.is.null,gender.neq.female')
+  const dueEligibleIds = new Set(((dueEligiblePeople ?? []) as { id: string }[]).map(p => p.id))
+  eligibleCount = dueEligibleIds.size
+
+  const { data: duesPaidRows } = await supabaseAdmin
+    .from('dues')
+    .select('person_id')
+    .eq('year', currentYear)
+  membersPaidThisYear = new Set(
+    ((duesPaidRows ?? []) as { person_id: string }[])
+      .map(d => d.person_id)
+      .filter(id => dueEligibleIds.has(id))
+  ).size
+  duesCompliancePct = eligibleCount > 0 ? Math.round((membersPaidThisYear / eligibleCount) * 100) : 0
+}
+
+// ── Member dashboard data ─────────────────────────────────────────────────────
+type DbsRecord = { clearance_date: string | null; expiry_date: string | null }
+type AwardRow = { id: string; type: string; year: number; citation: string | null; created_at: string }
+type MemberPraiseRow = { id: string; message: string; created_at: string; 'people!praise_given_by_fkey': { full_name: string } | null }
+type TeamRow = { team_id: string; is_team_lead: boolean; joined_at: string; teams: { id: string; name: string; description: string | null } | null }
+type BuddyRow = { id: string; person_id: string; buddy_id: string; assigned_at: string }
+type PersonRow = { id: string; full_name: string; email: string; phone: string | null }
+
+let myDbsRecord: DbsRecord | null = null
+let myAwardsCount = 0
+let myPraiseReceivedCount = 0
+let myPraiseGivenCount = 0
+let myRecentAwards: AwardRow[] = []
+let myRecentPraise: MemberPraiseRow[] = []
+let myUpcomingSessions: Session[] = []
+let myTeams: TeamRow[] = []
+let myBuddy: (BuddyRow & { buddyPerson?: PersonRow | null }) | null = null
+let iAmBuddyTo: (BuddyRow & { primaryPerson?: PersonRow | null })[] = []
+let myDuesPaid = 0
+let myDuesPending = 0
+
+let myDbsStatus = { label: 'No record', color: 'var(--color-neutral-500)' }
+
+if (!userIsAdmin && user.person_id) {
+  const pid = user.person_id
+
+  const [
+    { data: dbsRec },
+    { count: awardsCount },
+    { count: praiseRecCount },
+    { count: praiseGivenCount },
+    { data: recentAwards },
+    { data: memberRecentPraise },
+    { data: memberUpcomingSessions },
+    { data: memberTeams },
+    { data: buddyAsPersonId },
+    { data: buddyAsBuddyId },
+  ] = await Promise.all([
+    supabaseAdmin
+      .from('dbs_records')
+      .select('clearance_date, expiry_date')
+      .eq('person_id', pid)
+      .order('clearance_date', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('awards')
+      .select('*', { count: 'exact', head: true })
+      .eq('person_id', pid),
+    supabaseAdmin
+      .from('praise')
+      .select('*', { count: 'exact', head: true })
+      .eq('recipient_id', pid)
+      .eq('is_archived', false),
+    supabaseAdmin
+      .from('praise')
+      .select('*', { count: 'exact', head: true })
+      .eq('given_by', pid)
+      .eq('is_archived', false),
+    supabaseAdmin
+      .from('awards')
+      .select('id, type, year, citation, created_at')
+      .eq('person_id', pid)
+      .order('created_at', { ascending: false })
+      .limit(3),
+    supabaseAdmin
+      .from('praise')
+      .select('id, message, created_at, people!praise_given_by_fkey(full_name)')
+      .eq('recipient_id', pid)
+      .eq('is_archived', false)
+      .eq('visibility', 'public')
+      .order('created_at', { ascending: false })
+      .limit(3),
+    supabaseAdmin
+      .from('cmp_sessions')
+      .select('id, title, session_date, session_time, location, cmp_programme_years(name)')
+      .gte('session_date', todayStr)
+      .eq('is_cancelled', false)
+      .order('session_date', { ascending: true })
+      .limit(3),
+    supabaseAdmin
+      .from('person_teams')
+      .select('team_id, is_team_lead, joined_at, teams(id, name, description)')
+      .eq('person_id', pid),
+    supabaseAdmin
+      .from('buddy_assignments')
+      .select('id, person_id, buddy_id, assigned_at')
+      .eq('person_id', pid)
+      .is('ended_at', null)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('buddy_assignments')
+      .select('id, person_id, buddy_id, assigned_at')
+      .eq('buddy_id', pid)
+      .is('ended_at', null),
+  ])
+
+  myDbsRecord = dbsRec as DbsRecord | null
+  myAwardsCount = awardsCount ?? 0
+  myPraiseReceivedCount = praiseRecCount ?? 0
+  myPraiseGivenCount = praiseGivenCount ?? 0
+  myRecentAwards = (recentAwards ?? []) as AwardRow[]
+  myRecentPraise = (memberRecentPraise ?? []) as unknown as MemberPraiseRow[]
+  myUpcomingSessions = (memberUpcomingSessions ?? []) as unknown as Session[]
+  myTeams = (memberTeams ?? []) as unknown as TeamRow[]
+
+  // DBS status
+  if (myDbsRecord?.expiry_date) {
+    const diff = new Date(myDbsRecord.expiry_date).getTime() - Date.now()
+    const days = Math.floor(diff / 86_400_000)
+    if (days < 0) myDbsStatus = { label: 'Expired', color: 'var(--color-danger-600)' }
+    else if (days <= 90) myDbsStatus = { label: `Expires in ${days}d`, color: 'var(--color-warning-600)' }
+    else myDbsStatus = { label: 'Valid', color: 'var(--color-success-600)' }
+  }
+
+  // Resolve buddy person info
+  if (buddyAsPersonId) {
+    const { data: bp } = await supabaseAdmin
+      .from('people')
+      .select('id, full_name, email, phone')
+      .eq('id', (buddyAsPersonId as BuddyRow).buddy_id)
+      .single()
+    myBuddy = { ...(buddyAsPersonId as BuddyRow), buddyPerson: bp as PersonRow | null }
+  }
+  const buddyAsBuddyIdRows = (buddyAsBuddyId ?? []) as BuddyRow[]
+  if (buddyAsBuddyIdRows.length > 0) {
+    const personIds = buddyAsBuddyIdRows.map(r => r.person_id)
+    const { data: buddiedPeople } = await supabaseAdmin
+      .from('people')
+      .select('id, full_name, email, phone')
+      .in('id', personIds)
+    const buddiedMap = new Map(((buddiedPeople ?? []) as PersonRow[]).map(p => [p.id, p]))
+    iAmBuddyTo = buddyAsBuddyIdRows.map(r => ({ ...r, primaryPerson: buddiedMap.get(r.person_id) ?? null }))
+  }
+
+  // Dues summary for current year
+  const thisYear = new Date().getFullYear()
+  const [{ data: myDuesRows }, { data: mySubRows }] = await Promise.all([
+    supabaseAdmin.from('dues').select('month').eq('person_id', pid).eq('year', thisYear),
+    supabaseAdmin.from('dues_submissions').select('month, status').eq('person_id', pid).eq('year', thisYear).eq('status', 'pending'),
+  ])
+  myDuesPaid = (myDuesRows ?? []).length
+  myDuesPending = (mySubRows ?? []).length
+}
+
+const AWARD_LABELS: Record<string, string> = {
+  member_of_the_year: 'Member of the Year',
+  volunteer_of_the_year: 'Volunteer of the Year',
+  mentor_of_the_year: 'Mentor of the Year',
+  rising_star: 'Rising Star',
+  community_impact: 'Community Impact',
+  leadership_excellence: 'Leadership Excellence',
+  special_recognition: 'Special Recognition',
+}
+---
+
+<DashboardLayout title="Dashboard">
+  <!-- Header -->
+  <div style="margin-bottom: 28px;">
+    <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">
+      Welcome back, {user.name.split(' ')[0]}.
+    </h1>
+    <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+      {today.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+    </p>
+  </div>
+
+  {userIsAdmin ? (
+    <>
+      <!-- Admin: Stat cards row 1 — membership -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
+        {[
+          { label: 'Total members', value: totalMembers, href: '/admin/members', colour: 'var(--color-brand-navy)' },
+          { label: 'Active', value: activeMembers, href: '/admin/members?status=active', colour: 'var(--color-success-600)' },
+          { label: 'Pending review', value: pendingMembers, href: '/admin/onboarding', colour: 'var(--color-warning-600)' },
+          { label: 'Volunteers', value: volunteersCount, href: '/admin/members', colour: 'var(--color-neutral-500)' },
+        ].map(stat => (
+          <a href={stat.href} style="display: block; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; text-decoration: none;">
+            <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px;">{stat.label}</p>
+            <p style={`font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: ${stat.colour}; margin: 0; line-height: 1;`}>{stat.value}</p>
+          </a>
+        ))}
+      </div>
+
+      <!-- Admin: Stat cards row 2 — compliance -->
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px;">
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
+          <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px;">DBS expiring (60d)</p>
+          <p style={`font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: ${dbsExpiring > 0 ? 'var(--color-warning-600)' : 'var(--color-success-600)'}; margin: 0; line-height: 1;`}>{dbsExpiring}</p>
+        </div>
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
+          <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px;">DBS expired</p>
+          <p style={`font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: ${dbsExpired > 0 ? 'var(--color-danger-600)' : 'var(--color-success-600)'}; margin: 0; line-height: 1;`}>{dbsExpired}</p>
+        </div>
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
+          <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px;">Dues compliance {currentYear}</p>
+          <div style="display: flex; align-items: baseline; gap: 8px;">
+            <p style="font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: var(--color-brand-navy); margin: 0; line-height: 1;">{duesCompliancePct}%</p>
+            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">{membersPaidThisYear}/{eligibleCount}</p>
+          </div>
+          <div style="margin-top: 10px; height: 4px; background-color: var(--color-neutral-100); border-radius: 2px; overflow: hidden;">
+            <div style={`height: 100%; width: ${duesCompliancePct}%; background-color: var(--color-brand-navy); border-radius: 2px; transition: width 0.3s;`}></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin: Main content — 3-col layout -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr 360px; gap: 20px;">
+
+        <!-- Activity feed -->
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+          <div style="padding: 16px 20px; border-bottom: 1px solid var(--color-neutral-200);">
+            <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">Recent activity</h2>
+          </div>
+          {activityRows.length === 0 ? (
+            <p style="padding: 24px 20px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No activity yet.</p>
+          ) : (
+            <div>
+              {activityRows.map((a, i) => {
+                const actor = a['people!audit_log_actor_id_fkey']
+                const tableLabel = TABLE_LABELS[a.target_table] ?? a.target_table
+                const actionLabel = ACTION_LABELS[a.action] ?? a.action
+                return (
+                  <div style={`padding: 12px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''} display: flex; align-items: flex-start; gap: 10px;`}>
+                    <div style="width: 6px; height: 6px; border-radius: 50%; background-color: var(--color-brand-navy); margin-top: 6px; flex-shrink: 0;"></div>
+                    <div style="flex: 1; min-width: 0;">
+                      <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); margin: 0; line-height: 1.4;">
+                        <span style="font-weight: 500; color: var(--color-neutral-800);">{actor?.full_name ?? 'System'}</span>
+                        {' '}{actionLabel.toLowerCase()} a {tableLabel}
+                      </p>
+                      <p style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); margin: 2px 0 0;">{timeAgo(a.created_at)}</p>
+                    </div>
+                  </div>
+                )
+              })}
+              <div style="padding: 10px 20px; border-top: 1px solid var(--color-neutral-100);">
+                <a href="/admin/audit" style="font-family: var(--font-body); font-size: 12px; color: var(--color-brand-navy); text-decoration: none; font-weight: 500;">View full audit log →</a>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <!-- Upcoming CMP sessions + Praise -->
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+            <div style="padding: 16px 20px; border-bottom: 1px solid var(--color-neutral-200); display: flex; align-items: center; justify-content: space-between;">
+              <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">Upcoming CMP sessions</h2>
+              <a href="/admin/cmp/years" style="font-family: var(--font-body); font-size: 12px; color: var(--color-brand-navy); text-decoration: none;">View all →</a>
+            </div>
+            {sessions.length === 0 ? (
+              <p style="padding: 24px 20px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No upcoming sessions.</p>
+            ) : (
+              <div>
+                {sessions.map((s, i) => (
+                  <a href={`/admin/cmp/sessions/${s.id}`}
+                    style={`display: block; padding: 12px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''} text-decoration: none;`}>
+                    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+                      <div>
+                        <p style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-brand-navy); margin: 0 0 2px;">{s.title}</p>
+                        <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">
+                          {s.cmp_programme_years?.name}
+                          {s.location && <span> · {s.location}</span>}
+                        </p>
+                      </div>
+                      <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); white-space: nowrap; flex-shrink: 0;">
+                        {formatDate(s.session_date)}
+                        {s.session_time && <span style="margin-left: 4px;">{formatTime(s.session_time)}</span>}
+                      </span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <!-- Recent praise -->
+          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+            <div style="padding: 16px 20px; border-bottom: 1px solid var(--color-neutral-200); display: flex; align-items: center; justify-content: space-between;">
+              <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">Recent praise ⭐</h2>
+              <a href="/admin/praise" style="font-family: var(--font-body); font-size: 12px; color: var(--color-brand-navy); text-decoration: none;">View all →</a>
+            </div>
+            {praiseRows.filter(p => p.visibility === 'public').length === 0 ? (
+              <div style="padding: 20px;">
+                <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0 0 8px;">No praise yet.</p>
+                <a href="/admin/praise/new" style="font-family: var(--font-body); font-size: 12px; color: var(--color-brand-navy); text-decoration: none; font-weight: 500;">Give praise →</a>
+              </div>
+            ) : (
+              <div>
+                {praiseRows.filter(p => p.visibility === 'public').slice(0, 4).map((p, i) => {
+                  const recipient = p['people!praise_recipient_id_fkey']
+                  const giver = p['people!praise_given_by_fkey']
+                  return (
+                    <div style={`padding: 12px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}`}>
+                      <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0 0 4px;">
+                        {giver?.full_name ?? 'Admin'} → <span style="font-weight: 500; color: var(--color-brand-navy);">{recipient?.full_name ?? '—'}</span>
+                        <span style="margin-left: 6px; color: var(--color-neutral-400);">{timeAgo(p.created_at)}</span>
+                      </p>
+                      <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); margin: 0; line-height: 1.5; border-left: 2px solid var(--color-brand-gold); padding-left: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                        {p.message}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <!-- Quick actions sidebar -->
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px;">
+            <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 700; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 14px;">Quick actions</h2>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              {[
+                { label: '+ Add member', href: '/admin/members/new' },
+                { label: '+ Add mentee', href: '/admin/mentees/new' },
+                { label: '+ New CMP session', href: '/admin/cmp/sessions/new' },
+                { label: '+ Give award', href: '/admin/awards/new' },
+                { label: '+ Give praise', href: '/admin/praise/new' },
+                { label: '+ Log participation', href: '/admin/participation/new' },
+              ].map(link => (
+                <a href={link.href}
+                  style="display: block; padding: 8px 12px; background-color: var(--color-neutral-50); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); text-decoration: none; font-weight: 500;">
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <div style="background: var(--color-brand-navy); border-radius: var(--radius-lg); padding: 20px;">
+            <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 14px;">Admin areas</h2>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              {[
+                { label: 'Members', href: '/admin/members' },
+                { label: 'Onboarding', href: '/admin/onboarding' },
+                { label: 'Mentees', href: '/admin/mentees' },
+                { label: 'Teams', href: '/admin/teams' },
+                { label: 'Pillars', href: '/admin/pillars' },
+                { label: 'Positions', href: '/admin/positions' },
+                { label: 'Roles', href: '/admin/roles' },
+                { label: 'Documents', href: '/admin/documents' },
+                { label: 'Dues', href: '/admin/dues' },
+                { label: 'CMP', href: '/admin/cmp/years' },
+                { label: 'Awards', href: '/admin/awards' },
+                { label: 'Email', href: '/admin/email' },
+                { label: 'Audit log', href: '/admin/audit' },
+              ].map(link => (
+                <a href={link.href}
+                  style="display: block; padding: 6px 10px; border-radius: var(--radius-sm); font-family: var(--font-body); font-size: 13px; color: rgba(255,255,255,0.8); text-decoration: none;">
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  ) : (
+    <>
+      <!-- Member dashboard -->
+
+      <!-- Stat cards -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+        <!-- DBS Status -->
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
+          <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px;">My DBS</p>
+          <p style={`font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: ${myDbsStatus.color}; margin: 0; line-height: 1.2;`}>{myDbsStatus.label}</p>
+        </div>
+        <!-- Awards -->
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
+          <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px;">Awards</p>
+          <p style="font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: var(--color-brand-gold); margin: 0; line-height: 1;">🏆 {myAwardsCount}</p>
+        </div>
+        <!-- Praise received -->
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
+          <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px;">Praise received</p>
+          <p style="font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: var(--color-brand-navy); margin: 0; line-height: 1;">⭐ {myPraiseReceivedCount}</p>
+        </div>
+        <!-- Praise given -->
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
+          <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px;">Praise given</p>
+          <p style="font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: var(--color-neutral-600); margin: 0; line-height: 1;">⭐ {myPraiseGivenCount}</p>
+        </div>
+      </div>
+
+      <!-- Dues summary widget -->
+      {!userIsAdmin && (
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+          <div style="display: flex; align-items: center; gap: 20px;">
+            <span style="font-size: 24px;">💰</span>
+            <div>
+              <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 4px;">Dues — {new Date().getFullYear()}</p>
+              <p style="font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">
+                {myDuesPaid} month{myDuesPaid !== 1 ? 's' : ''} paid
+                {myDuesPending > 0 && (
+                  <span style="font-size: 13px; font-weight: 500; color: #92400e; margin-left: 8px;">· {myDuesPending} pending approval</span>
+                )}
+              </p>
+            </div>
+          </div>
+          <a href="/dues" style="padding: 8px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap;">
+            View dues
+          </a>
+        </div>
+      )}
+
+      <!-- Buddy cards row -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+        <!-- My Buddy -->
+        <div class="buddy-card" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">🤝 My Buddy</p>
+            {myBuddy?.buddyPerson && <button onclick="revealSection(this)" style="font-family: var(--font-body); font-size: 11px; font-weight: 500; color: var(--color-brand-navy); background: none; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-sm); padding: 2px 10px; cursor: pointer;">Reveal details</button>}
+          </div>
+          {myBuddy?.buddyPerson ? (
+            <div>
+              <p style="font-family: var(--font-heading); font-size: 16px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 6px;">{myBuddy.buddyPerson.full_name}</p>
+              {myBuddy.buddyPerson.email && (
+                <a href={`mailto:${myBuddy.buddyPerson.email}`}
+                   class="blurred-field"
+                   style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); text-decoration: none; display: block; filter: blur(4px); user-select: none; transition: filter 0.2s;">{myBuddy.buddyPerson.email}</a>
+              )}
+              {myBuddy.buddyPerson.phone && (
+                <a href={`tel:${myBuddy.buddyPerson.phone}`}
+                   class="blurred-field"
+                   style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); text-decoration: none; display: block; margin-top: 2px; filter: blur(4px); user-select: none; transition: filter 0.2s;">{myBuddy.buddyPerson.phone}</a>
+              )}
+            </div>
+          ) : (
+            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">No buddy assigned yet.</p>
+          )}
+        </div>
+
+        <!-- I am buddy to -->
+        <div class="buddy-card" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">🤝 I am buddy to</p>
+            {iAmBuddyTo.length > 0 && <button onclick="revealSection(this)" style="font-family: var(--font-body); font-size: 11px; font-weight: 500; color: var(--color-brand-navy); background: none; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-sm); padding: 2px 10px; cursor: pointer;">Reveal details</button>}
+          </div>
+          {iAmBuddyTo.length > 0 ? (
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              {iAmBuddyTo.map(entry => entry.primaryPerson && (
+                <div>
+                  <p style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">{entry.primaryPerson.full_name}</p>
+                  {entry.primaryPerson.email && (
+                    <a href={`mailto:${entry.primaryPerson.email}`}
+                       class="blurred-field"
+                       style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); text-decoration: none; display: block; filter: blur(4px); user-select: none; transition: filter 0.2s;">{entry.primaryPerson.email}</a>
+                  )}
+                  {entry.primaryPerson.phone && (
+                    <a href={`tel:${entry.primaryPerson.phone}`}
+                       class="blurred-field"
+                       style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); text-decoration: none; display: block; margin-top: 2px; filter: blur(4px); user-select: none; transition: filter 0.2s;">{entry.primaryPerson.phone}</a>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">Not a buddy to anyone yet.</p>
+          )}
+        </div>
+      </div>
+
+      <!-- Main content grid -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr 300px; gap: 20px;">
+
+        <!-- My Teams -->
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+          <div style="padding: 16px 20px; border-bottom: 1px solid var(--color-neutral-200); display: flex; align-items: center; justify-content: space-between;">
+            <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">My Teams</h2>
+            <a href="/admin/teams" style="font-family: var(--font-body); font-size: 12px; color: var(--color-brand-navy); text-decoration: none;">Browse all →</a>
+          </div>
+          {myTeams.length === 0 ? (
+            <div style="padding: 24px 20px;">
+              <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0 0 8px;">You're not in any teams yet.</p>
+              <a href="/admin/teams" style="font-family: var(--font-body); font-size: 12px; color: var(--color-brand-navy); text-decoration: none; font-weight: 500;">Browse teams →</a>
+            </div>
+          ) : (
+            <div>
+              {myTeams.map((t, i) => (
+                <a href={`/admin/teams/${t.teams?.id}`}
+                   style={`display: block; padding: 12px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''} text-decoration: none;`}>
+                  <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                      <p style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-brand-navy); margin: 0;">{t.teams?.name}</p>
+                      {t.teams?.description && (
+                        <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 2px 0 0;">{t.teams.description}</p>
+                      )}
+                    </div>
+                    {t.is_team_lead && (
+                      <span style="padding: 2px 8px; background-color: var(--color-brand-gold); color: var(--color-brand-navy); border-radius: var(--radius-full); font-family: var(--font-body); font-size: 11px; font-weight: 600; white-space: nowrap;">Lead</span>
+                    )}
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <!-- Upcoming CMP sessions -->
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+            <div style="padding: 16px 20px; border-bottom: 1px solid var(--color-neutral-200); display: flex; align-items: center; justify-content: space-between;">
+              <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">Upcoming CMP sessions</h2>
+            </div>
+            {myUpcomingSessions.length === 0 ? (
+              <p style="padding: 24px 20px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No upcoming sessions.</p>
+            ) : (
+              <div>
+                {myUpcomingSessions.map((s, i) => (
+                  <div style={`padding: 12px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}`}>
+                    <p style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-brand-navy); margin: 0 0 2px;">{s.title}</p>
+                    <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">
+                      {formatDate(s.session_date)}
+                      {s.session_time && <span style="margin-left: 4px;">{formatTime(s.session_time)}</span>}
+                      {s.location && <span> · {s.location}</span>}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <!-- Recent praise received -->
+          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+            <div style="padding: 16px 20px; border-bottom: 1px solid var(--color-neutral-200);">
+              <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">Recent praise ⭐</h2>
+            </div>
+            {myRecentPraise.length === 0 ? (
+              <p style="padding: 24px 20px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No praise yet.</p>
+            ) : (
+              <div>
+                {myRecentPraise.map((p, i) => {
+                  const giver = p['people!praise_given_by_fkey']
+                  return (
+                    <div style={`padding: 12px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}`}>
+                      <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0 0 4px;">
+                        From {giver?.full_name ?? 'Admin'}
+                        <span style="margin-left: 6px; color: var(--color-neutral-400);">{timeAgo(p.created_at)}</span>
+                      </p>
+                      <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); margin: 0; line-height: 1.5; border-left: 2px solid var(--color-brand-gold); padding-left: 8px;">{p.message}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <!-- Right column: My recent awards + Give praise button -->
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <!-- Give praise CTA -->
+          <a href="/admin/praise/new"
+             style="display: block; padding: 14px 20px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-lg); font-family: var(--font-heading); font-size: 15px; font-weight: 700; text-decoration: none; text-align: center;">
+            ⭐ Give Praise
+          </a>
+
+          <!-- My recent awards -->
+          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+            <div style="padding: 16px 20px; border-bottom: 1px solid var(--color-neutral-200);">
+              <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">My Awards</h2>
+            </div>
+            {myRecentAwards.length === 0 ? (
+              <p style="padding: 24px 20px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No awards yet.</p>
+            ) : (
+              <div>
+                {myRecentAwards.map((a, i) => (
+                  <div style={`padding: 12px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''} display: flex; align-items: center; gap: 10px;`}>
+                    <span style="font-size: 18px;">🏆</span>
+                    <div>
+                      <p style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-brand-gold); margin: 0;">{AWARD_LABELS[a.type] ?? a.type}</p>
+                      <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">{a.year}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  )}
+<script is:inline>
+  function revealSection(btn) {
+    var card = btn.closest('.buddy-card')
+    if (!card) return
+    card.querySelectorAll('.blurred-field').forEach(function(el) {
+      el.style.filter = 'none'
+      el.style.userSelect = 'auto'
+    })
+    btn.textContent = 'Shown'
+    btn.disabled = true
+    btn.style.opacity = '0.4'
+  }
+</script>
+</DashboardLayout>

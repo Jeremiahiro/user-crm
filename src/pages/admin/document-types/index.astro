@@ -1,0 +1,202 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+const user = Astro.locals.user
+if (!user) return Astro.redirect('/login')
+
+const isSuperAdmin = user.roles?.includes('Super Admin') ?? false
+const isAdminRole = user.roles?.some(r => ['Super Admin', 'Admin', 'Chapter Leadership'].includes(r)) ?? false
+if (!isAdminRole) return Astro.redirect('/dashboard')
+
+type DocType = {
+  id: string
+  name: string
+  slug: string
+  requires_issuer: boolean
+  requires_expiry: boolean
+  is_training_linkable: boolean
+  is_active: boolean
+  sort_order: number
+}
+
+let successMessage = ''
+let errorMessage = ''
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  const action = form.get('_action') as string
+
+  if (action === 'create') {
+    const name = (form.get('name') as string).trim()
+    const requires_issuer = form.get('requires_issuer') === 'true'
+    const requires_expiry = form.get('requires_expiry') === 'true'
+    const is_training_linkable = form.get('is_training_linkable') === 'true'
+
+    const res = await fetch(`${Astro.url.origin}/api/document-types`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+      body: JSON.stringify({ name, requires_issuer, requires_expiry, is_training_linkable }),
+    })
+    if (res.ok) successMessage = `Document type "${name}" created.`
+    else {
+      const b = await res.json() as { error?: string }
+      errorMessage = b.error ?? 'Failed to create document type.'
+    }
+
+  } else if (action === 'toggle') {
+    const typeId = form.get('type_id') as string
+    const is_active = form.get('is_active') === 'true'
+    const res = await fetch(`${Astro.url.origin}/api/document-types/${typeId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+      body: JSON.stringify({ is_active: !is_active }),
+    })
+    if (!res.ok) {
+      const b = await res.json() as { error?: string }
+      errorMessage = b.error ?? 'Failed to update.'
+    }
+
+  } else if (action === 'delete') {
+    const typeId = form.get('type_id') as string
+    const res = await fetch(`${Astro.url.origin}/api/document-types/${typeId}`, {
+      method: 'DELETE',
+      headers: { Cookie: Astro.request.headers.get('cookie') ?? '' },
+    })
+    if (!res.ok) {
+      const b = await res.json() as { error?: string }
+      errorMessage = b.error ?? 'Failed to delete.'
+    }
+  }
+}
+
+const { data } = await supabaseAdmin
+  .from('document_types')
+  .select('*')
+  .order('is_active', { ascending: false })
+  .order('sort_order')
+  .order('name')
+
+const types = (data ?? []) as DocType[]
+
+function flag(v: boolean) {
+  return v ? '✓' : '—'
+}
+---
+
+<DashboardLayout title="Document Types">
+  <div style="max-width: 860px;">
+    <Breadcrumb crumbs={[{ label: 'Settings', href: '/admin/settings' }, { label: 'Document Types' }]} />
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+      <div>
+        <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Document Types</h1>
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">{types.length} type{types.length !== 1 ? 's' : ''} configured</p>
+      </div>
+    </div>
+
+    {successMessage && (
+      <div style="background-color: var(--color-success-50); border: 1px solid var(--color-success-100); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-success-700);">
+        {successMessage}
+      </div>
+    )}
+    {errorMessage && (
+      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+        {errorMessage}
+      </div>
+    )}
+
+    <!-- Existing types table -->
+    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 32px;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead style="background-color: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+          <tr>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Name</th>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: center; padding: 10px 12px; text-transform: uppercase; letter-spacing: 0.05em;">Requires Issuer</th>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: center; padding: 10px 12px; text-transform: uppercase; letter-spacing: 0.05em;">Requires Expiry</th>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: center; padding: 10px 12px; text-transform: uppercase; letter-spacing: 0.05em;">Training Link</th>
+            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: center; padding: 10px 12px; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
+            <th style="padding: 10px 16px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {types.map((t, i) => (
+            <tr style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
+              <td style="padding: 14px 16px;">
+                <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-neutral-800); margin: 0 0 2px;">{t.name}</p>
+                <p style="font-family: var(--font-mono); font-size: 11px; color: var(--color-neutral-400); margin: 0;">{t.slug}</p>
+              </td>
+              <td style="padding: 14px 12px; text-align: center; font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-600);">{flag(t.requires_issuer)}</td>
+              <td style="padding: 14px 12px; text-align: center; font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-600);">{flag(t.requires_expiry)}</td>
+              <td style="padding: 14px 12px; text-align: center; font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-600);">{flag(t.is_training_linkable)}</td>
+              <td style="padding: 14px 12px; text-align: center;">
+                <span style={`display: inline-block; padding: 2px 10px; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 12px; font-weight: 600; background-color: ${t.is_active ? 'var(--color-success-50)' : 'var(--color-neutral-100)'}; color: ${t.is_active ? 'var(--color-success-700)' : 'var(--color-neutral-500)'};`}>
+                  {t.is_active ? 'Active' : 'Inactive'}
+                </span>
+              </td>
+              <td style="padding: 14px 16px; text-align: right; white-space: nowrap; display: flex; gap: 8px; justify-content: flex-end;">
+                <form method="POST" style="display: inline;">
+                  <input type="hidden" name="_action" value="toggle" />
+                  <input type="hidden" name="type_id" value={t.id} />
+                  <input type="hidden" name="is_active" value={String(t.is_active)} />
+                  <button type="submit"
+                    style="padding: 4px 12px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); background: var(--color-neutral-100); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); cursor: pointer;">
+                    {t.is_active ? 'Deactivate' : 'Activate'}
+                  </button>
+                </form>
+                <form method="POST" style="display: inline;" onsubmit="return confirm('Delete this document type? If documents reference it, it will be deactivated instead.')">
+                  <input type="hidden" name="_action" value="delete" />
+                  <input type="hidden" name="type_id" value={t.id} />
+                  <button type="submit"
+                    style="padding: 4px 12px; border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); background: var(--color-danger-50); font-family: var(--font-body); font-size: 12px; color: var(--color-danger-700); cursor: pointer;">
+                    Delete
+                  </button>
+                </form>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Add new type -->
+    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 28px 32px;">
+      <h2 style="font-family: var(--font-heading); font-size: 16px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 20px;">Add Document Type</h2>
+      <form method="POST" style="display: flex; flex-direction: column; gap: 16px;">
+        <input type="hidden" name="_action" value="create" />
+
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Name *</label>
+          <input name="name" required maxlength="100"
+            placeholder="e.g. Enhanced DBS"
+            style="padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; max-width: 360px;" />
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <p style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700); margin: 0;">Flags</p>
+          {[
+            { name: 'requires_issuer', label: 'Requires Issuer', hint: 'Show "Issued by" field on upload form' },
+            { name: 'requires_expiry', label: 'Requires Expiry Date', hint: 'Show expiry date picker on upload form' },
+            { name: 'is_training_linkable', label: 'Training Linkable', hint: 'Show training selector on upload form (e.g. for certificates)' },
+          ].map(f => (
+            <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+              <input type="hidden" name={f.name} value="false" />
+              <input type="checkbox" name={f.name} value="true" style="width: 16px; height: 16px; margin-top: 2px; accent-color: var(--color-brand-navy); flex-shrink: 0;" />
+              <div>
+                <span style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-800); display: block;">{f.label}</span>
+                <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500);">{f.hint}</span>
+              </div>
+            </label>
+          ))}
+        </div>
+
+        <div style="padding-top: 4px;">
+          <button type="submit"
+            style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+            Add type
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</DashboardLayout>

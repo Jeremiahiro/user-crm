@@ -1,0 +1,68 @@
+---
+interface Props {
+  name: string
+  src?: string
+  size?: 'sm' | 'md' | 'lg' | 'xl'
+  class?: string
+}
+
+const { name, src, size = 'md', class: className = '' } = Astro.props
+
+const sizePx: Record<string, number> = {
+  sm: 24,
+  md: 40,
+  lg: 64,
+  xl: 96,
+}
+
+const fontSizePx: Record<string, number> = {
+  sm: 10,
+  md: 14,
+  lg: 20,
+  xl: 30,
+}
+
+const px = sizePx[size] ?? 40
+const fs = fontSizePx[size] ?? 14
+
+function getInitials(fullName: string): string {
+  const parts = fullName.trim().split(' ')
+  const first = parts[0]?.[0] ?? ''
+  const last = parts[parts.length - 1]?.[0] ?? ''
+  return (first + last).toUpperCase()
+}
+
+const initials = getInitials(name)
+
+const containerStyle = `
+  width: ${px}px;
+  height: ${px}px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-brand-gold);
+  color: var(--color-brand-navy);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: ${fs}px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  overflow: hidden;
+  flex-shrink: 0;
+`
+---
+
+<div style={containerStyle} class={className} title={name}>
+  {
+    src ? (
+      <img
+        src={src}
+        alt={name}
+        width={px}
+        height={px}
+        style="object-fit: cover; width: 100%; height: 100%;"
+      />
+    ) : (
+      initials
+    )
+  }
+</div>

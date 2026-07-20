@@ -1,0 +1,198 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import Input from '@/components/ui/Input.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const { id } = Astro.params
+const { data: role } = await supabaseAdmin
+  .from('roles')
+  .select('*, role_permissions(module, operation, scope)')
+  .eq('id', id ?? '')
+  .single()
+
+if (!role) return Astro.redirect('/admin/roles')
+
+const MODULES = [
+  { key: 'members', label: 'Members' },
+  { key: 'volunteers', label: 'Volunteers' },
+  { key: 'teams', label: 'Teams' },
+  { key: 'pillars', label: 'Pillars' },
+  { key: 'elected_positions', label: 'Elected Positions' },
+  { key: 'elected_tenures', label: 'Elected Tenures' },
+  { key: 'dues', label: 'Dues' },
+  { key: 'dbs_records', label: 'DBS Records' },
+  { key: 'documents', label: 'Documents' },
+  { key: 'mentees', label: 'Mentees' },
+  { key: 'cmp_years', label: 'CMP Years' },
+  { key: 'cmp_sessions', label: 'CMP Sessions' },
+  { key: 'cmp_attendance', label: 'CMP Attendance' },
+  { key: 'awards', label: 'Awards' },
+  { key: 'praise', label: 'Praise' },
+  { key: 'participation_events', label: 'Participation Events' },
+  { key: 'roles', label: 'Roles' },
+  { key: 'permissions', label: 'Permissions' },
+  { key: 'user_role_assignment', label: 'Role Assignment' },
+  { key: 'audit_log', label: 'Audit Log' },
+]
+
+const OPS = ['create', 'read', 'update', 'delete'] as const
+
+type Permission = { module: string; operation: string; scope: string }
+const existingPerms = (role.role_permissions as Permission[]) ?? []
+
+function hasPerm(module: string, operation: string): boolean {
+  return existingPerms.some(p => p.module === module && p.operation === operation)
+}
+
+let errors: Record<string, string> = {}
+let globalError = ''
+let values = { name: role.name as string, description: (role.description as string | null) ?? '' }
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  values = {
+    name: form.get('name') as string ?? values.name,
+    description: form.get('description') as string ?? '',
+  }
+
+  const permissions: { module: string; operation: string; scope: string }[] = []
+  for (const mod of MODULES) {
+    for (const op of OPS) {
+      if (form.get(`perm_${mod.key}_${op}`)) {
+        permissions.push({ module: mod.key, operation: op, scope: 'all' })
+      }
+    }
+  }
+
+  const res = await fetch(`${Astro.url.origin}/api/roles/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+    body: JSON.stringify({
+      name: values.name,
+      description: values.description || null,
+      permissions,
+    }),
+  })
+
+  if (res.ok) {
+    return Astro.redirect('/admin/roles')
+  } else {
+    const body = await res.json() as { error?: string; issues?: { fieldErrors?: Record<string, string[]> } }
+    globalError = body.error ?? ''
+    errors = Object.fromEntries(Object.entries(body.issues?.fieldErrors ?? {}).map(([k, v]) => [k, v[0] ?? '']))
+  }
+}
+---
+
+<DashboardLayout title={`Edit ${role.name}`}>
+  <div style="max-width: 900px;">
+    <Breadcrumb crumbs={[{ label: 'Roles', href: '/admin/roles' }, { label: role.name as string, href: `/admin/roles` }, { label: 'Edit' }]} />
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+      <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">
+        Edit Role
+      </h1>
+      {(role.is_system_protected as boolean) && (
+        <span style="padding: 3px 10px; background-color: var(--color-info-100); color: var(--color-info-700); border-radius: var(--radius-full); font-family: var(--font-body); font-size: 12px; font-weight: 500;">
+          System role
+        </span>
+      )}
+    </div>
+
+    {globalError && (
+      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+        {globalError}
+      </div>
+    )}
+
+    <form method="POST" style="display: flex; flex-direction: column; gap: 24px;">
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+        <Input label="Role name *" name="name" value={values.name} error={errors.name} required />
+        <Input label="Description" name="description" value={values.description} />
+      </div>
+
+      <!-- Permission grid -->
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+          <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">Permissions</h2>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" id="grant-all-btn"
+              style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); background: none; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); padding: 4px 10px; cursor: pointer;">
+              Grant all
+            </button>
+            <button type="button" id="revoke-all-btn"
+              style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); background: none; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); padding: 4px 10px; cursor: pointer;">
+              Revoke all
+            </button>
+          </div>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
+            <thead>
+              <tr>
+                <th style="padding: 8px 12px; text-align: left; font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; width: 220px;">Module</th>
+                {OPS.map(op => (
+                  <th style="padding: 8px 12px; text-align: center; font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; width: 80px;">{op}</th>
+                ))}
+                <th style="padding: 8px 12px; text-align: center; font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400);">All</th>
+              </tr>
+            </thead>
+            <tbody>
+              {MODULES.map((mod, i) => (
+                <tr style={`border-top: 1px solid var(--color-neutral-100); ${i % 2 === 0 ? '' : 'background-color: var(--color-neutral-50);'}`}>
+                  <td style="padding: 10px 12px; font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">{mod.label}</td>
+                  {OPS.map(op => (
+                    <td style="padding: 10px 12px; text-align: center;">
+                      <input type="checkbox" name={`perm_${mod.key}_${op}`} value="1"
+                        checked={hasPerm(mod.key, op)}
+                        style="width: 16px; height: 16px; cursor: pointer; accent-color: var(--color-brand-navy);" />
+                    </td>
+                  ))}
+                  <td style="padding: 10px 12px; text-align: center;">
+                    <button type="button" class="toggle-row-btn" data-module={mod.key}
+                      style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); background: none; border: none; cursor: pointer; padding: 2px 6px; border-radius: var(--radius-sm);">
+                      All
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px;">
+        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          Save changes
+        </button>
+        <a href="/admin/roles" style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">Cancel</a>
+      </div>
+    </form>
+  </div>
+</DashboardLayout>
+
+<script>
+  const ops = ['create', 'read', 'update', 'delete']
+
+  document.querySelectorAll<HTMLButtonElement>('.toggle-row-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const moduleKey = btn.dataset.module as string
+      const checkboxes = ops
+        .map(op => document.querySelector<HTMLInputElement>(`input[name="perm_${moduleKey}_${op}"]`))
+        .filter((cb): cb is HTMLInputElement => cb !== null)
+      const allChecked = checkboxes.every(cb => cb.checked)
+      checkboxes.forEach(cb => { cb.checked = !allChecked })
+    })
+  })
+
+  document.getElementById('grant-all-btn')?.addEventListener('click', () => {
+    document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach(cb => { cb.checked = true })
+  })
+
+  document.getElementById('revoke-all-btn')?.addEventListener('click', () => {
+    document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach(cb => { cb.checked = false })
+  })
+</script>

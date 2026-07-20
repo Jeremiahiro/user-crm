@@ -1,0 +1,513 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import Input from '@/components/ui/Input.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin } from '@/lib/rbac'
+import { createHash } from 'node:crypto'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const admin = isAdmin(Astro.locals.user)
+
+const { id } = Astro.params
+const { data: member } = await supabaseAdmin.from('people').select('*').eq('id', id ?? '').single()
+if (!member) return Astro.redirect('/admin/members')
+
+const emailMd5 = createHash('md5').update((member.email as string).toLowerCase().trim()).digest('hex')
+const gravatarUrl = `https://www.gravatar.com/avatar/${emailMd5}?d=mp&s=128`
+const currentPhotoUrl = (member.profile_photo_url as string | null) ?? gravatarUrl
+
+// Read-only context — all teams and latest DBS
+const [{ data: teamData }, { data: dbsData }] = await Promise.all([
+  supabaseAdmin
+    .from('person_teams')
+    .select('is_team_lead, joined_at, teams(id, name)')
+    .eq('person_id', id ?? '')
+    .order('joined_at', { ascending: false }),
+  supabaseAdmin
+    .from('dbs_records')
+    .select('certificate_reference, clearance_date, expiry_date')
+    .eq('person_id', id ?? '')
+    .order('clearance_date', { ascending: false })
+    .limit(1)
+    .maybeSingle(),
+])
+
+type TeamAssignmentRow = { is_team_lead: boolean; joined_at: string; teams: { id: string; name: string } | null }
+const teamAssignments = (teamData ?? []) as TeamAssignmentRow[]
+
+type DbsRow = { certificate_reference: string | null; clearance_date: string | null; expiry_date: string | null } | null
+const latestDbs = dbsData as DbsRow
+
+// Buddy section (admin only)
+type BuddyAssignmentRow = { id: string; person_id: string; buddy_id: string; assigned_at: string; notes: string | null }
+type ActiveMemberRow = { id: string; full_name: string }
+
+// currentBuddy = someone assigned TO this member (person_id = id)
+let currentBuddy: { assignment: BuddyAssignmentRow; person: ActiveMemberRow | null } | null = null
+// buddyingFor = all members this person is serving as buddy for (buddy_id = id), up to 3
+let buddyingFor: { assignment: BuddyAssignmentRow; person: ActiveMemberRow | null }[] = []
+let allActiveMembers: ActiveMemberRow[] = []
+
+if (admin) {
+  const [{ data: buddyAsPersonId }, { data: buddyAsBuddyId }] = await Promise.all([
+    // This member has a buddy assigned to them
+    supabaseAdmin
+      .from('buddy_assignments')
+      .select('id, person_id, buddy_id, assigned_at, notes')
+      .eq('person_id', id ?? '')
+      .is('ended_at', null)
+      .maybeSingle(),
+    // This member is serving as buddy for others (up to 3)
+    supabaseAdmin
+      .from('buddy_assignments')
+      .select('id, person_id, buddy_id, assigned_at, notes')
+      .eq('buddy_id', id ?? '')
+      .is('ended_at', null),
+  ])
+
+  // Collect people IDs to resolve names in one query
+  const resolveIds = new Set<string>()
+  if (buddyAsPersonId) resolveIds.add((buddyAsPersonId as BuddyAssignmentRow).buddy_id)
+  for (const r of ((buddyAsBuddyId ?? []) as BuddyAssignmentRow[])) resolveIds.add(r.person_id)
+
+  let peopleMap = new Map<string, ActiveMemberRow>()
+  if (resolveIds.size > 0) {
+    const { data: resolvedPeople } = await supabaseAdmin
+      .from('people').select('id, full_name').in('id', [...resolveIds])
+    for (const p of ((resolvedPeople ?? []) as ActiveMemberRow[])) peopleMap.set(p.id, p)
+  }
+
+  if (buddyAsPersonId) {
+    const a = buddyAsPersonId as BuddyAssignmentRow
+    currentBuddy = { assignment: a, person: peopleMap.get(a.buddy_id) ?? null }
+  }
+  buddyingFor = ((buddyAsBuddyId ?? []) as BuddyAssignmentRow[]).map(a => ({
+    assignment: a,
+    person: peopleMap.get(a.person_id) ?? null,
+  }))
+
+  // Fetch all active members for the dropdown (excluding current member)
+  const { data: activeMembers } = await supabaseAdmin
+    .from('people')
+    .select('id, full_name')
+    .eq('is_archived', false)
+    .neq('id', id ?? '')
+    .order('full_name', { ascending: true })
+  allActiveMembers = (activeMembers ?? []) as ActiveMemberRow[]
+}
+
+function fmtDate(d: string | null) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function dbsStatus(expiry: string | null): { label: string; color: string } {
+  if (!expiry) return { label: 'No expiry', color: 'var(--color-neutral-500)' }
+  const diff = new Date(expiry).getTime() - Date.now()
+  const days = Math.floor(diff / 86_400_000)
+  if (days < 0) return { label: 'Expired', color: 'var(--color-danger-600)' }
+  if (days <= 90) return { label: `Expires in ${days}d`, color: 'var(--color-warning-600)' }
+  return { label: 'Valid', color: 'var(--color-success-600)' }
+}
+
+const PERSON_TYPES = ['member', 'mentor', 'volunteer', 'alumni', 'parent', 'trustee']
+const STATUS_OPTIONS = [
+  { value: 'applicant',      label: 'Applicant' },
+  { value: 'pending_review', label: 'Pending Review' },
+  { value: 'approved',       label: 'Approved' },
+  { value: 'active',         label: 'Active' },
+  { value: 'suspended',      label: 'Suspended' },
+  { value: 'inactive',       label: 'Inactive' },
+  { value: 'alumni',         label: 'Alumni' },
+  { value: 'left',           label: 'Left' },
+]
+
+let errors: Record<string, string> = {}
+let globalError = ''
+let values: Record<string, string | string[]> = {
+  first_name: member.first_name as string,
+  middle_name: (member.middle_name as string | null) ?? '',
+  last_name: member.last_name as string,
+  email: member.email as string,
+  email_secondary: (member.email_secondary as string | null) ?? '',
+  phone: (member.phone as string | null) ?? '',
+  date_of_birth: (member.date_of_birth as string | null) ?? '',
+  gender: (member.gender as string | null) ?? '',
+  address: (member.address as string | null) ?? '',
+  person_types: (member.person_types as string[]) ?? ['member'],
+  status: member.status as string,
+  date_joined: (member.date_joined as string | null) ?? '',
+  notes: (member.notes as string | null) ?? '',
+}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  const person_types = form.getAll('person_types') as string[]
+  values = { ...Object.fromEntries(form.entries()) as Record<string, string>, person_types }
+
+  const res = await fetch(`${Astro.url.origin}/api/members/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+    body: JSON.stringify({
+      first_name: values.first_name,
+      middle_name: (values.middle_name as string) || null,
+      last_name: values.last_name,
+      email: values.email,
+      email_secondary: (values.email_secondary as string) || null,
+      phone: (values.phone as string) || null,
+      date_of_birth: (values.date_of_birth as string) || null,
+      gender: (values.gender as string) || null,
+      address: (values.address as string) || null,
+      person_types,
+      status: values.status,
+      date_joined: (values.date_joined as string) || null,
+      notes: (values.notes as string) || null,
+    }),
+  })
+
+  if (res.ok) {
+    return Astro.redirect(`/admin/members/${id}`)
+  } else {
+    const body = await res.json() as { error?: string; issues?: { fieldErrors?: Record<string, string[]> } }
+    globalError = body.error ?? ''
+    errors = Object.fromEntries(Object.entries(body.issues?.fieldErrors ?? {}).map(([k, v]) => [k, v[0] ?? '']))
+  }
+}
+---
+
+<DashboardLayout title={`Edit ${member.full_name}`}>
+  <div style="max-width: 1060px;">
+    <Breadcrumb crumbs={[{ label: 'Members', href: '/admin/members' }, { label: member.full_name as string, href: `/admin/members/${id}` }, { label: 'Edit' }]} />
+
+    <!-- Page header -->
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 16px; flex-wrap: wrap;">
+      <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">Edit Member</h1>
+      <div style="display: flex; gap: 10px;">
+        <button form="member-form" type="submit" style="padding: 9px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">Save changes</button>
+        <a href={`/admin/members/${id}`} style="padding: 9px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">Cancel</a>
+      </div>
+    </div>
+
+    {globalError && (
+      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 16px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+        {globalError}
+      </div>
+    )}
+
+    <!-- Two-column layout -->
+    <div style="display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start;">
+
+      <!-- ── LEFT: Photo + Form ─────────────────────────────────────────── -->
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+
+        <!-- Profile photo -->
+        <div id="photo-card" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; display: flex; align-items: center; gap: 20px;">
+          <div id="photo-preview" style="width: 80px; height: 80px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: var(--color-brand-navy);">
+            <img id="photo-img" src={currentPhotoUrl} alt={member.full_name as string} width={80} height={80} style="width:100%;height:100%;object-fit:cover;" />
+          </div>
+          <div style="flex: 1;">
+            <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-neutral-800); margin: 0 0 3px;">Profile photo</p>
+            <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0 0 10px;">JPEG, PNG or WebP · max 5 MB</p>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <label style="padding: 6px 14px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
+                <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" style="display:none;" />
+                Choose photo
+              </label>
+              <span id="photo-filename" style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500);">No file selected</span>
+              <button id="photo-upload-btn" type="button" style="display:none; padding: 6px 14px; background-color: var(--color-brand-gold); color: var(--color-brand-navy); border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">Upload</button>
+            </div>
+            <p id="photo-status" style="font-family: var(--font-body); font-size: 12px; margin: 6px 0 0; display: none;"></p>
+          </div>
+        </div>
+
+        <!-- Personal info form -->
+        <form id="member-form" method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 28px 32px; display: flex; flex-direction: column; gap: 28px;">
+
+          <section>
+            <h2 style="font-family: var(--font-heading); font-size: 12px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--color-neutral-100);">Personal details</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+              <Input label="First name *" name="first_name" value={values.first_name as string} error={errors.first_name} required />
+              <Input label="Last name *" name="last_name" value={values.last_name as string} error={errors.last_name} required />
+              <div style="grid-column: 1 / -1;">
+                <Input label="Middle name" name="middle_name" value={values.middle_name as string} placeholder="Optional" />
+              </div>
+              <Input label="Email *" name="email" type="email" value={values.email as string} error={errors.email} required />
+              <Input label="Secondary email" name="email_secondary" type="email" value={values.email_secondary as string} placeholder="Optional" />
+              <Input label="Phone" name="phone" type="tel" value={values.phone as string} />
+              <Input label="Date of birth" name="date_of_birth" type="date" value={values.date_of_birth as string} />
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Gender</label>
+                <select name="gender" style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+                  <option value="">— Select —</option>
+                  <option value="male" selected={values.gender === 'male'}>Male</option>
+                  <option value="female" selected={values.gender === 'female'}>Female</option>
+                  <option value="non_binary" selected={values.gender === 'non_binary'}>Non-binary</option>
+                  <option value="prefer_not_to_say" selected={values.gender === 'prefer_not_to_say'}>Prefer not to say</option>
+                </select>
+              </div>
+            </div>
+            <div style="margin-top: 16px;">
+              <Input label="Address" name="address" value={values.address as string} />
+            </div>
+          </section>
+
+          <section>
+            <h2 style="font-family: var(--font-heading); font-size: 12px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--color-neutral-100);">Organisation</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Status</label>
+                <select name="status" style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+                  {STATUS_OPTIONS.map(s => <option value={s.value} selected={values.status === s.value}>{s.label}</option>)}
+                </select>
+              </div>
+              <Input label="Date joined" name="date_joined" type="date" value={values.date_joined as string} />
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <span style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Person types *</span>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                {PERSON_TYPES.map(type => (
+                  <label style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-full); cursor: pointer; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+                    <input type="checkbox" name="person_types" value={type}
+                      checked={(values.person_types as string[])?.includes(type)} />
+                    {type}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h2 style="font-family: var(--font-heading); font-size: 12px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--color-neutral-100);">Notes</h2>
+            <textarea name="notes" rows={4}
+              style="width: 100%; padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); resize: vertical; box-sizing: border-box;">{values.notes as string}</textarea>
+          </section>
+
+          <!-- Inline save at bottom too -->
+          <div style="display: flex; gap: 12px; border-top: 1px solid var(--color-neutral-100); padding-top: 20px;">
+            <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">Save changes</button>
+            <a href={`/admin/members/${id}`} style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">Cancel</a>
+          </div>
+        </form>
+
+      </div>
+
+      <!-- ── RIGHT: Teams · DBS · Buddy ────────────────────────────────── -->
+      <div style="display: flex; flex-direction: column; gap: 14px; position: sticky; top: 16px;">
+
+        <!-- Teams card -->
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 16px 20px;">
+          <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 10px;">Teams</p>
+          {teamAssignments.length > 0 ? (
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              {teamAssignments.map(ta => (
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                  <div>
+                    <a href={`/admin/teams/${ta.teams?.id}`}
+                      style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none;">
+                      {ta.teams?.name ?? '—'}
+                    </a>
+                    <p style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); margin: 2px 0 0;">Since {fmtDate(ta.joined_at)}</p>
+                  </div>
+                  {ta.is_team_lead && (
+                    <span style="padding: 2px 8px; background-color: var(--color-brand-gold); color: var(--color-brand-navy); border-radius: var(--radius-full); font-family: var(--font-body); font-size: 11px; font-weight: 600; white-space: nowrap; flex-shrink: 0;">Lead</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No team assigned</p>
+          )}
+          <a href={`/admin/members/${id}?tab=teams`}
+            style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); text-decoration: underline; display: inline-block; margin-top: 10px;">
+            Manage teams →
+          </a>
+        </div>
+
+        <!-- DBS card -->
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 16px 20px;">
+          <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 10px;">DBS</p>
+          {latestDbs?.clearance_date
+            ? (() => {
+              const { label, color } = dbsStatus(latestDbs.expiry_date)
+              return (
+                <div>
+                  <p style={`font-family: var(--font-body); font-size: 13px; font-weight: 600; color: ${color}; margin: 0 0 4px;`}>{label}</p>
+                  <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0; line-height: 1.5;">
+                    Cleared {fmtDate(latestDbs.clearance_date)}
+                    {latestDbs.expiry_date && <><br />Expires {fmtDate(latestDbs.expiry_date)}</>}
+                    {latestDbs.certificate_reference && <><br />Ref: {latestDbs.certificate_reference}</>}
+                  </p>
+                </div>
+              )
+            })()
+            : <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No DBS record</p>
+          }
+          <a href={`/admin/members/${id}?tab=dbs`}
+            style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); text-decoration: underline; display: inline-block; margin-top: 10px;">
+            Manage DBS →
+          </a>
+        </div>
+
+        <!-- Buddy card (admin only) -->
+        {admin && (
+          <div id="buddy-section" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 16px 20px;">
+            <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 10px;">Buddy</p>
+
+            <!-- Their buddy: someone assigned TO this member -->
+            {currentBuddy ? (
+              <div style="margin-bottom: 12px;">
+                <p style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); margin: 0 0 4px;">Their buddy</p>
+                <p style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-brand-navy); margin: 0 0 2px;">{currentBuddy.person?.full_name ?? '—'}</p>
+                <p style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); margin: 0 0 10px;">
+                  Since {new Date(currentBuddy.assignment.assigned_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </p>
+                {currentBuddy.assignment.notes && (
+                  <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0 0 10px; font-style: italic;">"{currentBuddy.assignment.notes}"</p>
+                )}
+                <button
+                  onclick={'removeBuddy(\'' + currentBuddy.assignment.id + '\')'}
+                  style="width: 100%; padding: 7px 0; background: var(--color-neutral-50); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-danger-600); cursor: pointer;">
+                  Remove buddy
+                </button>
+              </div>
+            ) : (
+              <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+                <p style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); margin: 0 0 2px;">Assign a buddy to this member</p>
+                <select id="buddy-select" style="padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); background: white; width: 100%;">
+                  <option value="">— Select a member —</option>
+                  {allActiveMembers.map(m => (
+                    <option value={m.id}>{m.full_name}</option>
+                  ))}
+                </select>
+                <button
+                  onclick={'assignBuddy(\'' + id + '\')'}
+                  style="width: 100%; padding: 9px 0; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+                  Assign buddy
+                </button>
+              </div>
+            )}
+
+            <!-- Buddying for: members this person is serving as buddy for -->
+            {buddyingFor.length > 0 && (
+              <div style="padding-top: 10px; border-top: 1px solid var(--color-neutral-100);">
+                <p style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); margin: 0 0 8px;">
+                  Serving as buddy to ({buddyingFor.length}/3)
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  {buddyingFor.map(bf => (
+                    <a href={`/admin/members/${bf.person?.id}/edit`}
+                      style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none;">
+                      {bf.person?.full_name ?? '—'}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <p id="buddy-status" style="font-family: var(--font-body); font-size: 12px; margin: 8px 0 0; display: none;"></p>
+          </div>
+        )}
+
+      </div>
+    </div>
+  </div>
+
+  <script is:inline data-member-id={id}>
+    (function () {
+      var memberId = document.currentScript.dataset.memberId
+      var input = document.getElementById('photo-input')
+      var uploadBtn = document.getElementById('photo-upload-btn')
+      var filenameEl = document.getElementById('photo-filename')
+      var statusEl = document.getElementById('photo-status')
+      var imgEl = document.getElementById('photo-img')
+
+      if (!input || !uploadBtn) return
+
+      input.addEventListener('change', function () {
+        var file = input.files && input.files[0]
+        if (!file) return
+        filenameEl.textContent = file.name
+        uploadBtn.style.display = 'inline-block'
+        // Show preview immediately
+        var reader = new FileReader()
+        reader.onload = function (e) { imgEl.src = e.target.result }
+        reader.readAsDataURL(file)
+      })
+
+      uploadBtn.addEventListener('click', function () {
+        var file = input.files && input.files[0]
+        if (!file) return
+        var formData = new FormData()
+        formData.append('photo', file)
+        uploadBtn.disabled = true
+        uploadBtn.textContent = 'Uploading…'
+        statusEl.style.display = 'none'
+
+        fetch('/api/members/' + memberId + '/avatar', { method: 'POST', body: formData })
+          .then(function (r) { return r.json() })
+          .then(function (data) {
+            if (data.ok) {
+              uploadBtn.textContent = '✓ Saved'
+              uploadBtn.style.backgroundColor = 'var(--color-success-100)'
+              uploadBtn.style.color = 'var(--color-success-700)'
+              statusEl.style.display = 'block'
+              statusEl.style.color = 'var(--color-success-700)'
+              statusEl.textContent = 'Photo updated successfully.'
+            } else {
+              uploadBtn.textContent = 'Upload'
+              uploadBtn.disabled = false
+              statusEl.style.display = 'block'
+              statusEl.style.color = 'var(--color-danger-600)'
+              statusEl.textContent = data.error || 'Upload failed.'
+            }
+          })
+          .catch(function () {
+            uploadBtn.textContent = 'Upload'
+            uploadBtn.disabled = false
+            statusEl.style.display = 'block'
+            statusEl.style.color = 'var(--color-danger-600)'
+            statusEl.textContent = 'Network error. Please try again.'
+          })
+      })
+    })()
+  </script>
+
+  <script is:inline>
+    async function assignBuddy(personId) {
+      var select = document.getElementById('buddy-select')
+      var buddyId = select && select.value
+      if (!buddyId) { alert('Please select a member to assign as buddy.'); return }
+      var statusEl = document.getElementById('buddy-status')
+      var res = await fetch('/api/buddies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ person_id: personId, buddy_id: buddyId })
+      })
+      var data = await res.json()
+      if (res.ok) {
+        location.reload()
+      } else {
+        if (statusEl) {
+          statusEl.style.display = 'block'
+          statusEl.style.color = 'var(--color-danger-600)'
+          statusEl.textContent = data.error || 'Failed to assign buddy.'
+        } else {
+          alert(data.error || 'Failed to assign buddy.')
+        }
+      }
+    }
+
+    async function removeBuddy(assignmentId) {
+      if (!confirm('Remove this buddy pairing? Both members will be notified.')) return
+      var res = await fetch('/api/buddies/' + assignmentId, { method: 'DELETE' })
+      var data = await res.json()
+      if (res.ok) {
+        location.reload()
+      } else {
+        alert(data.error || 'Failed to remove buddy.')
+      }
+    }
+  </script>
+</DashboardLayout>

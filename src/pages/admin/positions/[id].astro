@@ -1,0 +1,311 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import Badge from '@/components/ui/Badge.astro'
+import EmptyState from '@/components/ui/EmptyState.astro'
+import Input from '@/components/ui/Input.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin } from '@/lib/rbac'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const admin = isAdmin(Astro.locals.user)
+
+const { id } = Astro.params
+
+// Three separate queries to avoid nested FK join failures
+const [{ data: position }, { data: rawTenures }, { count: totalTenures }] = await Promise.all([
+  supabaseAdmin
+    .from('elected_positions')
+    .select('id, title, description, order_of_precedence, is_active')
+    .eq('id', id ?? '')
+    .single(),
+  supabaseAdmin
+    .from('elected_position_tenures')
+    .select('id, person_id, term_start, term_end, elected_by, notes')
+    .eq('position_id', id ?? '')
+    .order('term_start', { ascending: false }),
+  supabaseAdmin
+    .from('elected_position_tenures')
+    .select('id', { count: 'exact', head: true })
+    .eq('position_id', id ?? ''),
+])
+
+if (!position) return Astro.redirect('/admin/positions')
+
+type TenureRow = {
+  id: string
+  person_id: string
+  term_start: string
+  term_end: string | null
+  elected_by: string | null
+  notes: string | null
+}
+
+const tenures = (rawTenures ?? []) as TenureRow[]
+
+// Fetch people for all tenure holders in one query
+const personIds = [...new Set(tenures.map(t => t.person_id))]
+const { data: rawPeople } = personIds.length > 0
+  ? await supabaseAdmin
+      .from('people')
+      .select('id, full_name, email, profile_photo_url')
+      .in('id', personIds)
+  : { data: [] }
+
+type Person = { id: string; full_name: string; email: string; profile_photo_url: string | null }
+const peopleMap = new Map(((rawPeople ?? []) as Person[]).map(p => [p.id, p]))
+
+const activeTenure = tenures.find(t => !t.term_end)
+const currentHolder = activeTenure ? peopleMap.get(activeTenure.person_id) : undefined
+const canDelete = admin && (totalTenures ?? 0) === 0
+
+function fmtDate(iso: string | null) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function getInitials(name: string) {
+  return name.trim().split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+}
+
+// Handle edit form POST
+let editErrors: Record<string, string> = {}
+let editGlobalError = ''
+let editSuccess = false
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  const values = Object.fromEntries(form.entries()) as Record<string, string>
+
+  const res = await fetch(`${Astro.url.origin}/api/positions/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+    body: JSON.stringify({
+      title: values.title,
+      description: values.description || null,
+      order_of_precedence: values.order_of_precedence ? parseInt(values.order_of_precedence) : null,
+    }),
+  })
+
+  if (res.ok) {
+    return Astro.redirect(`/admin/positions/${id}?saved=1`)
+  } else {
+    const body = await res.json() as { error?: string; issues?: { fieldErrors?: Record<string, string[]> } }
+    editGlobalError = body.error ?? 'Failed to save changes.'
+    editErrors = Object.fromEntries(Object.entries(body.issues?.fieldErrors ?? {}).map(([k, v]) => [k, v[0] ?? '']))
+  }
+}
+
+const saved = Astro.url.searchParams.get('saved') === '1'
+---
+
+<DashboardLayout title={position.title as string}>
+  <div id="pos-root" data-pos-id={id} data-pos-title={position.title as string} style="max-width: 720px;">
+    <Breadcrumb crumbs={[{ label: 'Positions', href: '/admin/positions' }, { label: position.title as string }]} />
+
+    <!-- Header -->
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; gap: 16px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+          {(position.order_of_precedence as number | null) && (
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--color-brand-navy); color: white; font-family: var(--font-heading); font-size: 14px; font-weight: 700; flex-shrink: 0;">
+              {position.order_of_precedence}
+            </span>
+          )}
+          <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">
+            {position.title}
+          </h1>
+        </div>
+        {(position.description as string | null) && (
+          <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">{position.description}</p>
+        )}
+      </div>
+      <a href={`/admin/positions/${id}/assign`}
+         style="flex-shrink: 0; padding: 8px 16px; background-color: var(--color-brand-gold); color: var(--color-brand-navy); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap;">
+        Assign holder
+      </a>
+    </div>
+
+    <!-- Saved banner -->
+    {saved && (
+      <div style="background-color: #f0fdf4; border: 1px solid #86efac; border-radius: var(--radius-md); padding: 10px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: #166534;">
+        Changes saved.
+      </div>
+    )}
+
+    <!-- Current holder -->
+    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 20px;">
+      <h2 style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 14px;">Current holder</h2>
+      {currentHolder ? (
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--color-brand-gold); color: var(--color-brand-navy); display: flex; align-items: center; justify-content: center; font-family: var(--font-body); font-size: 14px; font-weight: 700; flex-shrink: 0; overflow: hidden;">
+              {currentHolder.profile_photo_url
+                ? <img src={currentHolder.profile_photo_url} alt={currentHolder.full_name} width={44} height={44} style="width:100%;height:100%;object-fit:cover;" />
+                : getInitials(currentHolder.full_name)}
+            </div>
+            <div>
+              <a href={`/admin/members/${currentHolder.id}`}
+                 style="font-family: var(--font-body); font-size: 15px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none; display: block;">
+                {currentHolder.full_name}
+              </a>
+              <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 2px 0 0;">
+                Since {fmtDate(activeTenure!.term_start)}
+              </p>
+            </div>
+          </div>
+          <Badge variant="success">Current</Badge>
+        </div>
+      ) : (
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">
+          Vacant — <a href={`/admin/positions/${id}/assign`} style="color: var(--color-brand-navy);">assign a holder →</a>
+        </p>
+      )}
+    </div>
+
+    <!-- Edit form -->
+    {admin && (
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px;">
+        <h2 style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px;">Edit position</h2>
+
+        {editGlobalError && (
+          <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 10px 14px; margin-bottom: 16px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+            {editGlobalError}
+          </div>
+        )}
+
+        <form method="POST" style="display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: end;">
+            <Input
+              label="Title *"
+              name="title"
+              value={position.title as string}
+              error={editErrors.title}
+              required
+            />
+            <div style="display: flex; flex-direction: column; gap: 4px; width: 100px;">
+              <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Order</label>
+              <input
+                type="number"
+                name="order_of_precedence"
+                value={(position.order_of_precedence as number | null) ?? ''}
+                min="1"
+                placeholder="—"
+                style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); width: 100%; box-sizing: border-box;"
+              />
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Description</label>
+            <textarea name="description" rows={2} placeholder="Optional — describe this position's responsibilities…"
+              style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; resize: vertical;">{(position.description as string | null) ?? ''}</textarea>
+          </div>
+          <div>
+            <button type="submit"
+              style="padding: 8px 18px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+              Save changes
+            </button>
+          </div>
+        </form>
+      </div>
+    )}
+
+    <!-- Tenure history -->
+    <div style="margin-bottom: 20px;">
+      <h2 style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px;">Tenure history</h2>
+
+      {tenures.length > 0 ? (
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background-color: var(--color-neutral-50);">
+                <th style="padding: 10px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em;">Member</th>
+                <th style="padding: 10px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em;">From</th>
+                <th style="padding: 10px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em;">To</th>
+                <th style="padding: 10px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em;">Elected by</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tenures.map((t, i) => {
+                const person = peopleMap.get(t.person_id)
+                return (
+                  <tr style={`border-top: ${i > 0 ? '1px solid var(--color-neutral-100)' : 'none'}; ${!t.term_end ? 'background: var(--color-neutral-50);' : ''}`}>
+                    <td style="padding: 12px 16px;">
+                      {person ? (
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                          <a href={`/admin/members/${person.id}`}
+                             style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none;">
+                            {person.full_name}
+                          </a>
+                          {!t.term_end && <Badge variant="success">Current</Badge>}
+                        </div>
+                      ) : (
+                        <span style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400);">Unknown</span>
+                      )}
+                    </td>
+                    <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">{fmtDate(t.term_start)}</td>
+                    <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500);">{fmtDate(t.term_end)}</td>
+                    <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">{(t.elected_by ?? '').replace(/_/g, ' ') || '—'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); padding: 10px 16px; margin: 0; border-top: 1px solid var(--color-neutral-100);">
+            Tenure records are permanent and cannot be deleted.
+          </p>
+        </div>
+      ) : (
+        <EmptyState heading="No tenure history" subtext="This position has not yet been assigned to anyone." />
+      )}
+    </div>
+
+    <!-- Danger zone -->
+    {admin && (
+      <div style="border: 1px solid var(--color-danger-200); border-radius: var(--radius-lg); overflow: hidden;">
+        <div style="background: var(--color-danger-50); padding: 12px 20px; border-bottom: 1px solid var(--color-danger-200);">
+          <h2 style="font-family: var(--font-heading); font-size: 12px; font-weight: 600; color: var(--color-danger-700); margin: 0; text-transform: uppercase; letter-spacing: 0.06em;">Danger zone</h2>
+        </div>
+        <div style="background: white; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px;">
+          <div>
+            <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-neutral-800); margin: 0 0 2px;">Delete this position</p>
+            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0;">
+              {canDelete
+                ? 'Permanently removes this position. Cannot be undone.'
+                : `Has ${totalTenures} tenure record${(totalTenures ?? 0) !== 1 ? 's' : ''} — cannot delete.`}
+            </p>
+          </div>
+          <button id="delete-pos-btn" disabled={!canDelete}
+            style={`flex-shrink: 0; padding: 8px 16px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; border: none; cursor: ${canDelete ? 'pointer' : 'not-allowed'};
+              background: ${canDelete ? 'var(--color-danger-600)' : 'var(--color-neutral-100)'};
+              color: ${canDelete ? 'white' : 'var(--color-neutral-400)'};`}>
+            Delete
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+
+  <script is:inline>
+    (function () {
+      var root = document.getElementById('pos-root')
+      var posId = root ? root.dataset.posId : ''
+      var posTitle = root ? root.dataset.posTitle : ''
+
+      var deleteBtn = document.getElementById('delete-pos-btn')
+      if (deleteBtn && !deleteBtn.disabled) {
+        deleteBtn.addEventListener('click', function () {
+          if (!confirm('Delete "' + posTitle + '"? This cannot be undone.')) return
+          deleteBtn.disabled = true
+          deleteBtn.textContent = 'Deleting…'
+          fetch('/api/positions/' + posId, { method: 'DELETE' })
+            .then(function (r) {
+              if (r.ok) { window.location.href = '/admin/positions' }
+              else { r.json().then(function (e) { alert(e.error || 'Failed to delete'); deleteBtn.disabled = false; deleteBtn.textContent = 'Delete' }) }
+            })
+        })
+      }
+    })()
+  </script>
+</DashboardLayout>

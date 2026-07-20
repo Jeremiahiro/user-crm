@@ -1,0 +1,1157 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Badge from '@/components/ui/Badge.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import EmptyState from '@/components/ui/EmptyState.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { createHash } from 'node:crypto'
+import { isAdmin, getTeamMemberIds } from '@/lib/rbac'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const { id } = Astro.params
+const tab = Astro.url.searchParams.get('tab') ?? 'overview'
+const recognitionYear  = parseInt(Astro.url.searchParams.get('r_year') ?? String(new Date().getFullYear()), 10)
+const awardsPage       = Math.max(1, parseInt(Astro.url.searchParams.get('a_page') ?? '1', 10))
+const praisePage       = Math.max(1, parseInt(Astro.url.searchParams.get('p_page') ?? '1', 10))
+const RECOG_PAGE_SIZE  = 5
+
+const { data: member, error: memberError } = await supabaseAdmin
+  .from('people')
+  .select(`
+    *,
+    person_teams(is_team_lead, joined_at, teams(id, name, pillars(name))),
+    user_roles!user_roles_person_id_fkey(assigned_at, roles(id, name)),
+    elected_position_tenures!elected_position_tenures_person_id_fkey(id, term_start, term_end, elected_by, notes, elected_positions(title)),
+    dbs_records!dbs_records_person_id_fkey(id, certificate_reference, clearance_date, expiry_date, drive_url, created_at),
+    dues!dues_person_id_fkey(id, year, month, paid_at)
+  `)
+  .eq('id', id ?? '')
+  .single()
+
+if (!member) {
+  const msg = memberError ? `${memberError.code}: ${memberError.message}` : 'Member not found'
+  return new Response(
+    `<!doctype html><html><body style="font-family:monospace;padding:40px;max-width:800px;">
+      <h2 style="color:#991b1b">Member profile error</h2>
+      <p><strong>ID:</strong> ${id}</p>
+      <p><strong>Error:</strong> ${msg}</p>
+      <pre style="background:#f8f8f8;padding:16px;border-radius:8px;overflow:auto">${JSON.stringify(memberError, null, 2)}</pre>
+      <p><a href="/admin/members">← Back to members</a></p>
+    </body></html>`,
+    { status: 500, headers: { 'Content-Type': 'text/html' } }
+  )
+}
+
+// Team-lead access guard
+const viewer = Astro.locals.user
+const userIsAdmin = isAdmin(viewer)
+const viewingOwnProfile = viewer?.person_id === id
+if (!userIsAdmin && !viewingOwnProfile && viewer?.person_id) {
+  const teamMemberIds = await getTeamMemberIds(viewer.person_id)
+  if (!teamMemberIds.has(id ?? '')) return Astro.redirect('/dashboard')
+}
+
+// Parallel data fetches
+const yearStart = recognitionYear + '-01-01'
+const yearEnd   = (recognitionYear + 1) + '-01-01'
+
+const [
+  { data: allMemberAwards },
+  { data: allMemberPraise },
+  { data: memberParticipation },
+  { data: memberAuditLog },
+  { data: allTeams },
+  { data: allRoles },
+  { data: allPositions },
+] = await Promise.all([
+  supabaseAdmin.from('awards').select('id, type, year, citation, created_at, awarded_by')
+    .eq('person_id', id ?? '').order('year', { ascending: false }),
+  supabaseAdmin.from('praise').select('id, message, visibility, created_at, given_by')
+    .eq('recipient_id', id ?? '').eq('is_archived', false).order('created_at', { ascending: false }),
+  supabaseAdmin.from('participation_events').select('id')
+    .eq('person_id', id ?? '').limit(1),
+  supabaseAdmin.from('audit_log').select('id, action, target_table, created_at, actor:people!actor_id(full_name)')
+    .eq('target_id', id ?? '').order('created_at', { ascending: false }).limit(100),
+  supabaseAdmin.from('teams').select('id, name').eq('is_active', true).order('name'),
+  supabaseAdmin.from('roles').select('id, name').order('name'),
+  supabaseAdmin.from('elected_positions').select('id, title').eq('is_active', true).order('title'),
+])
+
+type TeamAssignment = { is_team_lead: boolean; joined_at: string; teams: { id: string; name: string; pillars: { name: string } | null } | null }
+type UserRole = { assigned_at: string; roles: { id: string; name: string } | null }
+type Tenure = { id: string; term_start: string; term_end: string | null; elected_by: string | null; notes: string | null; elected_positions: { title: string } | null }
+type DbsRecord = { id: string; certificate_reference: string | null; clearance_date: string | null; expiry_date: string | null; drive_url: string | null; created_at: string }
+type Due = { id: string; year: number; month: number; paid_at: string | null }
+
+const teamAssignments = (member.person_teams as TeamAssignment[]) ?? []
+const userRoles = (member.user_roles as UserRole[]) ?? []
+const tenures = (member.elected_position_tenures as Tenure[]) ?? []
+const dbsRecords = (member.dbs_records as DbsRecord[]) ?? []
+const dues = (member.dues as Due[]) ?? []
+
+const activeTenure = tenures.find(t => !t.term_end)
+
+// Documents for this member — visible to admin, own profile, or team lead
+const canSeeDocumentsTab = userIsAdmin || viewingOwnProfile || (!userIsAdmin && viewer?.person_id !== undefined)
+let memberDocs: any[] = []
+if (canSeeDocumentsTab && id) {
+  const { data: docsData } = await supabaseAdmin
+    .from('documents')
+    .select('id, title, status, created_at, expiry_date, document_type:document_types(name), training:trainings(title)')
+    .eq('person_id', id)
+    .order('created_at', { ascending: false })
+  memberDocs = (docsData ?? []) as any[]
+}
+
+function statusVariant(s: string): 'success' | 'warning' | 'danger' | 'neutral' | 'info' {
+  const map: Record<string, 'success' | 'warning' | 'danger' | 'neutral' | 'info'> = {
+    active: 'success', approved: 'info', pending_review: 'warning',
+    applicant: 'neutral', suspended: 'warning', inactive: 'neutral', alumni: 'neutral', left: 'danger',
+  }
+  return map[s] ?? 'neutral'
+}
+
+function titleCase(s: string): string {
+  return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+function getInitials(name: string): string {
+  return name.trim().split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+}
+
+type AwardRecord = { id: string; type: string; year: number; citation: string | null; created_at: string; awarded_by: string | null }
+type PraiseRecord = { id: string; message: string; visibility: string; created_at: string; given_by: string | null }
+type AuditEntry = { id: string; action: string; target_table: string; created_at: string; actor: { full_name: string } | null }
+
+const allAwards = (allMemberAwards ?? []) as unknown as AwardRecord[]
+const allPraise = (allMemberPraise ?? []) as unknown as PraiseRecord[]
+
+// Available years with data
+const awardYears = [...new Set(allAwards.map(a => a.year))].sort((a, b) => b - a)
+const praiseYears = [...new Set(allPraise.map(p => new Date(p.created_at).getFullYear()))].sort((a, b) => b - a)
+const recognitionYears = [...new Set([...awardYears, ...praiseYears])].sort((a, b) => b - a)
+const effectiveRecogYear = recognitionYears.includes(recognitionYear) ? recognitionYear : (recognitionYears[0] ?? new Date().getFullYear())
+
+// Filter to selected year
+const awards = allAwards.filter(a => a.year === effectiveRecogYear)
+const praise = allPraise.filter(p => new Date(p.created_at).getFullYear() === effectiveRecogYear)
+
+// Pagination slices
+const awardsTotalPages = Math.max(1, Math.ceil(awards.length / RECOG_PAGE_SIZE))
+const praiseTotalPages = Math.max(1, Math.ceil(praise.length / RECOG_PAGE_SIZE))
+const awardsPageClamped = Math.min(awardsPage, awardsTotalPages)
+const praisePageClamped = Math.min(praisePage, praiseTotalPages)
+const awardsSlice = awards.slice((awardsPageClamped - 1) * RECOG_PAGE_SIZE, awardsPageClamped * RECOG_PAGE_SIZE)
+const praiseSlice = praise.slice((praisePageClamped - 1) * RECOG_PAGE_SIZE, praisePageClamped * RECOG_PAGE_SIZE)
+const auditEntries = (memberAuditLog ?? []) as unknown as AuditEntry[]
+const teams = (allTeams ?? []) as { id: string; name: string }[]
+const roles = (allRoles ?? []) as { id: string; name: string }[]
+const positions = (allPositions ?? []) as { id: string; title: string }[]
+
+const isLoginEnabled = (member.login_enabled as boolean | null) ?? false
+
+const emailMd5 = createHash('md5').update((member.email as string).toLowerCase().trim()).digest('hex')
+const gravatarUrl = `https://www.gravatar.com/avatar/${emailMd5}?d=mp&s=128`
+const admin = Astro.locals.user?.roles?.some(r => ['Super Admin', 'Admin', 'Chapter Leadership'].includes(r)) ?? false
+const isSuperAdmin = Astro.locals.user?.roles?.includes('Super Admin') ?? false
+
+// Derived capabilities — used to show/hide UI elements
+const canEdit           = admin || viewingOwnProfile
+const canSeeAdminTabs   = admin   // dues, dbs, teams & roles, activity
+const canSeeNotes       = admin
+const canSeeApplication = admin
+const canAssignPosition = admin
+const canGiveAward      = admin
+// canGivePraise → everyone with access to this page
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function fmtDay(iso: string | null) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function fmtDob(iso: string | null, showYear: boolean) {
+  if (!iso) return '—'
+  const opts: Intl.DateTimeFormatOptions = showYear
+    ? { day: 'numeric', month: 'long', year: 'numeric' }
+    : { day: 'numeric', month: 'long' }
+  return new Date(iso).toLocaleDateString('en-GB', opts)
+}
+
+function actionBadgeStyle(action: string): string {
+  const styles: Record<string, string> = {
+    create: 'background:#f0fdf4;color:#166534',
+    update: 'background:#eff6ff;color:#1e40af',
+    delete: 'background:#fef2f2;color:#991b1b',
+  }
+  return styles[action] ?? 'background:#f8fafc;color:#475569'
+}
+
+const AWARD_LABELS: Record<string, string> = {
+  member_of_the_year: 'Member of the Year', volunteer_of_the_year: 'Volunteer of the Year',
+  mentor_of_the_year: 'Mentor of the Year', rising_star: 'Rising Star',
+  community_impact: 'Community Impact', leadership_excellence: 'Leadership Excellence',
+  special_recognition: 'Special Recognition',
+}
+
+const tabs = [
+  { id: 'overview',    label: 'Overview' },
+  ...(canSeeAdminTabs ? [{ id: 'dues', label: 'Dues' }] : []),
+  ...(canSeeAdminTabs ? [{ id: 'dbs', label: 'DBS' }] : []),
+  ...(canSeeAdminTabs ? [{ id: 'roles', label: 'Teams & Roles' }] : []),
+  { id: 'recognition', label: `Recognition${allAwards.length + allPraise.length > 0 ? ` (${allAwards.length + allPraise.length})` : ''}` },
+  ...(canSeeDocumentsTab ? [{ id: 'documents', label: `Documents${memberDocs.length > 0 ? ` (${memberDocs.length})` : ''}` }] : []),
+  ...(canSeeAdminTabs ? [{ id: 'activity', label: `Activity${auditEntries.length > 0 ? ` (${auditEntries.length})` : ''}` }] : []),
+]
+
+const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const currentYear = new Date().getFullYear()
+
+// Application fields — check if any exist
+const hasApplicationData = !!(
+  (member.why_join as string | null) ||
+  (member.skills_qualities as string | null) ||
+  (member.pillar_interest as string | null) ||
+  (member.committee_interest as string | null) ||
+  (member.referral_source as string | null) ||
+  (member.intake_status as string | null) ||
+  (member.dbs_consent as boolean | null) !== null ||
+  (member.dues_consent as boolean | null) !== null
+)
+---
+
+<DashboardLayout title={member.full_name as string}>
+  <div id="member-root" data-member-id={id}>
+    <Breadcrumb crumbs={[{ label: 'Members', href: '/admin/members' }, { label: member.full_name as string }]} />
+    <!-- Member header -->
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--color-neutral-200);">
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <div style="width: 64px; height: 64px; border-radius: var(--radius-full); background-color: var(--color-brand-navy); color: white; display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-size: 20px; font-weight: 700; flex-shrink: 0; overflow: hidden;">
+          <img src={(member.profile_photo_url as string | null) ?? gravatarUrl} alt={member.full_name as string} width={64} height={64} style="width:100%;height:100%;object-fit:cover;" />
+        </div>
+        <div>
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+            <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">
+              {member.full_name}
+            </h1>
+            <Badge variant={statusVariant(member.status as string)}>
+              {titleCase(member.status as string)}
+            </Badge>
+          </div>
+          <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0 0 4px;">{member.email}</p>
+          {(member.person_types as string[] | null)?.length ? (
+            <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">
+              {(member.person_types as string[]).map(titleCase).join(' · ')}
+            </p>
+          ) : null}
+          {activeTenure && (
+            <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-brand-gold); font-weight: 600; margin: 4px 0 0;">
+              ★ {activeTenure.elected_positions?.title}
+            </p>
+          )}
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        {admin && (
+          <button
+            id="login-access-btn"
+            data-enabled={isLoginEnabled ? 'true' : 'false'}
+            data-person-id={id}
+            style={`padding: 8px 16px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid;
+              ${isLoginEnabled
+                ? 'background-color: var(--color-success-50); color: var(--color-success-700); border-color: var(--color-success-300);'
+                : 'background-color: var(--color-neutral-100); color: var(--color-neutral-500); border-color: var(--color-neutral-300);'}`}>
+            {isLoginEnabled ? '🔓 Login enabled' : '🔒 Login disabled'}
+          </button>
+        )}
+        {admin && (
+          <a href={`/admin/email/compose?person_id=${id}`}
+             style="padding: 8px 16px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; text-decoration: none;">
+            ✉ Email
+          </a>
+        )}
+        {canEdit && (
+          <a href={`/admin/members/${id}/edit`}
+             style="padding: 8px 16px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; text-decoration: none;">
+            Edit
+          </a>
+        )}
+        {admin && !(member.is_archived as boolean) && (
+          <button
+            id="archive-btn"
+            data-member-id={id}
+            data-member-name={member.full_name as string}
+            style="padding: 8px 16px; background-color: white; color: var(--color-danger-600); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
+            Archive
+          </button>
+        )}
+        {isSuperAdmin && (
+          <button
+            id="delete-btn"
+            data-member-id={id}
+            data-member-name={member.full_name as string}
+            style="padding: 8px 16px; background-color: var(--color-danger-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;"
+            title="Permanently remove this member and all their data from the system">
+            Delete
+          </button>
+        )}
+      </div>
+    </div>
+
+    <!-- Tab nav -->
+    <nav style="display: flex; gap: 2px; margin-bottom: 24px; border-bottom: 1px solid var(--color-neutral-200);">
+      {tabs.map(t => (
+        <a href={`?tab=${t.id}`}
+           style={`padding: 8px 16px; font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none; border-radius: var(--radius-md) var(--radius-md) 0 0; margin-bottom: -1px; border-bottom: 2px solid transparent;
+             ${tab === t.id
+               ? 'color: var(--color-brand-navy); border-bottom-color: var(--color-brand-gold); background-color: var(--color-neutral-50);'
+               : 'color: var(--color-neutral-500);'}`}>
+          {t.label}
+        </a>
+      ))}
+    </nav>
+
+    <!-- ─── Tab: Overview ──────────────────────────────────────────── -->
+    {tab === 'overview' && (
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+
+        <!-- Personal details + Notes -->
+        <div style={`display: grid; grid-template-columns: ${canSeeNotes ? '1fr 1fr' : '1fr'}; gap: 20px;`}>
+          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
+            <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px;">Personal details</h2>
+            <dl style="display: grid; grid-template-columns: 120px 1fr; gap: 10px 16px;">
+              {[
+                ['Email', member.email],
+                ...(member.email_secondary ? [['Secondary email', member.email_secondary]] : []),
+                ['Phone', (member.phone as string | null) ?? '—'],
+                ['Date of birth', fmtDob(member.date_of_birth as string | null, admin)],
+                ['Gender', (member.gender as string | null) ?? '—'],
+                ['Date joined', (member.date_joined as string | null) ?? '—'],
+                ['Source', (member.source as string | null) ?? '—'],
+              ].map(([label, value]) => (
+                <>
+                  <dt style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-500);">{label}</dt>
+                  <dd style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); margin: 0;">{value}</dd>
+                </>
+              ))}
+            </dl>
+          </div>
+          {canSeeNotes && (
+            <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
+              <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px;">Notes</h2>
+              <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700); margin: 0; line-height: 1.6; white-space: pre-wrap;">
+                {(member.notes as string | null) ?? <em style="color: var(--color-neutral-400);">No notes.</em>}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <!-- Elected Positions -->
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
+          <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px;">Elected Positions</h2>
+          {tenures.length > 0 ? (
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; font-family: var(--font-body); margin-bottom: 16px;">
+              <thead>
+                <tr style="background-color: var(--color-neutral-50);">
+                  <th style="padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em;">Position</th>
+                  <th style="padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em;">Term start</th>
+                  <th style="padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em;">Term end</th>
+                  <th style="padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em;">Elected by</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tenures.sort((a,b) => a.term_end ? 1 : -1).map((t, i) => (
+                  <tr style={`border-top: ${i > 0 ? '1px solid var(--color-neutral-100)' : 'none'}; ${!t.term_end ? 'background-color: var(--color-neutral-50);' : ''}`}>
+                    <td style="padding: 10px 12px;">
+                      <span style="font-weight: 600; color: var(--color-brand-navy);">{t.elected_positions?.title ?? '—'}</span>
+                      {!t.term_end && <Badge variant="success">Current</Badge>}
+                    </td>
+                    <td style="padding: 10px 12px; color: var(--color-neutral-700);">{t.term_start}</td>
+                    <td style="padding: 10px 12px; color: var(--color-neutral-500);">{t.term_end ?? '—'}</td>
+                    <td style="padding: 10px 12px; color: var(--color-neutral-600);">{(t.elected_by ?? '').replace(/_/g, ' ')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0 0 16px;">No elected positions recorded.</p>
+          )}
+
+          {/* Assign position form */}
+          {canAssignPosition && positions.length > 0 && (
+            <div style="padding-top: 16px; border-top: 1px solid var(--color-neutral-100);">
+              <p style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 10px;">Assign position</p>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end;">
+                <div>
+                  <label style="display: block; font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-600); margin-bottom: 4px;">Position</label>
+                  <select id="position-select" style="padding: 7px 10px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); background: white; min-width: 200px;">
+                    <option value="">— Select position —</option>
+                    {positions.map(p => <option value={p.id}>{p.title}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style="display: block; font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-600); margin-bottom: 4px;">Term start</label>
+                  <input type="date" id="position-term-start" value={new Date().toISOString().split('T')[0]}
+                    style="padding: 7px 10px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);" />
+                </div>
+                <div>
+                  <label style="display: block; font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-600); margin-bottom: 4px;">Elected by</label>
+                  <select id="position-elected-by" style="padding: 7px 10px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); background: white;">
+                    <option value="chapter_vote">Chapter vote</option>
+                    <option value="board_appointment">Board appointment</option>
+                    <option value="co_option">Co-option</option>
+                  </select>
+                </div>
+                <button id="assign-position-btn" data-member-id={id}
+                  style="padding: 8px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
+                  Assign
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <!-- Teams (read-only, visible to all viewers including team leads) -->
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
+          <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px;">Teams</h2>
+          {teamAssignments.length > 0 ? (
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              {teamAssignments.map(ta => ta.teams && (
+                <a href={`/admin/teams/${ta.teams.id}`}
+                   style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background-color: var(--color-neutral-100); border-radius: var(--radius-full); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); text-decoration: none;">
+                  {ta.is_team_lead && <span style="color: var(--color-brand-gold);">★</span>}
+                  {ta.teams.name}
+                  {ta.teams.pillars && <span style="font-size: 11px; color: var(--color-neutral-400);">· {ta.teams.pillars.name}</span>}
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">Not assigned to any teams.</p>
+          )}
+        </div>
+
+        <!-- Application (admin only) -->
+        {canSeeApplication && hasApplicationData && (
+          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
+            <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px;">Application</h2>
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+              {(member.intake_status as string | null) && (
+                <div style="display: flex; gap: 12px;">
+                  <span style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-500); min-width: 180px;">Intake status</span>
+                  <span style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800);">{member.intake_status as string}</span>
+                </div>
+              )}
+              {(member.why_join as string | null) && (
+                <div>
+                  <p style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 4px;">Why they want to join</p>
+                  <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); margin: 0; line-height: 1.6; white-space: pre-wrap;">{member.why_join as string}</p>
+                </div>
+              )}
+              {(member.skills_qualities as string | null) && (
+                <div>
+                  <p style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 4px;">Skills & qualities</p>
+                  <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); margin: 0; line-height: 1.6;">{member.skills_qualities as string}</p>
+                </div>
+              )}
+              {((member.pillar_interest as string | null) || (member.committee_interest as string | null) || (member.referral_source as string | null)) && (
+                <dl style="display: grid; grid-template-columns: 180px 1fr; gap: 8px 16px;">
+                  {(member.pillar_interest as string | null) && (
+                    <>
+                      <dt style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-500);">Pillar interest</dt>
+                      <dd style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); margin: 0;">{member.pillar_interest as string}</dd>
+                    </>
+                  )}
+                  {(member.committee_interest as string | null) && (
+                    <>
+                      <dt style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-500);">Committee interest</dt>
+                      <dd style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); margin: 0;">{member.committee_interest as string}</dd>
+                    </>
+                  )}
+                  {(member.referral_source as string | null) && (
+                    <>
+                      <dt style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-500);">How they heard</dt>
+                      <dd style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); margin: 0;">{member.referral_source as string}</dd>
+                    </>
+                  )}
+                </dl>
+              )}
+              {((member.dbs_consent as boolean | null) !== null || (member.dues_consent as boolean | null) !== null) && (
+                <dl style="display: grid; grid-template-columns: 180px 1fr; gap: 8px 16px;">
+                  {(member.dbs_consent as boolean | null) !== null && (
+                    <>
+                      <dt style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-500);">DBS consent</dt>
+                      <dd style="font-family: var(--font-body); font-size: 13px; margin: 0;">
+                        {(member.dbs_consent as boolean)
+                          ? <span style="color: var(--color-success-700); font-weight: 600;">✓ Yes</span>
+                          : <span style="color: var(--color-neutral-400);">Not recorded</span>}
+                      </dd>
+                    </>
+                  )}
+                  {(member.dues_consent as boolean | null) !== null && (
+                    <>
+                      <dt style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-500);">Dues consent</dt>
+                      <dd style="font-family: var(--font-body); font-size: 13px; margin: 0;">
+                        {(member.dues_consent as boolean)
+                          ? <span style="color: var(--color-success-700); font-weight: 600;">✓ Yes</span>
+                          : <span style="color: var(--color-neutral-400);">Not recorded</span>}
+                      </dd>
+                    </>
+                  )}
+                </dl>
+              )}
+            </div>
+          </div>
+        )}
+
+      </div>
+    )}
+
+    <!-- ─── Tab: Dues ──────────────────────────────────────────────── -->
+    {tab === 'dues' && (
+      <div>
+        <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0 0 20px;">
+          Click a month to toggle paid/unpaid. Changes are saved immediately.
+        </p>
+        {[currentYear, currentYear - 1, currentYear - 2].map(year => {
+          const yearDues = dues.filter(d => d.year === year)
+          const allPaid = months.every((_, i) => yearDues.some(d => d.month === i + 1))
+          const unpaidMonths = months.map((_, i) => i + 1).filter(m => !yearDues.some(d => d.month === m))
+          return (
+            <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                <h3 style="font-family: var(--font-heading); font-size: 16px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">{year}</h3>
+                {!allPaid && (
+                  <button
+                    class="pay-year-btn"
+                    data-year={year}
+                    data-unpaid-months={unpaidMonths.join(',')}
+                    style="padding: 6px 14px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; font-weight: 600; cursor: pointer;">
+                    ✓ Mark all paid
+                  </button>
+                )}
+                {allPaid && (
+                  <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-success-700); font-weight: 600;">All paid ✓</span>
+                )}
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px;">
+                {months.map((month, i) => {
+                  const monthNum = i + 1
+                  const paid = yearDues.find(d => d.month === monthNum)
+                  return (
+                    <button
+                      class="due-btn"
+                      data-year={year}
+                      data-month={monthNum}
+                      data-due-id={paid?.id ?? ''}
+                      style={`padding: 10px 0; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid; text-align: center;
+                        ${paid
+                          ? 'background-color: var(--color-success-100); color: var(--color-success-700); border-color: var(--color-success-300);'
+                          : 'background-color: var(--color-neutral-50); color: var(--color-neutral-400); border-color: var(--color-neutral-200);'}`}>
+                      {month}
+                      <span style="display: block; font-size: 10px; font-weight: 400;">{paid ? '✓' : '–'}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )}
+
+    <!-- ─── Tab: DBS ───────────────────────────────────────────────── -->
+    {tab === 'dbs' && (
+      <div>
+        <div style="display: flex; align-items: center; justify-content: flex-end; margin-bottom: 20px;">
+          <a href={`/admin/members/${id}/dbs/new`}
+             style="padding: 8px 14px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; text-decoration: none;">
+            + Add DBS record
+          </a>
+        </div>
+        {dbsRecords.length > 0 ? (
+          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background-color: var(--color-neutral-100);">
+                  <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Certificate ref</th>
+                  <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Clearance date</th>
+                  <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Expiry date</th>
+                  <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Drive</th>
+                  <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {dbsRecords.map((r, i) => {
+                  const expiryDate = r.expiry_date ? new Date(r.expiry_date) : null
+                  const now = Date.now()
+                  const daysLeft = expiryDate ? Math.floor((expiryDate.getTime() - now) / 86400000) : null
+                  const expiryStyle = daysLeft !== null
+                    ? daysLeft < 0 ? 'color: var(--color-danger-600); font-weight: 600;'
+                    : daysLeft <= 90 ? 'color: var(--color-warning-700); font-weight: 600;'
+                    : 'color: var(--color-success-700);'
+                    : ''
+                  return (
+                    <tr style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
+                      <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">{r.certificate_reference ?? <span style="color: var(--color-neutral-400); font-style: italic;">Not set</span>}</td>
+                      <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">{fmtDay(r.clearance_date)}</td>
+                      <td style={`padding: 12px 16px; font-family: var(--font-body); font-size: 13px; ${expiryStyle}`}>
+                        {fmtDay(r.expiry_date)}
+                        {daysLeft !== null && daysLeft < 0 && <span style="margin-left: 6px; font-size: 11px; padding: 1px 6px; background: var(--color-danger-100); border-radius: 10px;">Expired</span>}
+                        {daysLeft !== null && daysLeft >= 0 && daysLeft <= 90 && <span style="margin-left: 6px; font-size: 11px; padding: 1px 6px; background: var(--color-warning-100); border-radius: 10px;">{daysLeft}d left</span>}
+                      </td>
+                      <td style="padding: 12px 16px;">
+                        {r.drive_url
+                          ? <a href={r.drive_url} target="_blank" rel="noreferrer" style="font-family: var(--font-body); font-size: 13px; color: var(--color-brand-navy); text-decoration: none;">View ↗</a>
+                          : <span style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400);">—</span>}
+                      </td>
+                      <td style="padding: 12px 16px; white-space: nowrap;">
+                        <a href={`/admin/members/${id}/dbs/${r.id}/edit`}
+                           style="font-family: var(--font-body); font-size: 12px; color: var(--color-brand-navy); text-decoration: none; margin-right: 10px;">Edit</a>
+                        {admin && (
+                          <button class="dbs-delete-btn" data-dbs-id={r.id}
+                            style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-600); background: none; border: none; cursor: pointer; padding: 0;">
+                            Delete
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState heading="No DBS records" subtext="No DBS checks have been recorded for this member." />
+        )}
+      </div>
+    )}
+
+    <!-- ─── Tab: Teams & Roles ─────────────────────────────────────── -->
+    {tab === 'roles' && (
+      <div style="display: grid; gap: 24px;">
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
+          <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px;">Teams</h2>
+          {teamAssignments.length > 0 ? (
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              {teamAssignments.map(ta => ta.teams && (
+                <div style="display: inline-flex; align-items: center; gap: 0; background-color: var(--color-neutral-100); border-radius: var(--radius-full);">
+                  <a href={`/admin/teams/${ta.teams.id}`}
+                     style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px 6px 12px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); text-decoration: none;">
+                    {ta.is_team_lead && <span style="color: var(--color-brand-gold);">★</span>}
+                    {ta.teams.name}
+                    {ta.teams.pillars && <span style="font-size: 11px; color: var(--color-neutral-400);">· {ta.teams.pillars.name}</span>}
+                  </a>
+                  <button class="remove-team-btn" data-team-id={ta.teams.id}
+                    style="background: none; border: none; cursor: pointer; padding: 6px 10px 6px 4px; color: var(--color-neutral-400); font-size: 14px; line-height: 1; border-radius: 0 var(--radius-full) var(--radius-full) 0;"
+                    title="Remove from team">×</button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">Not assigned to any teams.</p>
+          )}
+
+          {teams.filter(t => !teamAssignments.some(ta => ta.teams?.id === t.id)).length > 0 && (
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-neutral-100); flex-wrap: wrap;">
+              <select id="team-select"
+                style="padding: 7px 10px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); background: white; min-width: 180px;">
+                <option value="">— Assign to team —</option>
+                {teams.filter(t => !teamAssignments.some(ta => ta.teams?.id === t.id)).map(t => (
+                  <option value={t.id}>{t.name}</option>
+                ))}
+              </select>
+              <label style="display: flex; align-items: center; gap: 5px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); cursor: pointer;">
+                <input type="checkbox" id="team-lead-check" style="width: 14px; height: 14px; accent-color: var(--color-brand-gold);" />
+                Team lead
+              </label>
+              <button id="add-team-btn"
+                style="padding: 7px 14px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
+                Add
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
+          <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px;">Roles</h2>
+          {userRoles.length > 0 ? (
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              {userRoles.map(ur => ur.roles && (
+                <div style="display: inline-flex; align-items: center; gap: 0; background-color: var(--color-brand-navy); border-radius: var(--radius-full);">
+                  <span style="padding: 6px 12px; color: white; font-family: var(--font-body); font-size: 13px; font-weight: 500;">
+                    {ur.roles.name}
+                  </span>
+                  {isSuperAdmin && (
+                    <button class="remove-role-btn" data-role-id={ur.roles.id}
+                      style="background: none; border: none; cursor: pointer; padding: 6px 10px 6px 2px; color: rgba(255,255,255,0.7); font-size: 14px; line-height: 1;"
+                      title={`Revoke ${ur.roles.name}`}>×</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">No roles assigned.</p>
+          )}
+
+          {isSuperAdmin && roles.filter(r => !userRoles.some(ur => ur.roles?.id === r.id)).length > 0 && (
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-neutral-100);">
+              <select id="role-select"
+                style="padding: 7px 10px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); background: white; min-width: 180px;">
+                <option value="">— Assign role —</option>
+                {roles.filter(r => !userRoles.some(ur => ur.roles?.id === r.id)).map(r => (
+                  <option value={r.id}>{r.name}</option>
+                ))}
+              </select>
+              <button id="add-role-btn"
+                style="padding: 7px 14px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
+                Assign
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+
+    <!-- ─── Tab: Recognition ──────────────────────────────────────── -->
+    {tab === 'recognition' && (
+      <div>
+
+        <!-- Year filter + action buttons row -->
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+          <div>
+            {recognitionYears.length === 0
+              ? <span style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400);">No recognition yet</span>
+              : (
+                <select onchange={`window.location.href='?tab=recognition&r_year='+this.value`}
+                  style="padding: 6px 10px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; background: white; color: var(--color-neutral-700); cursor: pointer; min-width: 100px;">
+                  {recognitionYears.map(y => (
+                    <option value={String(y)} selected={y === effectiveRecogYear}>{y}</option>
+                  ))}
+                </select>
+              )
+            }
+          </div>
+          <div style="display: flex; gap: 8px;">
+            {canGiveAward && (
+              <a href={`/admin/awards/new?person_id=${id}`}
+                style="padding: 6px 14px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; font-weight: 600; text-decoration: none;">
+                + Give award
+              </a>
+            )}
+            <a href={`/admin/praise/new?person_id=${id}`}
+              style="padding: 6px 14px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; font-weight: 600; text-decoration: none;">
+              + Give praise
+            </a>
+          </div>
+        </div>
+
+        <!-- Side-by-side grid -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
+
+          <!-- ── Awards column ─────────────────────────────────────── -->
+          <div>
+            <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 12px;">
+              🏆 Awards <span style="font-weight: 400; color: var(--color-neutral-400); font-size: 12px; text-transform: none; letter-spacing: 0;">({awards.length})</span>
+            </h2>
+            {awardsSlice.length === 0 ? (
+              <div style="background: var(--color-neutral-50); border: 1px dashed var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px 16px; text-align: center;">
+                <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No awards in {effectiveRecogYear}</p>
+              </div>
+            ) : (
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                {awardsSlice.map(a => (
+                  <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 14px 16px;">
+                    <p style="font-family: var(--font-body); font-size: 13px; font-weight: 700; color: var(--color-brand-gold); margin: 0 0 4px;">
+                      🏆 {AWARD_LABELS[a.type] ?? a.type}
+                    </p>
+                    {a.citation && (
+                      <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); margin: 0 0 6px; line-height: 1.5;">{a.citation}</p>
+                    )}
+                    <p style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); margin: 0;">
+                      {a.year}{a.awarded_by ? ' · ' + a.awarded_by : ''}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Awards pagination */}
+            {awardsTotalPages > 1 && (
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;">
+                <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400);">
+                  {awardsPageClamped}/{awardsTotalPages}
+                </span>
+                <div style="display: flex; gap: 4px;">
+                  {awardsPageClamped > 1 && (
+                    <a href={`?tab=recognition&r_year=${effectiveRecogYear}&a_page=${awardsPageClamped - 1}&p_page=${praisePageClamped}`}
+                      style="padding: 4px 10px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-size: 12px; font-family: var(--font-body); color: var(--color-neutral-600); text-decoration: none;">←</a>
+                  )}
+                  {awardsPageClamped < awardsTotalPages && (
+                    <a href={`?tab=recognition&r_year=${effectiveRecogYear}&a_page=${awardsPageClamped + 1}&p_page=${praisePageClamped}`}
+                      style="padding: 4px 10px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-size: 12px; font-family: var(--font-body); color: var(--color-neutral-600); text-decoration: none;">→</a>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <!-- ── Praise column ──────────────────────────────────────── -->
+          <div>
+            <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 12px;">
+              ⭐ Praise <span style="font-weight: 400; color: var(--color-neutral-400); font-size: 12px; text-transform: none; letter-spacing: 0;">({praise.length})</span>
+            </h2>
+            {praiseSlice.length === 0 ? (
+              <div style="background: var(--color-neutral-50); border: 1px dashed var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px 16px; text-align: center;">
+                <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No praise in {effectiveRecogYear}</p>
+              </div>
+            ) : (
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                {praiseSlice.map(p => (
+                  <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 14px 16px;">
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                      <span style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-600);">Admin</span>
+                      <span style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400);">
+                        · {new Date(p.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                    </div>
+                    <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); margin: 0; line-height: 1.6; border-left: 3px solid var(--color-brand-gold); padding-left: 10px;">{p.message}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Praise pagination */}
+            {praiseTotalPages > 1 && (
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;">
+                <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400);">
+                  {praisePageClamped}/{praiseTotalPages}
+                </span>
+                <div style="display: flex; gap: 4px;">
+                  {praisePageClamped > 1 && (
+                    <a href={`?tab=recognition&r_year=${effectiveRecogYear}&a_page=${awardsPageClamped}&p_page=${praisePageClamped - 1}`}
+                      style="padding: 4px 10px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-size: 12px; font-family: var(--font-body); color: var(--color-neutral-600); text-decoration: none;">←</a>
+                  )}
+                  {praisePageClamped < praiseTotalPages && (
+                    <a href={`?tab=recognition&r_year=${effectiveRecogYear}&a_page=${awardsPageClamped}&p_page=${praisePageClamped + 1}`}
+                      style="padding: 4px 10px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-size: 12px; font-family: var(--font-body); color: var(--color-neutral-600); text-decoration: none;">→</a>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+        </div>
+      </div>
+    )}
+
+    <!-- ─── Tab: Activity ─────────────────────────────────────────── -->
+    {tab === 'activity' && (
+      <div>
+        {auditEntries.length === 0 ? (
+          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 48px 24px; text-align: center; color: var(--color-neutral-500); font-size: 14px; font-family: var(--font-body);">
+            No activity recorded yet.
+          </div>
+        ) : (
+          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; font-family: var(--font-body);">
+              <thead>
+                <tr style="background-color: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+                  <th style="text-align: left; padding: 11px 16px; font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap;">When</th>
+                  <th style="text-align: left; padding: 11px 16px; font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.04em;">Action</th>
+                  <th style="text-align: left; padding: 11px 16px; font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.04em;">Table</th>
+                  <th style="text-align: left; padding: 11px 16px; font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.04em;">Actor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {auditEntries.map((entry, i) => (
+                  <tr style={`border-bottom: ${i < auditEntries.length - 1 ? '1px solid var(--color-neutral-100)' : 'none'};`}>
+                    <td style="padding: 10px 16px; color: var(--color-neutral-500); white-space: nowrap;">{fmtDate(entry.created_at)}</td>
+                    <td style="padding: 10px 16px;">
+                      <span style={`display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; ${actionBadgeStyle(entry.action)}`}>
+                        {entry.action}
+                      </span>
+                    </td>
+                    <td style="padding: 10px 16px; color: var(--color-neutral-600); font-family: var(--font-mono, monospace); font-size: 12px;">{entry.target_table}</td>
+                    <td style="padding: 10px 16px; color: var(--color-neutral-700);">
+                      {entry.actor?.full_name ?? <span style="color: var(--color-neutral-400);">System</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    )}
+
+    {tab === 'documents' && canSeeDocumentsTab && (
+      <div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+          <h2 style="font-family: var(--font-heading); font-size: 16px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">Documents</h2>
+          <a href={`/admin/documents/upload?person_id=${id}`}
+            style="padding: 8px 16px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; text-decoration: none;">
+            + Upload document
+          </a>
+        </div>
+        {memberDocs.length === 0 ? (
+          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 48px; text-align: center;">
+            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">No documents uploaded yet.</p>
+          </div>
+        ) : (
+          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead style="background-color: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+                <tr>
+                  <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Document</th>
+                  <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Type</th>
+                  <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
+                  <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Uploaded</th>
+                  <th style="padding: 10px 16px;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {memberDocs.map((doc: any, i: number) => {
+                  const statusColors: Record<string, [string, string]> = {
+                    pending: ['var(--color-warning-50)', 'var(--color-warning-700)'],
+                    approved: ['var(--color-success-50)', 'var(--color-success-700)'],
+                    rejected: ['var(--color-danger-50)', 'var(--color-danger-600)'],
+                  }
+                  const [bg, fg] = statusColors[doc.status] ?? ['var(--color-neutral-100)', 'var(--color-neutral-600)']
+                  return (
+                    <tr style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
+                      <td style="padding: 12px 16px;">
+                        <p style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-800); margin: 0 0 2px;">{doc.title}</p>
+                        {doc.training && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">Training: {doc.training.title}</p>}
+                        {doc.expiry_date && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">Expires: {fmtDay(doc.expiry_date)}</p>}
+                      </td>
+                      <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">{(doc.document_type as any)?.name ?? '—'}</td>
+                      <td style="padding: 12px 16px;">
+                        <span style={`display: inline-block; padding: 2px 10px; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 12px; font-weight: 600; background-color: ${bg}; color: ${fg};`}>
+                          {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                        </span>
+                      </td>
+                      <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500);">{fmtDay(doc.created_at)}</td>
+                      <td style="padding: 12px 16px; text-align: right;">
+                        <a href={`/admin/documents/${doc.id}`}
+                          style="font-family: var(--font-body); font-size: 13px; color: var(--color-brand-navy); text-decoration: none; font-weight: 500;">
+                          View →
+                        </a>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    )}
+
+    <!-- ─── Single consolidated script — NO define:vars (avoids IIFE scope trap) ── -->
+    <script is:inline>
+      (function () {
+        var root = document.getElementById('member-root')
+        var memberId = root ? root.dataset.memberId : ''
+
+        // ── Login access toggle ──────────────────────────────────────
+        var loginBtn = document.getElementById('login-access-btn')
+        if (loginBtn) {
+          loginBtn.addEventListener('click', function () {
+            var enabled = loginBtn.dataset.enabled === 'true'
+            var label = enabled ? 'disable' : 'enable'
+            if (!confirm(label.charAt(0).toUpperCase() + label.slice(1) + ' login access for this member?')) return
+            loginBtn.disabled = true
+            fetch('/api/members/' + memberId + '/login-access', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ enabled: !enabled }),
+            }).then(function (r) {
+              if (r.ok) { window.location.reload() }
+              else { r.json().then(function (e) { alert(e.error || 'Failed to update login access') }) }
+            })
+          })
+        }
+
+        // ── Archive ──────────────────────────────────────────────────
+        var archiveBtn = document.getElementById('archive-btn')
+        if (archiveBtn) {
+          archiveBtn.addEventListener('click', function () {
+            var name = archiveBtn.dataset.memberName
+            if (!confirm('Archive ' + name + '? They will no longer appear in active lists.\n\nNote: you cannot archive a member with an active elected tenure.')) return
+            archiveBtn.disabled = true
+            archiveBtn.textContent = 'Archiving…'
+            fetch('/api/members/' + memberId, { method: 'DELETE' }).then(function (r) {
+              if (r.ok) { window.location.href = '/admin/members' }
+              else { r.json().then(function (e) { alert(e.error || 'Failed to archive member'); archiveBtn.disabled = false; archiveBtn.textContent = 'Archive' }) }
+            })
+          })
+        }
+
+        // ── Delete (Super Admin) ─────────────────────────────────────
+        var deleteBtn = document.getElementById('delete-btn')
+        if (deleteBtn) {
+          deleteBtn.addEventListener('click', function () {
+            var name = deleteBtn.dataset.memberName
+            var confirmed = window.prompt('⚠ PERMANENT DELETE\n\nThis will remove ' + name + ' and all their data. This cannot be undone.\n\nType the member\'s full name to confirm:')
+            if (confirmed === null) return
+            if (confirmed.trim() !== name) { alert('Name didn\'t match. Type exactly: ' + name); return }
+            deleteBtn.disabled = true
+            deleteBtn.textContent = 'Deleting…'
+            fetch('/api/members/' + memberId + '?action=permanent', { method: 'DELETE' }).then(function (r) {
+              if (r.ok) { window.location.href = '/admin/members' }
+              else { r.json().then(function (e) { alert(e.error || 'Failed to delete member'); deleteBtn.disabled = false; deleteBtn.textContent = 'Delete' }) }
+            })
+          })
+        }
+
+        // ── Pay all months for year ──────────────────────────────────
+        document.querySelectorAll('.pay-year-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var year = parseInt(btn.dataset.year, 10)
+            var unpaid = (btn.dataset.unpaidMonths || '').split(',').map(Number).filter(Boolean)
+            if (unpaid.length === 0) return
+            if (!confirm('Mark all ' + unpaid.length + ' unpaid months for ' + year + ' as paid?')) return
+            btn.disabled = true
+            btn.textContent = 'Saving…'
+            var promises = unpaid.map(function (month) {
+              return fetch('/api/members/' + memberId + '/dues', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ year: year, month: month }),
+              })
+            })
+            Promise.all(promises).then(function () { window.location.reload() })
+              .catch(function () { alert('Some months may not have saved. Reloading…'); window.location.reload() })
+          })
+        })
+
+        // ── Dues toggle ──────────────────────────────────────────────
+        document.querySelectorAll('.due-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var year = parseInt(btn.dataset.year, 10)
+            var month = parseInt(btn.dataset.month, 10)
+            var existingId = btn.dataset.dueId || null
+            var url = existingId
+              ? '/api/members/' + memberId + '/dues/' + existingId
+              : '/api/members/' + memberId + '/dues'
+            btn.disabled = true
+            fetch(url, {
+              method: existingId ? 'DELETE' : 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: existingId ? undefined : JSON.stringify({ year: year, month: month }),
+            }).then(function (r) {
+              if (r.ok) { window.location.reload() }
+              else { r.json().then(function (e) { alert(e.error || 'Failed to update dues'); btn.disabled = false }) }
+            })
+          })
+        })
+
+        // ── Add to team ──────────────────────────────────────────────
+        var addTeamBtn = document.getElementById('add-team-btn')
+        if (addTeamBtn) {
+          addTeamBtn.addEventListener('click', function () {
+            var sel = document.getElementById('team-select')
+            var teamId = sel ? sel.value : ''
+            if (!teamId) { alert('Please select a team first.'); return }
+            var isLead = document.getElementById('team-lead-check') ? document.getElementById('team-lead-check').checked : false
+            addTeamBtn.disabled = true
+            fetch('/api/members/' + memberId + '/teams', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ team_id: teamId, is_team_lead: isLead }),
+            }).then(function (r) {
+              if (r.ok) { window.location.reload() }
+              else { r.json().then(function (e) { alert(e.error || 'Failed to add to team'); addTeamBtn.disabled = false }) }
+            })
+          })
+        }
+
+        // ── Remove from team ─────────────────────────────────────────
+        document.querySelectorAll('.remove-team-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var teamId = btn.dataset.teamId
+            if (!confirm('Remove this member from the team?')) return
+            btn.disabled = true
+            fetch('/api/members/' + memberId + '/teams?team_id=' + teamId, { method: 'DELETE' }).then(function (r) {
+              if (r.ok) { window.location.reload() }
+              else { r.json().then(function (e) { alert(e.error || 'Failed to remove from team'); btn.disabled = false }) }
+            })
+          })
+        })
+
+        // ── Assign role ──────────────────────────────────────────────
+        var addRoleBtn = document.getElementById('add-role-btn')
+        if (addRoleBtn) {
+          addRoleBtn.addEventListener('click', function () {
+            var sel = document.getElementById('role-select')
+            var roleId = sel ? sel.value : ''
+            if (!roleId) { alert('Please select a role first.'); return }
+            addRoleBtn.disabled = true
+            fetch('/api/members/' + memberId + '/roles', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ role_id: roleId }),
+            }).then(function (r) {
+              if (r.ok) { window.location.reload() }
+              else { r.json().then(function (e) { alert(e.error || 'Failed to assign role'); addRoleBtn.disabled = false }) }
+            })
+          })
+        }
+
+        // ── Revoke role ──────────────────────────────────────────────
+        document.querySelectorAll('.remove-role-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var roleId = btn.dataset.roleId
+            if (!confirm('Revoke this role from the member?')) return
+            btn.disabled = true
+            fetch('/api/members/' + memberId + '/roles?role_id=' + roleId, { method: 'DELETE' }).then(function (r) {
+              if (r.ok) { window.location.reload() }
+              else { r.json().then(function (e) { alert(e.error || 'Failed to revoke role'); btn.disabled = false }) }
+            })
+          })
+        })
+
+        // ── Delete DBS record ────────────────────────────────────────
+        document.querySelectorAll('.dbs-delete-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var dbsId = btn.dataset.dbsId
+            if (!confirm('Delete this DBS record? This action cannot be undone.')) return
+            btn.disabled = true
+            fetch('/api/dbs/' + dbsId, { method: 'DELETE' }).then(function (r) {
+              if (r.ok) { window.location.reload() }
+              else { r.json().then(function (e) { alert(e.error || 'Failed to delete DBS record'); btn.disabled = false }) }
+            })
+          })
+        })
+
+        // ── Assign elected position ──────────────────────────────────
+        var assignPositionBtn = document.getElementById('assign-position-btn')
+        if (assignPositionBtn) {
+          assignPositionBtn.addEventListener('click', function () {
+            var posSelect = document.getElementById('position-select')
+            var positionId = posSelect ? posSelect.value : ''
+            var termStart = document.getElementById('position-term-start') ? document.getElementById('position-term-start').value : ''
+            var electedBy = document.getElementById('position-elected-by') ? document.getElementById('position-elected-by').value : 'chapter_vote'
+            if (!positionId) { alert('Please select a position first.'); return }
+            if (!termStart) { alert('Please enter a term start date.'); return }
+            assignPositionBtn.disabled = true
+            assignPositionBtn.textContent = 'Assigning…'
+            fetch('/api/positions/' + positionId + '/assign', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ person_id: memberId, term_start: termStart, elected_by: electedBy }),
+            }).then(function (r) {
+              if (r.ok) { window.location.reload() }
+              else { r.json().then(function (e) { alert(e.error || 'Failed to assign position'); assignPositionBtn.disabled = false; assignPositionBtn.textContent = 'Assign' }) }
+            })
+          })
+        }
+
+      })()
+    </script>
+
+  </div>
+
+</DashboardLayout>

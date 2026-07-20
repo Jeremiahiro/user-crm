@@ -1,0 +1,357 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin, getTeamLeadIds } from '@/lib/rbac'
+
+const user = Astro.locals.user
+if (!user) return Astro.redirect('/login')
+const userIsAdmin = isAdmin(user)
+const leadIds = userIsAdmin ? new Set(['x']) : await getTeamLeadIds(user.person_id ?? '')
+const canAssignToOthers = userIsAdmin || leadIds.size > 0
+
+const { data: docTypes } = await supabaseAdmin
+  .from('document_types')
+  .select('id, name, requires_issuer, requires_expiry, is_training_linkable')
+  .eq('is_active', true)
+  .order('sort_order')
+  .order('name')
+const { data: trainings } = await supabaseAdmin
+  .from('trainings')
+  .select('id, title')
+  .eq('is_active', true)
+  .order('title')
+
+const preselectedTrainingId = Astro.url.searchParams.get('training_id') ?? ''
+const onBehalfOf = Astro.url.searchParams.get('person_id') ?? ''
+const safeDocTypes = docTypes ?? []
+const safeTrainings = trainings ?? []
+
+// If uploading on behalf of someone else, fetch their name
+let onBehalfOfName = ''
+if (onBehalfOf && onBehalfOf !== (Astro.locals.user?.person_id ?? '')) {
+  const { data: person } = await supabaseAdmin.from('people').select('full_name').eq('id', onBehalfOf).single()
+  onBehalfOfName = (person as any)?.full_name ?? ''
+}
+
+// apiUrl built client-side so person selection can override the preselected on_behalf_of
+---
+
+<DashboardLayout title="Upload Document">
+  <div style="max-width: 600px;">
+    <Breadcrumb crumbs={[{ label: 'Documents', href: '/admin/documents' }, { label: 'Upload Document' }]} />
+    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Upload Document</h1>
+    <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0 0 24px;">
+      {onBehalfOfName ? `Uploading on behalf of ${onBehalfOfName}.` : 'Upload a document to your profile for review.'}
+    </p>
+
+    <form id="uploadForm" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+
+      <!-- Person (admins/leads only) -->
+      {canAssignToOthers && (
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">
+            Person <span style="color: var(--color-neutral-400); font-weight: 400;">(leave blank to upload as yourself)</span>
+          </label>
+          <div style="position: relative;">
+            <input id="personSearch" type="text" placeholder="Search by name or email…" autocomplete="off"
+              value={onBehalfOfName}
+              style="width: 100%; padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); box-sizing: border-box;" />
+            <div id="personDropdown"
+              style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid var(--color-neutral-300); border-top: none; border-radius: 0 0 var(--radius-md) var(--radius-md); max-height: 220px; overflow-y: auto; z-index: 200; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+            </div>
+          </div>
+          <input type="hidden" id="personIdInput" value={onBehalfOf} />
+        </div>
+      )}
+
+      <!-- Document type -->
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label for="docTypeSelect" style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Document type *</label>
+        <select id="docTypeSelect" required
+          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white; color: var(--color-neutral-800);">
+          <option value="">Select type</option>
+          {safeDocTypes.map((dt: any) => (
+            <option value={dt.id}>{dt.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <!-- Title -->
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label for="titleInput" style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Title *</label>
+        <input id="titleInput" type="text" required placeholder="e.g. Enhanced DBS Certificate"
+          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800);" />
+      </div>
+
+      <!-- Issued by (conditional) -->
+      <div id="issuedByRow" style="display: none; flex-direction: column; gap: 4px;">
+        <label for="issuedByInput" style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Issued by</label>
+        <input id="issuedByInput" type="text" placeholder="e.g. DBS Update Service"
+          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800);" />
+      </div>
+
+      <!-- Expiry date (conditional) -->
+      <div id="expiryRow" style="display: none; flex-direction: column; gap: 4px;">
+        <label for="expiryInput" style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Expiry date</label>
+        <input id="expiryInput" type="date"
+          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800);" />
+      </div>
+
+      <!-- Training link (conditional, searchable) -->
+      <div id="trainingRow" style="display: none; flex-direction: column; gap: 4px;">
+        <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Linked training (optional)</label>
+        <div style="position: relative;">
+          <input id="trainingSearch" type="text" placeholder="Search trainings…" autocomplete="off"
+            style="width: 100%; padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); box-sizing: border-box;" />
+          <div id="trainingDropdown"
+            style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid var(--color-neutral-300); border-top: none; border-radius: 0 0 var(--radius-md) var(--radius-md); max-height: 220px; overflow-y: auto; z-index: 200; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+          </div>
+        </div>
+        <input type="hidden" id="trainingIdInput" value={preselectedTrainingId} />
+      </div>
+
+      <!-- File input -->
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label for="fileInput" style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">File *</label>
+        <input id="fileInput" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" required
+          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700); background: white;" />
+        <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">Max 10MB — PDF, JPEG, PNG, WebP</p>
+      </div>
+
+      <!-- Error -->
+      <div id="uploadError" style="display: none; background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);"></div>
+
+      <!-- Actions -->
+      <div style="display: flex; gap: 12px; padding-top: 8px;">
+        <button type="submit" id="submitBtn"
+          style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          Upload
+        </button>
+        <a href="/admin/documents"
+          style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</DashboardLayout>
+
+<script id="docTypesData" type="application/json" set:html={JSON.stringify(safeDocTypes)} />
+<script id="trainingsData" type="application/json" set:html={JSON.stringify(safeTrainings)} />
+<script id="uploadConfig" type="application/json" set:html={JSON.stringify({ canAssignToOthers, preselectedPersonId: onBehalfOf })} />
+
+<script is:inline>
+  var DOC_TYPES = JSON.parse(document.getElementById('docTypesData').textContent)
+  var TRAININGS = JSON.parse(document.getElementById('trainingsData').textContent)
+  var CONFIG = JSON.parse(document.getElementById('uploadConfig').textContent)
+
+  // ── Person search (admins/leads only) ──────────────────────────────────────
+  if (CONFIG.canAssignToOthers) {
+    var personSearch = document.getElementById('personSearch')
+    var personDropdown = document.getElementById('personDropdown')
+    var personIdInput = document.getElementById('personIdInput')
+    var personDebounce
+
+    function renderPersonDropdown(people) {
+      personDropdown.innerHTML = ''
+      // "Myself" clear option
+      var selfEl = document.createElement('div')
+      selfEl.textContent = 'Upload as myself'
+      selfEl.style.cssText = 'padding: 10px 14px; cursor: pointer; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); border-bottom: 1px solid var(--color-neutral-100);'
+      selfEl.addEventListener('mouseenter', function() { selfEl.style.background = 'var(--color-neutral-50)' })
+      selfEl.addEventListener('mouseleave', function() { selfEl.style.background = '' })
+      selfEl.addEventListener('mousedown', function(e) {
+        e.preventDefault()
+        personIdInput.value = ''
+        personSearch.value = ''
+        personDropdown.style.display = 'none'
+      })
+      personDropdown.appendChild(selfEl)
+
+      if (!people || !people.length) {
+        var empty = document.createElement('div')
+        empty.textContent = personSearch.value.length < 3 ? 'Type at least 3 characters…' : 'No results'
+        empty.style.cssText = 'padding: 10px 14px; font-size: 13px; color: var(--color-neutral-400); font-family: var(--font-body);'
+        personDropdown.appendChild(empty)
+      } else {
+        people.forEach(function(p) {
+          var el = document.createElement('div')
+          el.style.cssText = 'padding: 10px 14px; cursor: pointer; font-family: var(--font-body); font-size: 14px;'
+          el.innerHTML = '<span style="font-weight:500;color:var(--color-neutral-800);">' + p.full_name + '</span>' +
+            '<span style="font-size:12px;color:var(--color-neutral-400);margin-left:8px;">' + p.email + '</span>'
+          el.addEventListener('mouseenter', function() { el.style.background = 'var(--color-neutral-50)' })
+          el.addEventListener('mouseleave', function() { el.style.background = '' })
+          el.addEventListener('mousedown', function(e) {
+            e.preventDefault()
+            personIdInput.value = p.id
+            personSearch.value = p.full_name
+            personDropdown.style.display = 'none'
+          })
+          personDropdown.appendChild(el)
+        })
+      }
+      personDropdown.style.display = 'block'
+    }
+
+    personSearch.addEventListener('input', function() {
+      clearTimeout(personDebounce)
+      if (!personSearch.value.trim()) { personIdInput.value = ''; personDropdown.style.display = 'none'; return }
+      if (personSearch.value.trim().length < 3) { renderPersonDropdown([]); return }
+      personDebounce = setTimeout(async function() {
+        try {
+          var res = await fetch('/api/people/search?q=' + encodeURIComponent(personSearch.value.trim()))
+          var json = await res.json()
+          renderPersonDropdown(json.data ?? [])
+        } catch (e) { personDropdown.style.display = 'none' }
+      }, 250)
+    })
+
+    personSearch.addEventListener('focus', function() {
+      if (personSearch.value.trim().length >= 3) {
+        fetch('/api/people/search?q=' + encodeURIComponent(personSearch.value.trim()))
+          .then(function(r) { return r.json() })
+          .then(function(j) { renderPersonDropdown(j.data ?? []) })
+      }
+    })
+
+    personSearch.addEventListener('blur', function() {
+      setTimeout(function() { personDropdown.style.display = 'none' }, 150)
+    })
+  }
+
+  // ── Document type conditionals ──────────────────────────────────────────────
+  var typeSelect = document.getElementById('docTypeSelect')
+  var issuedByRow = document.getElementById('issuedByRow')
+  var expiryRow = document.getElementById('expiryRow')
+  var trainingRow = document.getElementById('trainingRow')
+
+  function updateConditionals() {
+    var selected = DOC_TYPES.find(function(t) { return t.id === typeSelect.value })
+    issuedByRow.style.display = selected && selected.requires_issuer ? 'flex' : 'none'
+    expiryRow.style.display = selected && selected.requires_expiry ? 'flex' : 'none'
+    trainingRow.style.display = selected && selected.is_training_linkable ? 'flex' : 'none'
+  }
+  typeSelect.addEventListener('change', updateConditionals)
+  updateConditionals()
+
+  // ── Training search ─────────────────────────────────────────────────────────
+  var trainingSearch = document.getElementById('trainingSearch')
+  var trainingDropdown = document.getElementById('trainingDropdown')
+  var trainingIdInput = document.getElementById('trainingIdInput')
+
+  // If there's a preselected training, show its title in the search box
+  var preselected = TRAININGS.find(function(t) { return t.id === trainingIdInput.value })
+  if (preselected) trainingSearch.value = preselected.title
+
+  function itemStyle(hover) {
+    return 'padding: 10px 14px; cursor: pointer; font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: ' + (hover ? 'var(--color-neutral-50)' : 'white') + ';'
+  }
+
+  function renderTrainingDropdown(items) {
+    trainingDropdown.innerHTML = ''
+    // None option
+    var noneEl = document.createElement('div')
+    noneEl.textContent = 'None'
+    noneEl.style.cssText = 'padding: 10px 14px; cursor: pointer; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); border-bottom: 1px solid var(--color-neutral-100);'
+    noneEl.addEventListener('mouseenter', function() { noneEl.style.background = 'var(--color-neutral-50)' })
+    noneEl.addEventListener('mouseleave', function() { noneEl.style.background = '' })
+    noneEl.addEventListener('mousedown', function(e) {
+      e.preventDefault()
+      trainingIdInput.value = ''
+      trainingSearch.value = ''
+      trainingDropdown.style.display = 'none'
+    })
+    trainingDropdown.appendChild(noneEl)
+
+    if (!items.length) {
+      var empty = document.createElement('div')
+      empty.textContent = 'No trainings found'
+      empty.style.cssText = 'padding: 10px 14px; font-size: 13px; color: var(--color-neutral-400); font-family: var(--font-body);'
+      trainingDropdown.appendChild(empty)
+    } else {
+      items.forEach(function(t) {
+        var el = document.createElement('div')
+        el.textContent = t.title
+        el.style.cssText = itemStyle(false)
+        el.addEventListener('mouseenter', function() { el.style.background = 'var(--color-neutral-50)' })
+        el.addEventListener('mouseleave', function() { el.style.background = 'white' })
+        el.addEventListener('mousedown', function(e) {
+          e.preventDefault()
+          trainingIdInput.value = t.id
+          trainingSearch.value = t.title
+          trainingDropdown.style.display = 'none'
+        })
+        trainingDropdown.appendChild(el)
+      })
+    }
+    trainingDropdown.style.display = 'block'
+  }
+
+  trainingSearch.addEventListener('input', function() {
+    var q = trainingSearch.value.trim().toLowerCase()
+    var filtered = q ? TRAININGS.filter(function(t) { return t.title.toLowerCase().includes(q) }) : TRAININGS
+    if (!trainingSearch.value) trainingIdInput.value = ''
+    renderTrainingDropdown(filtered)
+  })
+
+  trainingSearch.addEventListener('focus', function() {
+    var q = trainingSearch.value.trim().toLowerCase()
+    var filtered = q ? TRAININGS.filter(function(t) { return t.title.toLowerCase().includes(q) }) : TRAININGS
+    renderTrainingDropdown(filtered)
+  })
+
+  trainingSearch.addEventListener('blur', function() {
+    setTimeout(function() { trainingDropdown.style.display = 'none' }, 150)
+  })
+
+  // ── Upload form submit ──────────────────────────────────────────────────────
+  document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+    e.preventDefault()
+    var errorDiv = document.getElementById('uploadError')
+    var submitBtn = document.getElementById('submitBtn')
+    errorDiv.style.display = 'none'
+    submitBtn.disabled = true
+    submitBtn.textContent = 'Uploading...'
+
+    var fd = new FormData()
+    var file = document.getElementById('fileInput').files[0]
+    if (!file) {
+      errorDiv.textContent = 'Please select a file.'
+      errorDiv.style.display = 'block'
+      submitBtn.disabled = false
+      submitBtn.textContent = 'Upload'
+      return
+    }
+    fd.append('file', file)
+    fd.append('document_type_id', typeSelect.value)
+    fd.append('title', document.getElementById('titleInput').value.trim())
+    var issuedBy = document.getElementById('issuedByInput').value.trim()
+    if (issuedBy) fd.append('issued_by', issuedBy)
+    var expiry = document.getElementById('expiryInput').value
+    if (expiry) fd.append('expiry_date', expiry)
+    var trainingId = trainingIdInput.value
+    if (trainingId) fd.append('training_id', trainingId)
+
+    try {
+      var personId = CONFIG.canAssignToOthers
+        ? (document.getElementById('personIdInput')?.value || '')
+        : ''
+      var uploadUrl = personId ? '/api/documents?on_behalf_of=' + personId : '/api/documents'
+      var res = await fetch(uploadUrl, { method: 'POST', body: fd })
+      if (res.ok) {
+        window.location.href = '/admin/documents'
+      } else {
+        var body = await res.json()
+        errorDiv.textContent = body.error || 'Upload failed.'
+        errorDiv.style.display = 'block'
+      }
+    } catch (err) {
+      errorDiv.textContent = 'Network error. Please try again.'
+      errorDiv.style.display = 'block'
+    } finally {
+      submitBtn.disabled = false
+      submitBtn.textContent = 'Upload'
+    }
+  })
+</script>

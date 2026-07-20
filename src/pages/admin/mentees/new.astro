@@ -1,0 +1,146 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import Input from '@/components/ui/Input.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+const { data: members } = await supabaseAdmin
+  .from('people')
+  .select('id, full_name')
+  .eq('is_archived', false)
+  .order('full_name', { ascending: true })
+
+const { data: programmeYears } = await supabaseAdmin
+  .from('cmp_programme_years')
+  .select('id, year_label')
+  .order('year_label', { ascending: false })
+
+let errors: Record<string, string> = {}
+let globalError = ''
+let values: Record<string, string> = {}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  values = Object.fromEntries(form.entries()) as Record<string, string>
+
+  const res = await fetch(`${Astro.url.origin}/api/mentees`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+    body: JSON.stringify({
+      full_name: values.full_name,
+      email: values.email,
+      phone: values.phone || undefined,
+      school: values.school || undefined,
+      year_group: values.year_group || undefined,
+      date_of_birth: values.date_of_birth || undefined,
+      parent_guardian_name: values.parent_guardian_name || undefined,
+      parent_guardian_email: values.parent_guardian_email || undefined,
+      parent_guardian_phone: values.parent_guardian_phone || undefined,
+      mentor_id: values.mentor_id || undefined,
+      programme_year_id: values.programme_year_id || undefined,
+      notes: values.notes || undefined,
+    }),
+  })
+
+  if (res.ok) {
+    const body = await res.json() as { data: { id: string } }
+    return Astro.redirect(`/admin/mentees/${body.data.id}`)
+  } else {
+    const body = await res.json() as { error?: string; issues?: { fieldErrors?: Record<string, string[]> } }
+    globalError = body.error ?? 'Failed to create mentee.'
+    errors = Object.fromEntries(Object.entries(body.issues?.fieldErrors ?? {}).map(([k, v]) => [k, v[0] ?? '']))
+  }
+}
+---
+
+<DashboardLayout title="New Mentee">
+  <div style="max-width: 680px;">
+    <Breadcrumb crumbs={[{ label: 'Mentees', href: '/admin/mentees' }, { label: 'New Mentee' }]} />
+    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">New Mentee</h1>
+
+    {globalError && (
+      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+        {globalError}
+      </div>
+    )}
+
+    <form method="POST" style="display: flex; flex-direction: column; gap: 24px;">
+
+      <!-- Personal details -->
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 28px;">
+        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 20px; text-transform: uppercase; letter-spacing: 0.05em;">Mentee details</h2>
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <Input label="Full name *" name="full_name" value={values.full_name} error={errors.full_name} required />
+            <Input label="Email *" name="email" type="email" value={values.email} error={errors.email} required />
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <Input label="Phone" name="phone" type="tel" value={values.phone} error={errors.phone} />
+            <Input label="Date of birth" name="date_of_birth" type="date" value={values.date_of_birth} error={errors.date_of_birth} />
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <Input label="School" name="school" value={values.school} error={errors.school} />
+            <Input label="Year group" name="year_group" value={values.year_group} error={errors.year_group} placeholder="e.g. Year 10" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Parent/guardian -->
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 28px;">
+        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 20px; text-transform: uppercase; letter-spacing: 0.05em;">Parent / Guardian</h2>
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <Input label="Name" name="parent_guardian_name" value={values.parent_guardian_name} error={errors.parent_guardian_name} />
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <Input label="Email" name="parent_guardian_email" type="email" value={values.parent_guardian_email} error={errors.parent_guardian_email} />
+            <Input label="Phone" name="parent_guardian_phone" type="tel" value={values.parent_guardian_phone} error={errors.parent_guardian_phone} />
+          </div>
+        </div>
+      </div>
+
+      <!-- Programme assignment -->
+      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 28px;">
+        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 20px; text-transform: uppercase; letter-spacing: 0.05em;">Programme</h2>
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Mentor</label>
+              <select name="mentor_id"
+                style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
+                <option value="">— Unassigned —</option>
+                {(members ?? []).map(m => (
+                  <option value={m.id} selected={values.mentor_id === m.id}>{m.full_name}</option>
+                ))}
+              </select>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Programme year</label>
+              <select name="programme_year_id"
+                style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
+                <option value="">— None —</option>
+                {(programmeYears ?? []).map(py => (
+                  <option value={py.id} selected={values.programme_year_id === py.id}>{py.name as string}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Notes</label>
+            <textarea name="notes" rows={3} placeholder="Any notes about this mentee…"
+              style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; resize: vertical;">{values.notes ?? ''}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px;">
+        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          Create mentee
+        </button>
+        <a href="/admin/mentees" style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</DashboardLayout>

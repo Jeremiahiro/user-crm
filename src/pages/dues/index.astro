@@ -1,0 +1,207 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin } from '@/lib/rbac'
+
+const user = Astro.locals.user
+if (!user) return Astro.redirect('/login')
+if (isAdmin(user)) return Astro.redirect('/admin/dues')
+if (!user.person_id) return Astro.redirect('/dashboard')
+
+const pid = user.person_id
+const currentYear = new Date().getFullYear()
+const currentMonth = new Date().getMonth() + 1 // 1-based
+
+// Fetch member's join date to determine visible years
+const { data: memberData } = await supabaseAdmin
+  .from('people')
+  .select('date_joined, full_name')
+  .eq('id', pid)
+  .single()
+
+const joinYear = memberData?.date_joined
+  ? new Date(memberData.date_joined as string).getFullYear()
+  : currentYear
+
+// Build list of years from join year to current year
+const years: number[] = []
+for (let y = currentYear; y >= joinYear; y--) {
+  years.push(y)
+}
+
+// Fetch confirmed dues
+const { data: duesData } = await supabaseAdmin
+  .from('dues')
+  .select('year, month')
+  .eq('person_id', pid)
+  .in('year', years)
+
+// Fetch submissions
+const { data: submissionsData } = await supabaseAdmin
+  .from('dues_submissions')
+  .select('id, year, month, status')
+  .eq('person_id', pid)
+  .in('year', years)
+
+type DueRow = { year: number; month: number }
+type SubmissionRow = { id: string; year: number; month: number; status: string }
+
+// Build lookup maps: `${year}-${month}` → status
+const paidSet = new Set(((duesData ?? []) as DueRow[]).map(d => `${d.year}-${d.month}`))
+const submissionMap = new Map(((submissionsData ?? []) as SubmissionRow[]).map(s => [`${s.year}-${s.month}`, s]))
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December']
+
+// Count pending submissions for a given year
+function pendingCount(y: number): number {
+  return ((submissionsData ?? []) as SubmissionRow[]).filter(s => s.year === y && s.status === 'pending').length
+}
+---
+
+<DashboardLayout title="My Dues">
+  <div style="max-width: 1100px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+      <div>
+        <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">My Dues</h1>
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+          Check a month to submit your payment for admin approval.
+        </p>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start;">
+    {years.map(y => {
+      const joinedThisYear = joinYear === y
+      const joinMonth = joinedThisYear && memberData?.date_joined
+        ? new Date(memberData.date_joined as string).getMonth() + 1
+        : 1
+      const pending = pendingCount(y)
+
+      return (
+        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+          <!-- Year header -->
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--color-neutral-100); background: var(--color-neutral-50);">
+            <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">{y}</h2>
+            {pending > 0 && (
+              <span style="padding: 2px 10px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 12px; font-weight: 600; color: #92400e;">
+                {pending} pending approval
+              </span>
+            )}
+          </div>
+
+          <!-- Month grid -->
+          <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; padding: 16px 20px;">
+            {MONTHS.map((monthLabel, i) => {
+              const month = i + 1
+              const key = `${y}-${month}`
+              const isPaid = paidSet.has(key)
+              const submission = submissionMap.get(key)
+              const isPending = submission?.status === 'pending'
+              const isRejected = submission?.status === 'rejected'
+              const isNA = joinedThisYear && month < joinMonth
+              // Don't allow submitting future months
+              const isFuture = y === currentYear && month > currentMonth
+
+              let bg = 'var(--color-neutral-50)'
+              let border = 'var(--color-neutral-200)'
+              let textColor = 'var(--color-neutral-400)'
+              let statusLabel = ''
+              let cursor = 'pointer'
+
+              if (isNA) {
+                bg = 'var(--color-neutral-50)'; border = 'var(--color-neutral-100)'; textColor = 'var(--color-neutral-200)'; cursor = 'default'
+              } else if (isPaid) {
+                bg = 'var(--color-success-50)'; border = 'var(--color-success-300)'; textColor = 'var(--color-success-700)'; statusLabel = '✓ Paid'; cursor = 'default'
+              } else if (isPending) {
+                bg = '#fffbeb'; border = '#fcd34d'; textColor = '#92400e'; statusLabel = '⏳ Pending'; cursor = 'default'
+              } else if (isRejected) {
+                bg = 'var(--color-danger-50)'; border = 'var(--color-danger-200)'; textColor = 'var(--color-danger-600)'; statusLabel = '✕ Not approved'
+              } else if (isFuture) {
+                bg = 'var(--color-neutral-50)'; border = 'var(--color-neutral-100)'; textColor = 'var(--color-neutral-200)'; cursor = 'default'
+              } else {
+                statusLabel = 'Mark as paid'
+              }
+
+              const interactive = !isNA && !isPaid && !isPending && !isFuture
+
+              return (
+                <button
+                  class={interactive ? 'dues-month-btn' : ''}
+                  data-year={y}
+                  data-month={month}
+                  data-submission-id={submission?.id ?? ''}
+                  data-rejected={isRejected ? 'true' : 'false'}
+                  disabled={!interactive}
+                  title={interactive ? `Submit ${MONTHS_FULL[i]} ${y} dues` : undefined}
+                  style={`width: 100%; border: 1px solid ${border}; border-radius: var(--radius-md); background: ${bg}; padding: 10px 4px 8px; cursor: ${cursor}; text-align: center; transition: opacity 0.15s;`}>
+                  <p style={`font-family: var(--font-body); font-size: 12px; font-weight: 700; color: ${textColor}; margin: 0 0 4px; text-transform: uppercase; letter-spacing: 0.05em;`}>{monthLabel}</p>
+                  <p style={`font-family: var(--font-body); font-size: 10px; color: ${textColor}; margin: 0; min-height: 14px; line-height: 1.2;`}>
+                    {isNA ? '—' : statusLabel}
+                  </p>
+                </button>
+              )
+            })}
+          </div>
+
+          <!-- Legend row -->
+          <div style="padding: 0 20px 14px; display: flex; gap: 16px; flex-wrap: wrap;">
+            <span style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400);">
+              Click an unpaid month to submit for approval
+            </span>
+          </div>
+        </div>
+      )
+    })}
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" style="position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; color: white; display: none; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>
+
+  <script is:inline>
+    (function () {
+      var toast = document.getElementById('toast')
+
+      function showToast(msg, ok) {
+        if (!toast) return
+        toast.textContent = msg
+        toast.style.background = ok ? 'var(--color-success-600)' : 'var(--color-danger-600)'
+        toast.style.display = 'block'
+        setTimeout(function() { toast.style.display = 'none' }, 3500)
+      }
+
+      document.querySelectorAll('.dues-month-btn').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+          var year = parseInt(btn.dataset.year)
+          var month = parseInt(btn.dataset.month)
+          var isRejected = btn.dataset.rejected === 'true'
+
+          btn.disabled = true
+          btn.style.opacity = '0.6'
+
+          try {
+            var res = await fetch('/api/dues/submit', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ year: year, month: month })
+            })
+            var data = await res.json()
+            if (res.ok) {
+              showToast('Submitted — awaiting admin approval', true)
+              setTimeout(function() { window.location.reload() }, 1000)
+            } else {
+              showToast(data.error || 'Failed to submit', false)
+              btn.disabled = false
+              btn.style.opacity = '1'
+            }
+          } catch (e) {
+            showToast('Network error', false)
+            btn.disabled = false
+            btn.style.opacity = '1'
+          }
+        })
+      })
+    })()
+  </script>
+</DashboardLayout>
