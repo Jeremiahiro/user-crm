@@ -2,8 +2,8 @@
  * POST /api/onboarding/:id/advance
  *
  * Moves an applicant through the onboarding pipeline:
- *   Forward:   applicant → in_progress → in_training → approved → active
- *   Back:      in_progress → applicant, in_training → in_progress, approved → in_training
+ *   Forward:   applicant → in_progress → in_training → active
+ *   Back:      in_progress → applicant, in_training → in_progress
  *   Cancel:    any pre-active status → cancelled (with type + reason)
  *   Reinstate: cancelled → applicant
  */
@@ -17,21 +17,18 @@ import { writeAuditLog } from '@/lib/audit'
 const FORWARD: Record<string, string> = {
   applicant:   'in_progress',
   in_progress: 'in_training',
-  in_training: 'approved',
-  approved:    'active',
+  in_training: 'active',
 }
 
 const BACKWARD: Record<string, string> = {
   in_progress: 'applicant',
   in_training: 'in_progress',
-  approved:    'in_training',
 }
 
 const STAGE_LABELS: Record<string, string> = {
   applicant:   'Applicant',
   in_progress: 'In Progress',
   in_training: 'In Training',
-  approved:    'Approved',
   active:      'Activated',
   cancelled:   'Cancelled',
 }
@@ -180,12 +177,12 @@ export const POST: APIRoute = async ({ params, request, locals, url }) => {
     send_email &&
     direction === 'forward' &&
     person.email &&
-    (nextStatus === 'approved' || nextStatus === 'active' || nextStatus === 'in_progress' || nextStatus === 'in_training')
+    (nextStatus === 'active' || nextStatus === 'in_progress' || nextStatus === 'in_training')
   ) {
     try {
       const template = memberStatusEmail({
         fullName:  person.full_name as string,
-        newStatus: nextStatus as 'approved' | 'active',
+        newStatus: nextStatus as 'active',
         portalUrl: url.origin,
       })
       const result = await sendEmail({

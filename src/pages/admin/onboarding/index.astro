@@ -23,7 +23,7 @@ type PersonRow = {
 const { data: pipeline } = await supabaseAdmin
   .from('people')
   .select('id, full_name, email, status, applied_at, date_joined, phone, address, date_of_birth, cancellation_type')
-  .in('status', ['applicant', 'in_progress', 'in_training', 'approved', 'active', 'cancelled'])
+  .in('status', ['applicant', 'in_progress', 'in_training', 'active', 'cancelled'])
   .eq('is_archived', false)
   .order('applied_at', { ascending: true })
 
@@ -90,8 +90,7 @@ function daysIn(p: PersonRow): number {
 const STAGES = [
   { key: 'applicant',   label: 'Applicant',   dotColor: 'bg-neutral-400', advanceLabel: 'Move to In Progress' },
   { key: 'in_progress', label: 'In Progress', dotColor: 'bg-warning-500', advanceLabel: 'Move to In Training' },
-  { key: 'in_training', label: 'In Training', dotColor: 'bg-info-500',    advanceLabel: 'Approve'             },
-  { key: 'approved',    label: 'Approved',    dotColor: 'bg-success-400', advanceLabel: 'Activate'            },
+  { key: 'in_training', label: 'In Training', dotColor: 'bg-info-500',    advanceLabel: 'Activate'            },
   { key: 'active',      label: 'Activated',   dotColor: 'bg-success-600', advanceLabel: ''                    },
   { key: 'cancelled',   label: 'Cancelled',   dotColor: 'bg-danger-400',  advanceLabel: ''                    },
 ] as const
@@ -388,7 +387,6 @@ const peopleJson = JSON.stringify(filtered.map(p => {
                       p.status === 'applicant'   ? 'bg-neutral-100 text-neutral-600' :
                       p.status === 'in_progress' ? 'bg-warning-50 text-warning-700 border border-warning-200' :
                       p.status === 'in_training' ? 'bg-info-50 text-info-700 border border-info-200' :
-                      p.status === 'approved'    ? 'bg-success-50 text-success-700 border border-success-200' :
                       p.status === 'active'      ? 'bg-success-100 text-success-800' :
                                                    'bg-danger-50 text-danger-700 border border-danger-200'"
                     class="inline-block py-0.5 px-2.5 rounded-full font-body text-xs font-semibold">

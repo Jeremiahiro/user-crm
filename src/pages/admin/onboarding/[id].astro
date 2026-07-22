@@ -74,7 +74,6 @@ const STAGE_LABELS: Record<string, string> = {
   applicant:   'Applicant',
   in_progress: 'In Progress',
   in_training: 'In Training',
-  approved:    'Approved',
   active:      'Activated',
   cancelled:   'Cancelled',
 }
@@ -87,7 +86,7 @@ const CANCELLATION_TYPE_LABELS: Record<string, string> = {
   other:               'Other',
 }
 
-const STAGE_ORDER = ['applicant', 'in_progress', 'in_training', 'approved', 'active']
+const STAGE_ORDER = ['applicant', 'in_progress', 'in_training', 'active']
 
 const currentStatus = person.status as string
 const stageIndex = STAGE_ORDER.indexOf(currentStatus)
@@ -96,13 +95,11 @@ const isCancelled = currentStatus === 'cancelled'
 const TRANSITIONS: Record<string, string> = {
   applicant:   'Move to In Progress',
   in_progress: 'Move to In Training',
-  in_training: 'Approve',
-  approved:    'Activate',
+  in_training: 'Activate',
 }
 const BACK: Record<string, string> = {
   in_progress: 'Back to Applicant',
   in_training: 'Back to In Progress',
-  approved:    'Back to In Training',
 }
 
 const nextAction  = TRANSITIONS[currentStatus]
@@ -307,7 +304,6 @@ const authorName = Astro.locals.user.name ?? Astro.locals.user.email
                   ${currentStatus === 'applicant'   ? 'bg-neutral-100 text-neutral-600' : ''}
                   ${currentStatus === 'in_progress' ? 'bg-warning-50 text-warning-700 border border-warning-200' : ''}
                   ${currentStatus === 'in_training' ? 'bg-info-50 text-info-700 border border-info-200' : ''}
-                  ${currentStatus === 'approved'    ? 'bg-success-50 text-success-700 border border-success-200' : ''}
                   ${currentStatus === 'active'      ? 'bg-success-100 text-success-800' : ''}
                   ${currentStatus === 'cancelled'   ? 'bg-danger-50 text-danger-700 border border-danger-200' : ''}
                 `}>
@@ -456,7 +452,7 @@ const authorName = Astro.locals.user.name ?? Astro.locals.user.email
         })()}
 
         <!-- ── CHECKLIST: In Training items (shown from in_training stage onwards) ── -->
-        {(['in_training', 'approved', 'active', 'cancelled'] as string[]).includes(currentStatus) && (() => {
+        {(['in_training', 'active', 'cancelled'] as string[]).includes(currentStatus) && (() => {
           const keys = IN_TRAINING_KEYS
           return (
             <div class="bg-white border border-neutral-200 rounded-xl overflow-hidden">

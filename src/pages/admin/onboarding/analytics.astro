@@ -46,7 +46,7 @@ const yearStats: YearStats[] = years.map(y => {
   const applicants = cohort.length
   const activated = cohort.filter(p => p.status === 'active' || p.status === 'alumni' || p.status === 'inactive' || p.status === 'left' || p.status === 'suspended').length
   const cancelled = cohort.filter(p => p.status === 'cancelled').length
-  const inProgress = cohort.filter(p => ['applicant', 'pending_review', 'approved'].includes(p.status)).length
+  const inProgress = cohort.filter(p => ['applicant', 'in_progress', 'in_training'].includes(p.status)).length
   const conversionRate = applicants > 0 ? Math.round((activated / applicants) * 100) : 0
   return { year: y, applicants, activated, cancelled, inProgress, conversionRate }
 }).filter(s => s.applicants > 0)
@@ -55,7 +55,7 @@ const yearStats: YearStats[] = years.map(y => {
 const totalApplicants = people.length
 const totalActivated = people.filter(p => ['active', 'alumni', 'inactive', 'left', 'suspended'].includes(p.status)).length
 const totalCancelled = people.filter(p => p.status === 'cancelled').length
-const totalInProgress = people.filter(p => ['applicant', 'pending_review', 'approved'].includes(p.status)).length
+const totalInProgress = people.filter(p => ['applicant', 'in_progress', 'in_training'].includes(p.status)).length
 const overallConversion = totalApplicants > 0 ? Math.round((totalActivated / totalApplicants) * 100) : 0
 
 // ── Average time to activation (days) ─────────────────────────────────────
@@ -74,9 +74,9 @@ const avgDaysToActivation = activatedWithBoth.length > 0
 
 // ── Current pipeline breakdown ────────────────────────────────────────────
 const currentPipeline = [
-  { label: 'Applicant', key: 'applicant', color: 'var(--color-neutral-400)' },
-  { label: 'In Progress', key: 'pending_review', color: 'var(--color-warning-500)' },
-  { label: 'Approved', key: 'approved', color: 'var(--color-info-500)' },
+  { label: 'Applicant',   key: 'applicant',   color: 'var(--color-neutral-400)' },
+  { label: 'In Progress', key: 'in_progress', color: 'var(--color-warning-500)' },
+  { label: 'In Training', key: 'in_training', color: 'var(--color-info-500)'    },
 ]
 const pipelineCounts = currentPipeline.map(s => ({
   ...s,
@@ -114,7 +114,7 @@ const chartData = yearStats.map(s => ({
       {[
         { label: 'Total Applicants', value: totalApplicants, sub: 'all time', color: 'var(--color-brand-navy)' },
         { label: 'Activated', value: totalActivated, sub: `${overallConversion}% conversion`, color: 'var(--color-success-600)' },
-        { label: 'In Pipeline', value: totalInProgress, sub: 'pending · review · approved', color: 'var(--color-warning-600)' },
+        { label: 'In Pipeline', value: totalInProgress, sub: 'applicant · in progress · in training', color: 'var(--color-warning-600)' },
         { label: 'Avg. Days to Activation', value: avgDaysToActivation !== null ? avgDaysToActivation : '—', sub: avgDaysToActivation !== null ? 'from application to active' : 'no data', color: 'var(--color-brand-gold)' },
       ].map(card => (
         <div class="bg-white border border-neutral-200 rounded-lg px-6 py-5">

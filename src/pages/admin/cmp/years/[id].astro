@@ -118,21 +118,21 @@ const TYPE_COLORS: Record<string, string> = {
   <!-- Enrolment stat cards -->
   <div class="grid grid-cols-3 gap-4 mb-4">
     <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6 flex items-center gap-4">
-      <div class="w-11 h-11 rounded-[10px] bg-[#e0e7ff] flex items-center justify-center text-[22px] shrink-0">👨‍🏫</div>
+      <div class="w-11 h-11 rounded-2.5 bg-[#e0e7ff] flex items-center justify-center text-[22px] shrink-0">👨‍🏫</div>
       <div>
         <p class="font-body text-xs font-medium text-neutral-500 mb-0.5">Mentors active</p>
         <p class="font-heading text-[28px] font-bold text-brand-navy m-0">{uniqueMentors.size}</p>
       </div>
     </div>
     <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6 flex items-center gap-4">
-      <div class="w-11 h-11 rounded-[10px] bg-[#fef3c7] flex items-center justify-center text-[22px] shrink-0">🎓</div>
+      <div class="w-11 h-11 rounded-2.5 bg-[#fef3c7] flex items-center justify-center text-[22px] shrink-0">🎓</div>
       <div>
         <p class="font-body text-xs font-medium text-neutral-500 mb-0.5">Mentees enrolled</p>
         <p class="font-heading text-[28px] font-bold text-brand-navy m-0">{menteeRows.length}</p>
       </div>
     </div>
     <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6 flex items-center gap-4">
-      <div class="w-11 h-11 rounded-[10px] bg-[#d1fae5] flex items-center justify-center text-[22px] shrink-0">👨‍👩‍👧</div>
+      <div class="w-11 h-11 rounded-2.5 bg-[#d1fae5] flex items-center justify-center text-[22px] shrink-0">👨‍👩‍👧</div>
       <div>
         <p class="font-body text-xs font-medium text-neutral-500 mb-0.5">Parents attended</p>
         <p class="font-heading text-[28px] font-bold text-brand-navy m-0">{uniqueParents.size}</p>
@@ -173,7 +173,7 @@ const TYPE_COLORS: Record<string, string> = {
       <div class="p-9 text-center">
         <p class="font-body text-sm text-neutral-400 mb-3.5">No mentees enrolled in this programme year yet.</p>
         <a href={`/admin/mentees/new?programme_year_id=${id}`}
-          class="py-2 px-[18px] bg-brand-navy text-white rounded-md font-body text-[13px] font-semibold no-underline">
+          class="py-2 px-4.5 bg-brand-navy text-white rounded-md font-body text-[13px] font-semibold no-underline">
           Enrol first mentee
         </a>
       </div>
@@ -181,11 +181,11 @@ const TYPE_COLORS: Record<string, string> = {
       <table class="w-full border-collapse">
         <thead class="bg-neutral-50 border-b border-neutral-200">
           <tr>
-            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-wider">Name</th>
-            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-wider">School</th>
-            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-wider">Year</th>
-            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-wider">Mentor</th>
-            <th class="py-[9px] px-4"></th>
+            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Name</th>
+            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">School</th>
+            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Year</th>
+            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Mentor</th>
+            <th class="py-2.25 px-4"></th>
           </tr>
         </thead>
         <tbody>
@@ -237,7 +237,7 @@ const TYPE_COLORS: Record<string, string> = {
       <div class="p-12 text-center">
         <p class="font-body text-sm text-neutral-400 mb-4">No sessions yet for this programme year.</p>
         <a href={`/admin/cmp/sessions/new?year_id=${id}`}
-          class="py-2.5 px-[18px] bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
+          class="py-2.5 px-4.5 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
           Add first session
         </a>
       </div>
@@ -245,26 +245,26 @@ const TYPE_COLORS: Record<string, string> = {
       <table class="w-full border-collapse">
         <thead class="bg-neutral-50 border-b border-neutral-200">
           <tr>
-            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-wider">Session</th>
-            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-wider">Date</th>
-            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-wider">Location</th>
-            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-wider">Type</th>
-            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-wider">Attendance</th>
-            <th class="py-[9px] px-4"></th>
+            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Session</th>
+            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Date</th>
+            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Location</th>
+            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Type</th>
+            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Attendance</th>
+            <th class="py-2.25 px-4"></th>
           </tr>
         </thead>
         <tbody>
           {sessions.map((s, i) => {
             const isPast = new Date(s.session_date) < new Date()
             return (
-              <tr class:list={[{ 'border-t border-neutral-100': i > 0 }, { 'opacity-[0.55]': s.is_cancelled }]}>
-                <td class="py-[13px] px-4">
+              <tr class:list={[{ 'border-t border-neutral-100': i > 0 }, { 'opacity-55': s.is_cancelled }]}>
+                <td class="py-3.25 px-4">
                   <div class="flex items-center gap-1.5 flex-wrap">
                     {s.is_cancelled && (
-                      <span class="py-[1px] px-[7px] rounded-full bg-danger-100 text-danger-700 font-body text-[10px] font-bold tracking-[0.04em]">CANCELLED</span>
+                      <span class="py-px px-1.75 rounded-full bg-danger-100 text-danger-700 font-body text-[10px] font-bold tracking-[0.04em]">CANCELLED</span>
                     )}
                     {!isPast && !s.is_cancelled && (
-                      <span class="py-[1px] px-[7px] rounded-full bg-success-100 text-success-700 font-body text-[10px] font-semibold">Upcoming</span>
+                      <span class="py-px px-1.75 rounded-full bg-success-100 text-success-700 font-body text-[10px] font-semibold">Upcoming</span>
                     )}
                     <a href={`/admin/cmp/sessions/${s.id}`}
                       class:list={['font-body text-sm font-medium text-brand-navy no-underline', { 'line-through': s.is_cancelled }]}>
@@ -272,20 +272,20 @@ const TYPE_COLORS: Record<string, string> = {
                     </a>
                   </div>
                 </td>
-                <td class="py-[13px] px-4 font-body text-[13px] text-neutral-600">
+                <td class="py-3.25 px-4 font-body text-[13px] text-neutral-600">
                   {formatDate(s.session_date)}
                   {s.session_time && <span class="text-neutral-400 ml-1">{formatTime(s.session_time)}</span>}
                 </td>
-                <td class="py-[13px] px-4 font-body text-[13px] text-neutral-600">{s.location ?? '—'}</td>
-                <td class="py-[13px] px-4">
+                <td class="py-3.25 px-4 font-body text-[13px] text-neutral-600">{s.location ?? '—'}</td>
+                <td class="py-3.25 px-4">
                   {s.type ? (
                     <span class="py-0.5 px-2.5 rounded-full font-body text-xs font-medium text-neutral-700" style={`background: ${TYPE_COLORS[s.type] ?? '#f3f4f6'};`}>
                       {TYPE_LABELS[s.type] ?? s.type}
                     </span>
                   ) : <span class="text-neutral-400">—</span>}
                 </td>
-                <td class="py-[13px] px-4 font-body text-[13px] text-neutral-600">{s.cmp_attendance?.length ?? 0}</td>
-                <td class="py-[13px] px-4 text-right whitespace-nowrap">
+                <td class="py-3.25 px-4 font-body text-[13px] text-neutral-600">{s.cmp_attendance?.length ?? 0}</td>
+                <td class="py-3.25 px-4 text-right whitespace-nowrap">
                   <a href={`/admin/cmp/sessions/${s.id}/attendance`}
                     class="font-body text-xs font-semibold text-brand-navy no-underline mr-2.5">
                     Attendance
