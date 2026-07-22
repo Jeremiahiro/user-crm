@@ -18,7 +18,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   const { data, error } = await supabaseAdmin
     .from('committees')
-    .select('*, person_committees(person_id, is_chair, joined_at, people(id, full_name, email, status, profile_photo_url))')
+    .select('*, person_committees(person_id, is_lead, joined_at, people(id, full_name, email, status, profile_photo_url))')
     .eq('id', params.id ?? '')
     .single()
 

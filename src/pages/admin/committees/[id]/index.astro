@@ -12,7 +12,7 @@ const { id } = Astro.params
 
 const { data: committee, error } = await supabaseAdmin
   .from('committees')
-  .select('*, person_committees(person_id, is_chair, joined_at, people(id, full_name, email, status, profile_photo_url))')
+  .select('*, person_committees(person_id, is_lead, joined_at, people(id, full_name, email, status, profile_photo_url))')
   .eq('id', id ?? '')
   .single()
 
@@ -20,7 +20,7 @@ if (error || !committee) return Astro.redirect('/admin/committees')
 
 type Member = {
   person_id: string
-  is_chair: boolean
+  is_lead: boolean
   joined_at: string
   people: {
     id: string
@@ -105,8 +105,8 @@ function fmtDate(iso: string) {
                   </a>
                   <div class="flex items-center gap-2 mt-0.5">
                     <span class="font-body text-xs text-neutral-400">{m.people.email}</span>
-                    {m.is_chair && (
-                      <span class="font-body text-[11px] font-semibold text-warning-700 bg-warning-50 border border-warning-200 rounded-full px-2 py-px">Chair</span>
+                    {m.is_lead && (
+                      <span class="font-body text-[11px] font-semibold text-warning-700 bg-warning-50 border border-warning-200 rounded-full px-2 py-px">Lead</span>
                     )}
                   </div>
                 </div>
@@ -177,10 +177,10 @@ function fmtDate(iso: string) {
                 </button>
               </div>
 
-              <!-- Chair toggle -->
+              <!-- Lead toggle -->
               <label class="flex items-center gap-2.5 cursor-pointer">
-                <input type="checkbox" x-model="isChair" class="rounded" />
-                <span class="font-body text-sm text-neutral-700">Assign as committee chair</span>
+                <input type="checkbox" x-model="isLead" class="rounded" />
+                <span class="font-body text-sm text-neutral-700">Assign as committee lead</span>
               </label>
 
               <div x-show="addError" style="display:none" class="font-body text-xs text-danger-600 bg-danger-50 rounded-md px-3 py-2" x-text="addError"></div>
@@ -245,7 +245,7 @@ function committeeDetail({ id, memberIds }) {
     searchQuery: '',
     searchResults: [],
     selectedPerson: null,
-    isChair: false,
+    isLead: false,
     addLoading: false,
     addError: '',
     removeTarget: null,
@@ -278,7 +278,7 @@ function committeeDetail({ id, memberIds }) {
       this.selectedPerson = null
       this.searchQuery = ''
       this.searchResults = []
-      this.isChair = false
+      this.isLead = false
       this.addError = ''
     },
 
@@ -289,7 +289,7 @@ function committeeDetail({ id, memberIds }) {
       const res = await fetch(`/api/committees/${id}/members`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ personId: this.selectedPerson.id, isChair: this.isChair }),
+        body: JSON.stringify({ personId: this.selectedPerson.id, isLead: this.isLead }),
       })
       this.addLoading = false
       if (res.ok) {

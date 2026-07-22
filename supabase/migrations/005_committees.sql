@@ -20,7 +20,7 @@ create table person_committees (
   id           uuid primary key default gen_random_uuid(),
   person_id    uuid not null references people(id) on delete cascade,
   committee_id uuid not null references committees(id) on delete cascade,
-  is_chair     boolean not null default false,
+  is_lead      boolean not null default false,
   joined_at    timestamptz not null default now(),
   unique (person_id, committee_id)
 );

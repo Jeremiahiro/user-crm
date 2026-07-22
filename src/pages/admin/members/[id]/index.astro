@@ -21,7 +21,7 @@ const { data: member, error: memberError } = await supabaseAdmin
   .select(`
     *,
     person_teams(is_team_lead, joined_at, teams(id, name, pillars(name))),
-    person_committees(is_chair, joined_at, committees(id, name)),
+    person_committees(is_lead, joined_at, committees(id, name)),
     user_roles!user_roles_person_id_fkey(assigned_at, roles(id, name)),
     elected_position_tenures!elected_position_tenures_person_id_fkey(id, term_start, term_end, elected_by, notes, elected_positions(title)),
     dbs_records!dbs_records_person_id_fkey(id, certificate_reference, clearance_date, expiry_date, drive_url, created_at),
@@ -80,7 +80,7 @@ const [
 ])
 
 type TeamAssignment = { is_team_lead: boolean; joined_at: string; teams: { id: string; name: string; pillars: { name: string } | null } | null }
-type CommitteeAssignment = { is_chair: boolean; joined_at: string; committees: { id: string; name: string } | null }
+type CommitteeAssignment = { is_lead: boolean; joined_at: string; committees: { id: string; name: string } | null }
 type UserRole = { assigned_at: string; roles: { id: string; name: string } | null }
 type Tenure = { id: string; term_start: string; term_end: string | null; elected_by: string | null; notes: string | null; elected_positions: { title: string } | null }
 type DbsRecord = { id: string; certificate_reference: string | null; clearance_date: string | null; expiry_date: string | null; drive_url: string | null; created_at: string }
@@ -741,8 +741,8 @@ const hasApplicationData = !!(
                     class="font-body text-sm font-semibold text-brand-navy no-underline">
                     {ca.committees.name}
                   </a>
-                  {ca.is_chair && (
-                    <span class="ml-2 font-body text-[11px] font-semibold text-warning-700 bg-warning-50 border border-warning-200 rounded-full py-px px-2">Chair</span>
+                  {ca.is_lead && (
+                    <span class="ml-2 font-body text-[11px] font-semibold text-warning-700 bg-warning-50 border border-warning-200 rounded-full py-px px-2">Lead</span>
                   )}
                 </div>
                 <span class="font-body text-xs text-neutral-400">

@@ -14,7 +14,7 @@ function json(body: object, status: number) {
 
 const AddMemberSchema = z.object({
   personId: z.string().uuid(),
-  isChair:  z.boolean().optional().default(false),
+  isLead:   z.boolean().optional().default(false),
 })
 
 const RemoveMemberSchema = z.object({
@@ -33,7 +33,7 @@ export const POST: APIRoute = async ({ locals, params, request }) => {
   const parsed = AddMemberSchema.safeParse(body)
   if (!parsed.success) return json({ error: 'Invalid body' }, 422)
 
-  const { personId, isChair } = parsed.data
+  const { personId, isLead } = parsed.data
 
   const { data: existing } = await supabaseAdmin
     .from('person_committees')
@@ -55,7 +55,7 @@ export const POST: APIRoute = async ({ locals, params, request }) => {
     .insert({
       committee_id: committeeId,
       person_id:    personId,
-      is_chair:     isChair,
+      is_lead:      isLead,
       joined_at:    new Date().toISOString(),
     })
 
@@ -69,7 +69,7 @@ export const POST: APIRoute = async ({ locals, params, request }) => {
     action:      'create',
     targetTable: 'person_committees',
     targetId:    personId,
-    afterValue:  { committee_id: committeeId, committee_name: committee?.name, person_id: personId, is_chair: isChair, added_by: locals.user.person_id },
+    afterValue:  { committee_id: committeeId, committee_name: committee?.name, person_id: personId, is_lead: isLead, added_by: locals.user.person_id },
   })
 
   return json({ ok: true }, 201)
