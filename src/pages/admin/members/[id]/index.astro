@@ -23,7 +23,7 @@ const { data: member, error: memberError } = await supabaseAdmin
     person_teams(is_team_lead, joined_at, teams(id, name, pillars(name))),
     person_committees(is_lead, joined_at, committees(id, name)),
     user_roles!user_roles_person_id_fkey(assigned_at, roles(id, name)),
-    elected_position_tenures!elected_position_tenures_person_id_fkey(id, term_start, term_end, elected_by, notes, elected_positions(title)),
+    elected_position_tenures!elected_position_tenures_person_id_fkey(id, position_id, term_start, term_end, elected_by, notes, elected_positions(title)),
     dbs_records!dbs_records_person_id_fkey(id, certificate_reference, clearance_date, expiry_date, drive_url, created_at),
     dues!dues_person_id_fkey(id, year, month, paid_at)
   `)
@@ -82,7 +82,7 @@ const [
 type TeamAssignment = { is_team_lead: boolean; joined_at: string; teams: { id: string; name: string; pillars: { name: string } | null } | null }
 type CommitteeAssignment = { is_lead: boolean; joined_at: string; committees: { id: string; name: string } | null }
 type UserRole = { assigned_at: string; roles: { id: string; name: string } | null }
-type Tenure = { id: string; term_start: string; term_end: string | null; elected_by: string | null; notes: string | null; elected_positions: { title: string } | null }
+type Tenure = { id: string; position_id: string; term_start: string; term_end: string | null; elected_by: string | null; notes: string | null; elected_positions: { title: string } | null }
 type DbsRecord = { id: string; certificate_reference: string | null; clearance_date: string | null; expiry_date: string | null; drive_url: string | null; created_at: string }
 type Due = { id: string; year: number; month: number; paid_at: string | null }
 
@@ -114,8 +114,8 @@ if (canSeeDocumentsTab && id) {
 
 function statusVariant(s: string): 'success' | 'warning' | 'danger' | 'neutral' | 'info' {
   const map: Record<string, 'success' | 'warning' | 'danger' | 'neutral' | 'info'> = {
-    active: 'success', approved: 'info', pending_review: 'warning',
-    applicant: 'neutral', suspended: 'warning', inactive: 'neutral', alumni: 'neutral', left: 'danger',
+    active: 'success', pending_review: 'warning',
+    applicant: 'neutral', suspended: 'warning', inactive: 'neutral',
   }
   return map[s] ?? 'neutral'
 }
@@ -218,8 +218,6 @@ const tabs = [
   { id: 'overview',    label: 'Overview' },
   ...(canSeeAdminTabs && !member.person_types?.includes('volunteer') ? [{ id: 'dues', label: 'Dues' }] : []),
   ...(canSeeAdminTabs ? [{ id: 'dbs', label: 'DBS' }] : []),
-  ...(canSeeAdminTabs ? [{ id: 'roles', label: 'Teams & Roles' }] : []),
-  ...(committeeAssignments.length > 0 || canSeeAdminTabs ? [{ id: 'committees', label: `Committees${committeeAssignments.length > 0 ? ` (${committeeAssignments.length})` : ''}` }] : []),
   { id: 'recognition', label: `Recognition${allAwards.length + allPraise.length > 0 ? ` (${allAwards.length + allPraise.length})` : ''}` },
   ...(canSeeDocumentsTab ? [{ id: 'documents', label: `Documents${memberDocs.length > 0 ? ` (${memberDocs.length})` : ''}` }] : []),
   ...(canSeeAdminTabs ? [{ id: 'activity', label: `Activity${auditEntries.length > 0 ? ` (${auditEntries.length})` : ''}` }] : []),
@@ -227,6 +225,23 @@ const tabs = [
 
 const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const currentYear = new Date().getFullYear()
+
+const INTAKE_STATUS_LABELS: Record<string, string> = {
+  in_progress: 'In Progress', submitted: 'Submitted', completed: 'Completed',
+  approved: 'Approved', rejected: 'Rejected',
+}
+const INTAKE_STATUS_BADGE: Record<string, string> = {
+  in_progress: 'bg-warning-100 text-warning-700',
+  submitted: 'bg-neutral-100 text-neutral-600',
+  completed: 'bg-success-100 text-success-700',
+  approved: 'bg-success-100 text-success-700',
+  rejected: 'bg-danger-100 text-danger-700',
+}
+const rawIntakeStatus = member.intake_status as string | null
+const intakeStatusLabel = rawIntakeStatus
+  ? (INTAKE_STATUS_LABELS[rawIntakeStatus] ?? rawIntakeStatus.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))
+  : null
+const intakeStatusBadge = rawIntakeStatus ? (INTAKE_STATUS_BADGE[rawIntakeStatus] ?? 'bg-neutral-100 text-neutral-600') : null
 
 // Application fields — check if any exist
 const hasApplicationData = !!(
@@ -272,47 +287,61 @@ const hasApplicationData = !!(
           )}
         </div>
       </div>
-      <div class="flex gap-2 flex-wrap">
-        {admin && (
-          <button
-            id="login-access-btn"
-            data-enabled={isLoginEnabled ? 'true' : 'false'}
-            @click="toggleLogin()"
-            :disabled="loginLoading"
-            class="py-2 px-4 rounded-md font-body text-[13px] font-medium cursor-pointer border"
-            :style="loginEnabled ? 'background-color: var(--color-success-50); color: var(--color-success-700); border-color: var(--color-success-300);' : 'background-color: var(--color-neutral-100); color: var(--color-neutral-500); border-color: var(--color-neutral-300);'">
-            <span x-text="loginEnabled ? '🔓 Login enabled' : '🔒 Login disabled'">{isLoginEnabled ? '🔓 Login enabled' : '🔒 Login disabled'}</span>
-          </button>
-        )}
+      <div class="flex gap-2 items-center">
         {admin && (
           <a href={`/admin/email/compose?person_id=${id}`}
              class="py-2 px-4 bg-neutral-100 text-neutral-700 rounded-md font-body text-[13px] font-medium no-underline">
             ✉ Email
           </a>
         )}
-        {canEdit && (
-          <a href={`/admin/members/${id}/edit`}
-             class="py-2 px-4 bg-neutral-100 text-neutral-700 rounded-md font-body text-[13px] font-medium no-underline">
-            Edit
-          </a>
-        )}
-        {admin && !(member.is_archived as boolean) && (
-          <button
-            data-member-name={member.full_name as string}
-            @click="archive($el.dataset.memberName)"
-            class="py-2 px-4 bg-white text-danger-600 border border-danger-200 rounded-md font-body text-[13px] font-medium cursor-pointer">
-            Archive
+        <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+          <button @click="open = !open"
+            class="flex items-center gap-1.5 py-2 px-4 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-md font-body text-[13px] font-medium cursor-pointer">
+            Actions
+            <svg fill="none" viewBox="0 0 16 16" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6l4 4 4-4" />
+            </svg>
           </button>
-        )}
-        {isSuperAdmin && (
-          <button
-            data-member-name={member.full_name as string}
-            @click="openDelete($el.dataset.memberName)"
-            class="py-2 px-4 bg-danger-600 text-white border-none rounded-md font-body text-[13px] font-semibold cursor-pointer"
-            title="Permanently remove this member and all their data from the system">
-            Delete
-          </button>
-        )}
+          <div x-show="open" x-cloak x-transition
+            class="absolute right-0 top-full mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[200px] z-50">
+            {admin && (
+              <button
+                id="login-access-btn"
+                data-enabled={isLoginEnabled ? 'true' : 'false'}
+                @click="toggleLogin(); open = false"
+                :disabled="loginLoading"
+                class="w-full text-left px-4 py-2.5 font-body text-[13px] hover:bg-neutral-50 bg-transparent border-none cursor-pointer block"
+                :class="loginEnabled ? 'text-success-700' : 'text-neutral-500'">
+                <span x-text="loginEnabled ? '🔓 Login enabled' : '🔒 Login disabled'">{isLoginEnabled ? '🔓 Login enabled' : '🔒 Login disabled'}</span>
+              </button>
+            )}
+            {canEdit && (
+              <a href={`/admin/members/${id}/edit`}
+                class="block px-4 py-2.5 font-body text-[13px] text-neutral-700 hover:bg-neutral-50 no-underline">
+                Edit
+              </a>
+            )}
+            {(admin && !(member.is_archived as boolean)) || isSuperAdmin ? (
+              <div class="border-t border-neutral-100 my-1" />
+            ) : null}
+            {admin && !(member.is_archived as boolean) && (
+              <button
+                data-member-name={member.full_name as string}
+                @click="archive($el.dataset.memberName); open = false"
+                class="w-full text-left px-4 py-2.5 font-body text-[13px] text-danger-600 hover:bg-danger-50 bg-transparent border-none cursor-pointer block">
+                Archive
+              </button>
+            )}
+            {isSuperAdmin && (
+              <button
+                data-member-name={member.full_name as string}
+                @click="openDelete($el.dataset.memberName); open = false"
+                class="w-full text-left px-4 py-2.5 font-body text-[13px] text-danger-600 hover:bg-danger-50 bg-transparent border-none cursor-pointer block">
+                Delete permanently
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
 
@@ -330,18 +359,18 @@ const hasApplicationData = !!(
     {tab === 'overview' && (
       <div class="flex flex-col gap-5">
 
-        <!-- Personal details + Notes -->
-        <div class={`grid ${canSeeNotes ? 'grid-cols-2' : 'grid-cols-1'} gap-5`}>
+        <!-- Personal details + Application -->
+        <div class={`grid ${canSeeApplication && hasApplicationData ? 'grid-cols-2' : 'grid-cols-1'} gap-5`}>
           <div class="bg-white border border-neutral-200 rounded-lg p-6">
             <h2 class="font-heading text-[13px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mb-4">Personal details</h2>
             <dl class="grid [grid-template-columns:120px_1fr] gap-x-4 gap-y-2.5">
               {[
                 ['Email', member.email],
-                ['Secondary email', (member.email_secondary as string | null) ?? '—'],
+                ['Secondary Email', (member.email_secondary as string | null) ?? '—'],
                 ['Phone', (member.phone as string | null) ?? '—'],
-                ['Date of birth', fmtDob(member.date_of_birth as string | null, admin)],
+                ['Date of Birth', fmtDob(member.date_of_birth as string | null, admin)],
                 ['Gender', (member.gender as string | null) ?? '—'],
-                ['Date joined', (member.date_joined as string | null) ?? '—'],
+                ['Date Joined', (member.date_joined as string | null) ?? '—'],
                 ['Source', (member.source as string | null) ?? '—'],
               ].map(([label, value]) => (
                 <>
@@ -351,170 +380,259 @@ const hasApplicationData = !!(
               ))}
             </dl>
           </div>
-          {canSeeNotes && (
+          {canSeeApplication && hasApplicationData && (
             <div class="bg-white border border-neutral-200 rounded-lg p-6">
-              <h2 class="font-heading text-[13px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mb-4">Notes</h2>
-              <p class="font-body text-sm text-neutral-700 m-0 leading-[1.6] whitespace-pre-wrap">
-                {(member.notes as string | null) ?? <em class="text-neutral-400">No notes.</em>}
-              </p>
-            </div>
-          )}
-        </div>
-
-        <!-- Elected Positions -->
-        <div class="bg-white border border-neutral-200 rounded-lg p-6">
-          <h2 class="font-heading text-[13px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mb-4">Elected Positions</h2>
-          {tenures.length > 0 ? (
-            <table class="w-full border-collapse text-[13px] font-body mb-4">
-              <thead>
-                <tr class="bg-neutral-50">
-                  <th class="py-2 px-3 text-left text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em]">Position</th>
-                  <th class="py-2 px-3 text-left text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em]">Term start</th>
-                  <th class="py-2 px-3 text-left text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em]">Term end</th>
-                  <th class="py-2 px-3 text-left text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em]">Elected by</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tenures.sort((a,b) => a.term_end ? 1 : -1).map((t, i) => (
-                  <tr class={`${i > 0 ? 'border-t border-neutral-100' : ''} ${!t.term_end ? 'bg-neutral-50' : ''}`}>
-                    <td class="py-2.5 px-3">
-                      <span class="font-semibold text-brand-navy">{t.elected_positions?.title ?? '—'}</span>
-                      {!t.term_end && <Badge variant="success">Current</Badge>}
-                    </td>
-                    <td class="py-2.5 px-3 text-neutral-700">{t.term_start}</td>
-                    <td class="py-2.5 px-3 text-neutral-500">{t.term_end ?? '—'}</td>
-                    <td class="py-2.5 px-3 text-neutral-600">{(t.elected_by ?? '').replace(/_/g, ' ')}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p class="font-body text-sm text-neutral-400 mb-4">No elected positions recorded.</p>
-          )}
-
-          {/* Assign position form */}
-          {canAssignPosition && positions.length > 0 && (
-            <div class="pt-4 border-t border-neutral-100">
-              <p class="font-body text-xs font-semibold text-neutral-500 uppercase tracking-[0.06em] mb-2.5">Assign position</p>
-              <div class="flex gap-2 flex-wrap items-end">
-                <div>
-                  <label class="block font-body text-xs font-medium text-neutral-600 mb-1">Position</label>
-                  <select id="position-select" class="py-[7px] px-2.5 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-700 bg-white min-w-[200px]">
-                    <option value="">— Select position —</option>
-                    {positions.map(p => <option value={p.id}>{p.title}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label class="block font-body text-xs font-medium text-neutral-600 mb-1">Term start</label>
-                  <input type="date" id="position-term-start" value={new Date().toISOString().split('T')[0]}
-                    class="py-[7px] px-2.5 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-700" />
-                </div>
-                <div>
-                  <label class="block font-body text-xs font-medium text-neutral-600 mb-1">Elected by</label>
-                  <select id="position-elected-by" class="py-[7px] px-2.5 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-700 bg-white">
-                    <option value="chapter_vote">Chapter vote</option>
-                    <option value="board_appointment">Board appointment</option>
-                    <option value="co_option">Co-option</option>
-                  </select>
-                </div>
-                <button @click="assignPosition()"
-                  class="py-2 px-4 bg-brand-navy text-white border-none rounded-md font-body text-[13px] font-medium cursor-pointer">
-                  Assign
-                </button>
+              <div class="flex items-center justify-between mb-5">
+                <h2 class="font-heading text-[13px] font-bold text-neutral-700 m-0">Application</h2>
+                {intakeStatusLabel && (
+                  <span class={`font-body text-xs font-semibold px-2.5 py-1 rounded-full ${intakeStatusBadge}`}>
+                    {intakeStatusLabel}
+                  </span>
+                )}
+              </div>
+              <div class="flex flex-col gap-4">
+                {(member.why_join as string | null) && (
+                  <div>
+                    <p class="font-body text-[11px] font-bold text-neutral-500 mb-1.5 m-0">Why They Want to Join</p>
+                    <p class="font-body text-[13px] text-neutral-700 m-0 leading-relaxed whitespace-pre-wrap">{member.why_join as string}</p>
+                  </div>
+                )}
+                {(member.skills_qualities as string | null) && (
+                  <div>
+                    <p class="font-body text-[11px] font-bold text-neutral-500 mb-1.5 m-0">Skills & Qualities</p>
+                    <p class="font-body text-[13px] text-neutral-700 m-0 leading-relaxed">{member.skills_qualities as string}</p>
+                  </div>
+                )}
+                {((member.pillar_interest as string | null) || (member.committee_interest as string | null) || (member.referral_source as string | null) || (member.dbs_consent as boolean | null) !== null || (member.dues_consent as boolean | null) !== null) && (
+                  <dl class="grid grid-cols-[160px_1fr] gap-x-6 gap-y-2.5 pt-4 border-t border-neutral-100">
+                    {(member.pillar_interest as string | null) && (
+                      <>
+                        <dt class="font-body text-[13px] font-bold text-neutral-500">Pillar Interest</dt>
+                        <dd class="font-body text-[13px] text-neutral-800 m-0">{member.pillar_interest as string}</dd>
+                      </>
+                    )}
+                    {(member.committee_interest as string | null) && (
+                      <>
+                        <dt class="font-body text-[13px] font-bold text-neutral-500">Committee Interest</dt>
+                        <dd class="font-body text-[13px] text-neutral-800 m-0">{member.committee_interest as string}</dd>
+                      </>
+                    )}
+                    {(member.referral_source as string | null) && (
+                      <>
+                        <dt class="font-body text-[13px] font-bold text-neutral-500">How They Heard</dt>
+                        <dd class="font-body text-[13px] text-neutral-800 m-0">{member.referral_source as string}</dd>
+                      </>
+                    )}
+                    {(member.dbs_consent as boolean | null) !== null && (
+                      <>
+                        <dt class="font-body text-[13px] font-bold text-neutral-500">DBS Consent</dt>
+                        <dd class="font-body text-[13px] m-0">
+                          {(member.dbs_consent as boolean)
+                            ? <span class="font-body text-[13px] font-semibold text-success-700">Consented</span>
+                            : <span class="font-body text-[13px] font-semibold text-danger-600">No consent given</span>}
+                        </dd>
+                      </>
+                    )}
+                    {(member.dues_consent as boolean | null) !== null && (
+                      <>
+                        <dt class="font-body text-[13px] font-bold text-neutral-500">Dues Consent</dt>
+                        <dd class="font-body text-[13px] m-0">
+                          {(member.dues_consent as boolean)
+                            ? <span class="font-body text-[13px] font-semibold text-success-700">Consented</span>
+                            : <span class="font-body text-[13px] font-semibold text-danger-600">No consent given</span>}
+                        </dd>
+                      </>
+                    )}
+                  </dl>
+                )}
               </div>
             </div>
           )}
         </div>
 
-        <!-- Teams (read-only, visible to all viewers including team leads) -->
-        <div class="bg-white border border-neutral-200 rounded-lg p-6">
-          <h2 class="font-heading text-[13px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mb-4">Teams</h2>
-          {teamAssignments.length > 0 ? (
-            <div class="flex flex-wrap gap-2">
-              {teamAssignments.map(ta => ta.teams && (
-                <a href={`/admin/teams/${ta.teams.id}`}
-                   class="inline-flex items-center gap-1.5 py-1.5 px-3 bg-neutral-100 rounded-full font-body text-[13px] text-neutral-700 no-underline">
-                  {ta.is_team_lead && <span class="text-brand-gold">★</span>}
-                  {ta.teams.name}
-                  {ta.teams.pillars && <span class="text-[11px] text-neutral-400">· {ta.teams.pillars.name}</span>}
-                </a>
-              ))}
+        <!-- Teams + Roles (side by side) -->
+        <div class={`grid gap-5 ${canSeeAdminTabs ? 'grid-cols-2' : 'grid-cols-1'}`}>
+
+          <!-- Teams -->
+          <div class="bg-white border border-neutral-200 rounded-lg p-6">
+            <h2 class="font-heading text-[13px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mb-4">Teams</h2>
+            {teamAssignments.length > 0 ? (
+              <div class="flex flex-wrap gap-2">
+                {teamAssignments.map(ta => ta.teams && (
+                  <div class="inline-flex items-center bg-neutral-100 rounded-full">
+                    <a href={`/admin/teams/${ta.teams.id}`}
+                       class="inline-flex items-center gap-1.5 py-1.5 pr-2.5 pl-3 font-body text-[13px] text-neutral-700 no-underline">
+                      {ta.is_team_lead && <span class="text-brand-gold">★</span>}
+                      {ta.teams.name}
+                      {ta.teams.pillars && <span class="text-[11px] text-neutral-400">· {ta.teams.pillars.name}</span>}
+                    </a>
+                    {admin && (
+                      <button @click="removeFromTeam($el.dataset.teamId)" data-team-id={ta.teams.id}
+                        class="bg-transparent border-none cursor-pointer py-1.5 pr-2.5 pl-1 text-neutral-400 text-sm leading-none rounded-r-full"
+                        title="Remove from team">×</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p class="font-body text-sm text-neutral-400 m-0">Not assigned to any teams.</p>
+            )}
+
+            {admin && teams.filter(t => !teamAssignments.some(ta => ta.teams?.id === t.id)).length > 0 && (
+              <div class="pt-4 mt-4 border-t border-neutral-100">
+                <p class="font-body text-xs font-semibold text-neutral-500 uppercase tracking-[0.06em] mb-3">Add to Team</p>
+                <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-end">
+                  <div class="flex flex-col gap-1">
+                    <label class="font-body text-xs font-medium text-neutral-600">Team</label>
+                    <select id="overview-team-select" class="w-full py-2 px-3 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-700 bg-white">
+                      <option value="">— Select team —</option>
+                      {teams.filter(t => !teamAssignments.some(ta => ta.teams?.id === t.id)).map(t => (
+                        <option value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <label class="flex items-center gap-1.5 self-end py-2 font-body text-[13px] text-neutral-600 cursor-pointer whitespace-nowrap">
+                    <input type="checkbox" id="overview-team-lead-check" class="w-3.5 h-3.5 accent-brand-gold" />
+                    Team lead
+                  </label>
+                  <button @click="addTeamOverview()"
+                    class="py-2 px-4 bg-brand-navy text-white border-none rounded-md font-body text-[13px] font-semibold cursor-pointer">
+                    Add
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <!-- Roles (admins only) -->
+          {canSeeAdminTabs && (
+            <div class="bg-white border border-neutral-200 rounded-lg p-6">
+              <h2 class="font-heading text-[13px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mb-4">Roles</h2>
+              {userRoles.length > 0 ? (
+                <div class="flex flex-wrap gap-2">
+                  {userRoles.map(ur => ur.roles && (
+                    <div class="inline-flex items-center bg-brand-navy rounded-full">
+                      <span class="py-1.5 px-3 text-white font-body text-[13px] font-medium">
+                        {ur.roles.name}
+                      </span>
+                      {isSuperAdmin && (
+                        <button @click="revokeRole($el.dataset.roleId)" data-role-id={ur.roles.id}
+                          class="bg-transparent border-none cursor-pointer py-1.5 pr-2.5 pl-0.5 text-white/70 text-sm leading-none"
+                          title={`Revoke ${ur.roles.name}`}>×</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p class="font-body text-sm text-neutral-400 m-0">No roles assigned.</p>
+              )}
+
+              {isSuperAdmin && roles.filter(r => !userRoles.some(ur => ur.roles?.id === r.id)).length > 0 && (
+                <div class="pt-4 mt-4 border-t border-neutral-100">
+                  <p class="font-body text-xs font-semibold text-neutral-500 uppercase tracking-[0.06em] mb-3">Assign Role</p>
+                  <div class="flex items-end gap-3">
+                    <div class="flex flex-col gap-1 flex-1">
+                      <label class="font-body text-xs font-medium text-neutral-600">Role</label>
+                      <select id="role-select" class="w-full py-2 px-3 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-700 bg-white">
+                        <option value="">— Select role —</option>
+                        {roles.filter(r => !userRoles.some(ur => ur.roles?.id === r.id)).map(r => (
+                          <option value={r.id}>{r.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <button @click="assignRole()"
+                      class="py-2 px-4 bg-brand-navy text-white border-none rounded-md font-body text-[13px] font-semibold cursor-pointer">
+                      Assign
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          ) : (
-            <p class="font-body text-sm text-neutral-400 m-0">Not assigned to any teams.</p>
           )}
         </div>
 
-        <!-- Application (admin only) -->
-        {canSeeApplication && hasApplicationData && (
+        <!-- Elected Positions — members only -->
+        {personTypes.includes('member') && (
           <div class="bg-white border border-neutral-200 rounded-lg p-6">
-            <h2 class="font-heading text-[13px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mb-4">Application</h2>
-            <div class="flex flex-col gap-3.5">
-              {(member.intake_status as string | null) && (
-                <div class="flex gap-3">
-                  <span class="font-body text-[13px] font-medium text-neutral-500 min-w-[180px]">Status</span>
-                  <span class="font-body text-[13px] text-neutral-800">{member.intake_status as string}</span>
+            <h2 class="font-heading text-[13px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mb-4">Elected Positions</h2>
+            {tenures.length > 0 ? (
+              <table class="w-full border-collapse text-[13px] font-body mb-4">
+                <thead>
+                  <tr class="bg-neutral-50">
+                    <th class="py-2 px-3 text-left text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em]">Position</th>
+                    <th class="py-2 px-3 text-left text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em]">Term start</th>
+                    <th class="py-2 px-3 text-left text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em]">Term end</th>
+                    <th class="py-2 px-3 text-left text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em]">Elected by</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tenures.sort((a,b) => a.term_end ? 1 : -1).map((t, i) => (
+                    <tr class={`${i > 0 ? 'border-t border-neutral-100' : ''} ${!t.term_end ? 'bg-neutral-50' : ''}`}>
+                      <td class="py-2.5 px-3">
+                        <div class="flex items-center gap-1.5">
+                          <span class="font-semibold text-brand-navy">{t.elected_positions?.title ?? '—'}</span>
+                          {!t.term_end && <Badge variant="success">Current</Badge>}
+                          {canAssignPosition && (
+                            <button @click={`removeTenure('${t.id}', '${t.position_id}', '${t.elected_positions?.title ?? ''}')`}
+                              class="ml-1 text-neutral-300 hover:text-danger-500 bg-transparent border-none cursor-pointer text-sm leading-none p-0"
+                              title="Remove tenure">×</button>
+                          )}
+                        </div>
+                      </td>
+                      <td class="py-2.5 px-3 text-neutral-700">{t.term_start}</td>
+                      <td class="py-2.5 px-3 text-neutral-500">{t.term_end ?? '—'}</td>
+                      <td class="py-2.5 px-3 text-neutral-600">{(t.elected_by ?? '').replace(/_/g, ' ')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p class="font-body text-sm text-neutral-400 mb-4">No elected positions recorded.</p>
+            )}
+
+            {canAssignPosition && positions.length > 0 && (
+              <div class="pt-4 border-t border-neutral-100">
+                <p class="font-body text-xs font-semibold text-neutral-500 uppercase tracking-[0.06em] mb-3">Assign Position</p>
+                <div class="flex flex-col gap-3">
+                  <div class="flex flex-col gap-1">
+                    <label class="font-body text-xs font-medium text-neutral-600">Position</label>
+                    <select id="position-select" class="w-full py-2 px-3 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-700 bg-white">
+                      <option value="">— Select position —</option>
+                      {positions.map(p => <option value={p.id}>{p.title}</option>)}
+                    </select>
+                  </div>
+                  <div class="grid grid-cols-[1fr_1fr_auto] gap-3 items-end">
+                    <div class="flex flex-col gap-1">
+                      <label class="font-body text-xs font-medium text-neutral-600">Term start</label>
+                      <input type="date" id="position-term-start" value={new Date().toISOString().split('T')[0]}
+                        class="w-full py-2 px-3 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-700" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="font-body text-xs font-medium text-neutral-600">Elected by</label>
+                      <select id="position-elected-by" class="w-full py-2 px-3 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-700 bg-white">
+                        <option value="chapter_vote">Chapter vote</option>
+                        <option value="board_appointment">Board appointment</option>
+                        <option value="co_option">Co-option</option>
+                      </select>
+                    </div>
+                    <button @click="assignPosition()"
+                      class="py-2 px-4 bg-brand-navy text-white border-none rounded-md font-body text-[13px] font-semibold cursor-pointer whitespace-nowrap">
+                      Assign
+                    </button>
+                  </div>
                 </div>
-              )}
-              {(member.why_join as string | null) && (
-                <div>
-                  <p class="font-body text-xs font-semibold text-neutral-500 uppercase tracking-[0.06em] mb-1">Why they want to join</p>
-                  <p class="font-body text-[13px] text-neutral-700 m-0 leading-[1.6] whitespace-pre-wrap">{member.why_join as string}</p>
-                </div>
-              )}
-              {(member.skills_qualities as string | null) && (
-                <div>
-                  <p class="font-body text-xs font-semibold text-neutral-500 uppercase tracking-[0.06em] mb-1">Skills & qualities</p>
-                  <p class="font-body text-[13px] text-neutral-700 m-0 leading-[1.6]">{member.skills_qualities as string}</p>
-                </div>
-              )}
-              {((member.pillar_interest as string | null) || (member.committee_interest as string | null) || (member.referral_source as string | null)) && (
-                <dl class="grid [grid-template-columns:180px_1fr] gap-x-4 gap-y-2">
-                  {(member.pillar_interest as string | null) && (
-                    <>
-                      <dt class="font-body text-[13px] font-medium text-neutral-500">Pillar interest</dt>
-                      <dd class="font-body text-[13px] text-neutral-800 m-0">{member.pillar_interest as string}</dd>
-                    </>
-                  )}
-                  {(member.committee_interest as string | null) && (
-                    <>
-                      <dt class="font-body text-[13px] font-medium text-neutral-500">Committee interest</dt>
-                      <dd class="font-body text-[13px] text-neutral-800 m-0">{member.committee_interest as string}</dd>
-                    </>
-                  )}
-                  {(member.referral_source as string | null) && (
-                    <>
-                      <dt class="font-body text-[13px] font-medium text-neutral-500">How they heard</dt>
-                      <dd class="font-body text-[13px] text-neutral-800 m-0">{member.referral_source as string}</dd>
-                    </>
-                  )}
-                </dl>
-              )}
-              {((member.dbs_consent as boolean | null) !== null || (member.dues_consent as boolean | null) !== null) && (
-                <dl class="grid [grid-template-columns:180px_1fr] gap-x-4 gap-y-2">
-                  {(member.dbs_consent as boolean | null) !== null && (
-                    <>
-                      <dt class="font-body text-[13px] font-medium text-neutral-500">DBS consent</dt>
-                      <dd class="font-body text-[13px] m-0">
-                        {(member.dbs_consent as boolean)
-                          ? <span class="text-success-700 font-semibold">✓ Yes</span>
-                          : <span class="text-neutral-400">Not recorded</span>}
-                      </dd>
-                    </>
-                  )}
-                  {(member.dues_consent as boolean | null) !== null && (
-                    <>
-                      <dt class="font-body text-[13px] font-medium text-neutral-500">Dues consent</dt>
-                      <dd class="font-body text-[13px] m-0">
-                        {(member.dues_consent as boolean)
-                          ? <span class="text-success-700 font-semibold">✓ Yes</span>
-                          : <span class="text-neutral-400">Not recorded</span>}
-                      </dd>
-                    </>
-                  )}
-                </dl>
-              )}
-            </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <!-- Notes (bottom) -->
+        {canSeeNotes && (
+          <div class="bg-white border border-neutral-200 rounded-lg p-6">
+            <h2 class="font-heading text-[13px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mb-4">Notes</h2>
+            <p class="font-body text-sm text-neutral-700 m-0 leading-[1.6] whitespace-pre-wrap">
+              {(member.notes as string | null) ?? <em class="text-neutral-400">No notes.</em>}
+            </p>
           </div>
         )}
 
@@ -629,128 +747,6 @@ const hasApplicationData = !!(
           </div>
         ) : (
           <EmptyState heading="No DBS records" subtext="No DBS checks have been recorded for this member." />
-        )}
-      </div>
-    )}
-
-    <!-- ─── Tab: Teams & Roles ─────────────────────────────────────── -->
-    {tab === 'roles' && (
-      <div class="grid gap-6">
-        <div class="bg-white border border-neutral-200 rounded-lg p-6">
-          <h2 class="font-heading text-[13px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mb-4">Teams</h2>
-          {teamAssignments.length > 0 ? (
-            <div class="flex flex-wrap gap-2">
-              {teamAssignments.map(ta => ta.teams && (
-                <div class="inline-flex items-center bg-neutral-100 rounded-full">
-                  <a href={`/admin/teams/${ta.teams.id}`}
-                     class="inline-flex items-center gap-1.5 py-1.5 pr-2.5 pl-3 font-body text-[13px] text-neutral-700 no-underline">
-                    {ta.is_team_lead && <span class="text-brand-gold">★</span>}
-                    {ta.teams.name}
-                    {ta.teams.pillars && <span class="text-[11px] text-neutral-400">· {ta.teams.pillars.name}</span>}
-                  </a>
-                  <button @click="removeFromTeam($el.dataset.teamId)" data-team-id={ta.teams.id}
-                    class="bg-transparent border-none cursor-pointer py-1.5 pr-2.5 pl-1 text-neutral-400 text-sm leading-none rounded-r-full"
-                    title="Remove from team">×</button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p class="font-body text-sm text-neutral-400 m-0">Not assigned to any teams.</p>
-          )}
-
-          {teams.filter(t => !teamAssignments.some(ta => ta.teams?.id === t.id)).length > 0 && (
-            <div class="flex items-center gap-2 mt-4 pt-4 border-t border-neutral-100 flex-wrap">
-              <select id="team-select"
-                class="py-[7px] px-2.5 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-700 bg-white min-w-[180px]">
-                <option value="">— Assign to team —</option>
-                {teams.filter(t => !teamAssignments.some(ta => ta.teams?.id === t.id)).map(t => (
-                  <option value={t.id}>{t.name}</option>
-                ))}
-              </select>
-              <label class="flex items-center gap-[5px] font-body text-[13px] text-neutral-600 cursor-pointer">
-                <input type="checkbox" id="team-lead-check" class="w-3.5 h-3.5 accent-brand-gold" />
-                Team lead
-              </label>
-              <button @click="addTeam()"
-                class="py-[7px] px-3.5 bg-brand-navy text-white border-none rounded-md font-body text-[13px] font-medium cursor-pointer">
-                Add
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div class="bg-white border border-neutral-200 rounded-lg p-6">
-          <h2 class="font-heading text-[13px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mb-4">Roles</h2>
-          {userRoles.length > 0 ? (
-            <div class="flex flex-wrap gap-2">
-              {userRoles.map(ur => ur.roles && (
-                <div class="inline-flex items-center bg-brand-navy rounded-full">
-                  <span class="py-1.5 px-3 text-white font-body text-[13px] font-medium">
-                    {ur.roles.name}
-                  </span>
-                  {isSuperAdmin && (
-                    <button @click="revokeRole($el.dataset.roleId)" data-role-id={ur.roles.id}
-                      class="bg-transparent border-none cursor-pointer py-1.5 pr-2.5 pl-0.5 text-white/70 text-sm leading-none"
-                      title={`Revoke ${ur.roles.name}`}>×</button>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p class="font-body text-sm text-neutral-400 m-0">No roles assigned.</p>
-          )}
-
-          {isSuperAdmin && roles.filter(r => !userRoles.some(ur => ur.roles?.id === r.id)).length > 0 && (
-            <div class="flex items-center gap-2 mt-4 pt-4 border-t border-neutral-100">
-              <select id="role-select"
-                class="py-[7px] px-2.5 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-700 bg-white min-w-[180px]">
-                <option value="">— Assign role —</option>
-                {roles.filter(r => !userRoles.some(ur => ur.roles?.id === r.id)).map(r => (
-                  <option value={r.id}>{r.name}</option>
-                ))}
-              </select>
-              <button @click="assignRole()"
-                class="py-[7px] px-3.5 bg-brand-navy text-white border-none rounded-md font-body text-[13px] font-medium cursor-pointer">
-                Assign
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    )}
-
-    <!-- ─── Tab: Committees ──────────────────────────────────────── -->
-    {tab === 'committees' && (
-      <div>
-        <div class="flex items-center justify-between mb-5">
-          <h2 class="font-heading text-[13px] font-semibold text-neutral-500 uppercase tracking-[0.08em] m-0">Committees</h2>
-          {canSeeAdminTabs && (
-            <a href="/admin/committees" class="font-body text-[13px] text-brand-navy no-underline">Manage →</a>
-          )}
-        </div>
-        {committeeAssignments.length === 0 ? (
-          <div class="bg-white border border-neutral-200 rounded-lg p-10 text-center">
-            <p class="font-body text-sm text-neutral-400 m-0">Not a member of any committees.</p>
-          </div>
-        ) : (
-          <div class="flex flex-col gap-2.5">
-            {committeeAssignments.map((ca) => ca.committees && (
-              <div class="bg-white border border-neutral-200 rounded-lg py-4 px-5 flex items-center justify-between gap-3">
-                <div>
-                  <a href={`/admin/committees/${ca.committees.id}`}
-                    class="font-body text-sm font-semibold text-brand-navy no-underline">
-                    {ca.committees.name}
-                  </a>
-                  {ca.is_lead && (
-                    <span class="ml-2 font-body text-[11px] font-semibold text-warning-700 bg-warning-50 border border-warning-200 rounded-full py-px px-2">Lead</span>
-                  )}
-                </div>
-                <span class="font-body text-xs text-neutral-400">
-                  Joined {fmtDay(ca.joined_at)}
-                </span>
-              </div>
-            ))}
-          </div>
         )}
       </div>
     )}
@@ -1059,214 +1055,7 @@ const hasApplicationData = !!(
       </div>
     </div>
 
-    <script is:inline>
-      window.memberPage = function () {
-        var root = document.getElementById('member-root')
-        var loginBtn = document.getElementById('login-access-btn')
-        return {
-          memberId: root ? root.dataset.memberId : '',
-          loginEnabled: root ? root.dataset.loginEnabled === 'true' : false,
-          loginLoading: false,
-
-          // ── Generic confirm modal ──────────────────────────────────
-          modal: { open: false, title: '', body: '', confirmText: 'Confirm', danger: true, pending: false, onConfirm: null },
-
-          openConfirm: function (title, body, onConfirm, opts) {
-            this.modal = {
-              open: true, title: title, body: body,
-              confirmText: (opts && opts.confirmText) ? opts.confirmText : 'Confirm',
-              danger: opts ? opts.danger !== false : true,
-              pending: false, onConfirm: onConfirm,
-            }
-          },
-
-          doConfirm: async function () {
-            this.modal.pending = true
-            try { await this.modal.onConfirm() } finally { this.modal.pending = false; this.modal.open = false }
-          },
-
-          // ── Permanent delete modal ─────────────────────────────────
-          deleteModal: { open: false, memberName: '', inputName: '', pending: false },
-
-          openDelete: function (memberName) {
-            this.deleteModal = { open: true, memberName: memberName, inputName: '', pending: false }
-          },
-
-          doDelete: async function () {
-            if (this.deleteModal.inputName.trim() !== this.deleteModal.memberName) {
-              alert('Name did not match. Type exactly: ' + this.deleteModal.memberName)
-              return
-            }
-            this.deleteModal.pending = true
-            var r = await fetch('/api/members/' + this.memberId + '?action=permanent', { method: 'DELETE' })
-            this.deleteModal.pending = false
-            if (r.ok) { window.location.href = '/admin/members' }
-            else { var e = await r.json(); alert(e.error || 'Failed to delete member') }
-          },
-
-          // ── Login access toggle ────────────────────────────────────
-          toggleLogin: function () {
-            var self = this
-            var newVal = !this.loginEnabled
-            this.openConfirm(
-              (newVal ? 'Enable' : 'Disable') + ' login access',
-              (newVal ? 'Enable' : 'Disable') + ' login access for this member?',
-              async function () {
-                self.loginLoading = true
-                var r = await fetch('/api/members/' + self.memberId + '/login-access', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ enabled: newVal }),
-                })
-                self.loginLoading = false
-                if (r.ok) { self.loginEnabled = newVal }
-                else { var e = await r.json(); alert(e.error || 'Failed to update login access') }
-              },
-              { confirmText: newVal ? 'Enable' : 'Disable', danger: false }
-            )
-          },
-
-          // ── Archive ────────────────────────────────────────────────
-          archive: function (memberName) {
-            var self = this
-            this.openConfirm(
-              'Archive ' + memberName,
-              'Archive ' + memberName + '? They will no longer appear in active lists.\n\nNote: you cannot archive a member with an active elected tenure.',
-              async function () {
-                var r = await fetch('/api/members/' + self.memberId, { method: 'DELETE' })
-                if (r.ok) { window.location.href = '/admin/members' }
-                else { var e = await r.json(); alert(e.error || 'Failed to archive member') }
-              },
-              { confirmText: 'Archive' }
-            )
-          },
-
-          // ── Pay all dues for year ──────────────────────────────────
-          payYear: function (yearStr, unpaidStr) {
-            var self = this
-            var year = parseInt(yearStr, 10)
-            var months = (unpaidStr || '').split(',').map(Number).filter(Boolean)
-            if (!months.length) return
-            this.openConfirm(
-              'Mark all paid — ' + year,
-              'Mark all ' + months.length + ' unpaid month' + (months.length === 1 ? '' : 's') + ' for ' + year + ' as paid?',
-              async function () {
-                await Promise.all(months.map(function (month) {
-                  return fetch('/api/members/' + self.memberId + '/dues', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ year: year, month: month }),
-                  })
-                }))
-                window.location.reload()
-              },
-              { confirmText: 'Mark all paid', danger: false }
-            )
-          },
-
-          // ── Individual due toggle ──────────────────────────────────
-          toggleDue: async function (year, month, dueId) {
-            var url = dueId
-              ? '/api/members/' + this.memberId + '/dues/' + dueId
-              : '/api/members/' + this.memberId + '/dues'
-            var r = await fetch(url, {
-              method: dueId ? 'DELETE' : 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: dueId ? undefined : JSON.stringify({ year: year, month: month }),
-            })
-            if (r.ok) { window.location.reload() }
-            else { var e = await r.json(); alert(e.error || 'Failed to update dues') }
-          },
-
-          // ── Add to team ────────────────────────────────────────────
-          addTeam: async function () {
-            var sel = document.getElementById('team-select')
-            var teamId = sel ? sel.value : ''
-            if (!teamId) { alert('Please select a team first.'); return }
-            var isLead = document.getElementById('team-lead-check') ? document.getElementById('team-lead-check').checked : false
-            var r = await fetch('/api/members/' + this.memberId + '/teams', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ team_id: teamId, is_team_lead: isLead }),
-            })
-            if (r.ok) { window.location.reload() }
-            else { var e = await r.json(); alert(e.error || 'Failed to add to team') }
-          },
-
-          // ── Remove from team ───────────────────────────────────────
-          removeFromTeam: function (teamId) {
-            var self = this
-            this.openConfirm(
-              'Remove from team',
-              'Remove this member from the team?',
-              async function () {
-                var r = await fetch('/api/members/' + self.memberId + '/teams?team_id=' + teamId, { method: 'DELETE' })
-                if (r.ok) { window.location.reload() }
-                else { var e = await r.json(); alert(e.error || 'Failed to remove from team') }
-              }
-            )
-          },
-
-          // ── Assign role ────────────────────────────────────────────
-          assignRole: async function () {
-            var sel = document.getElementById('role-select')
-            var roleId = sel ? sel.value : ''
-            if (!roleId) { alert('Please select a role first.'); return }
-            var r = await fetch('/api/members/' + this.memberId + '/roles', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ role_id: roleId }),
-            })
-            if (r.ok) { window.location.reload() }
-            else { var e = await r.json(); alert(e.error || 'Failed to assign role') }
-          },
-
-          // ── Revoke role ────────────────────────────────────────────
-          revokeRole: function (roleId) {
-            var self = this
-            this.openConfirm(
-              'Revoke role',
-              'Revoke this role from the member?',
-              async function () {
-                var r = await fetch('/api/members/' + self.memberId + '/roles?role_id=' + roleId, { method: 'DELETE' })
-                if (r.ok) { window.location.reload() }
-                else { var e = await r.json(); alert(e.error || 'Failed to revoke role') }
-              }
-            )
-          },
-
-          // ── Delete DBS record ──────────────────────────────────────
-          deleteDbs: function (dbsId) {
-            var self = this
-            this.openConfirm(
-              'Delete DBS record',
-              'Delete this DBS record? This action cannot be undone.',
-              async function () {
-                var r = await fetch('/api/dbs/' + dbsId, { method: 'DELETE' })
-                if (r.ok) { window.location.reload() }
-                else { var e = await r.json(); alert(e.error || 'Failed to delete DBS record') }
-              }
-            )
-          },
-
-          // ── Assign elected position ────────────────────────────────
-          assignPosition: async function () {
-            var positionId = document.getElementById('position-select') ? document.getElementById('position-select').value : ''
-            var termStart = document.getElementById('position-term-start') ? document.getElementById('position-term-start').value : ''
-            var electedBy = document.getElementById('position-elected-by') ? document.getElementById('position-elected-by').value : 'chapter_vote'
-            if (!positionId) { alert('Please select a position first.'); return }
-            if (!termStart) { alert('Please enter a term start date.'); return }
-            var r = await fetch('/api/positions/' + positionId + '/assign', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ person_id: this.memberId, term_start: termStart, elected_by: electedBy }),
-            })
-            if (r.ok) { window.location.reload() }
-            else { var e = await r.json(); alert(e.error || 'Failed to assign position') }
-          },
-        }
-      }
-    </script>
+    <script is:inline src="/scripts/member-page.js"></script>
 
   </div>
 

@@ -133,3 +133,54 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     status: 201, headers: { 'Content-Type': 'application/json' },
   })
 }
+
+export const DELETE: APIRoute = async ({ params, url, locals }) => {
+  if (!locals.user) {
+    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
+      status: 401, headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  const tenureId = url.searchParams.get('tenure_id')
+  if (!tenureId) {
+    return new Response(JSON.stringify({ error: 'tenure_id query parameter is required' }), {
+      status: 400, headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  const { data: tenure, error: fetchErr } = await supabaseAdmin
+    .from('elected_position_tenures')
+    .select('id, person_id, position_id')
+    .eq('id', tenureId)
+    .single()
+
+  if (fetchErr || !tenure) {
+    return new Response(JSON.stringify({ error: 'Tenure not found' }), {
+      status: 404, headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  const { error: deleteErr } = await supabaseAdmin
+    .from('elected_position_tenures')
+    .delete()
+    .eq('id', tenureId)
+
+  if (deleteErr) {
+    console.error('[DELETE /api/positions/:id/assign] DB error:', deleteErr)
+    return new Response(JSON.stringify({ error: 'Failed to delete tenure' }), {
+      status: 500, headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  await writeAuditLog({
+    actorId: locals.user.person_id,
+    action: 'tenure_delete',
+    targetTable: 'elected_position_tenures',
+    targetId: tenureId,
+    beforeValue: tenure as Record<string, unknown>,
+  })
+
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 200, headers: { 'Content-Type': 'application/json' },
+  })
+}
