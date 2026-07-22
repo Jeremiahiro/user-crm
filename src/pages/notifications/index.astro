@@ -185,7 +185,7 @@ function pageUrl(p: number) {
     .notif-item.unread:hover { background: #dbeafe; }
   </style>
 
-  <div class="max-w-[1100px]">
+  <div class="max-w-275">
 
     <!-- Header -->
     <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
@@ -193,7 +193,7 @@ function pageUrl(p: number) {
         <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">
           Notifications
           {unreadCount > 0 && (
-            <span id="unread-badge" class="inline-flex items-center justify-center bg-danger-600 text-white rounded-full text-xs font-bold min-w-[22px] h-[22px] px-1.5 ml-2 align-middle">
+            <span id="unread-badge" class="inline-flex items-center justify-center bg-danger-600 text-white rounded-full text-xs font-bold min-w-5.5 h-5.5 px-1.5 ml-2 align-middle">
               {unreadCount}
             </span>
           )}
@@ -204,7 +204,7 @@ function pageUrl(p: number) {
       </div>
       {unreadCount > 0 && (
         <button id="mark-all-btn"
-          class="px-[14px] py-1.5 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-md font-body text-[13px] font-medium cursor-pointer">
+          class="px-3.5 py-1.5 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-md font-body text-[13px] font-medium cursor-pointer">
           Mark all as read
         </button>
       )}
@@ -248,10 +248,10 @@ function pageUrl(p: number) {
                 class={`notif-item${!n.is_read ? ' unread' : ''}`}>
 
                 {!n.is_read && (
-                  <span class="unread-dot absolute left-[5px] top-1/2 -translate-y-1/2 w-[6px] h-[6px] rounded-full bg-[#3b82f6] shrink-0"></span>
+                  <span class="unread-dot absolute left-1.25 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#3b82f6] shrink-0"></span>
                 )}
 
-                <span class="text-xl shrink-0 mt-[1px]">{iconFor(n.type)}</span>
+                <span class="text-xl shrink-0 mt-0.25">{iconFor(n.type)}</span>
 
                 <div class="flex-1 min-w-0">
                   <p class={`font-body text-[13px] text-brand-navy mb-0.5 truncate ${!n.is_read ? 'font-bold' : 'font-medium'}`}>
@@ -270,7 +270,7 @@ function pageUrl(p: number) {
 
                 {!n.is_read && (
                   <button
-                    class="mark-one-btn shrink-0 bg-transparent border border-neutral-300 rounded-md px-2 py-[2px] font-body text-[11px] text-neutral-500 cursor-pointer self-start"
+                    class="mark-one-btn shrink-0 bg-transparent border border-neutral-300 rounded-md px-2 py-0.5 font-body text-[11px] text-neutral-500 cursor-pointer self-start"
                     data-notif-id={n.id}
                     onclick="event.preventDefault(); event.stopPropagation(); markOneRead(this)"
                     title="Mark as read">
@@ -305,13 +305,13 @@ function pageUrl(p: number) {
             <div class="flex gap-1.5">
               {page > 1 && (
                 <a href={pageUrl(page - 1)}
-                  class="px-[14px] py-1.5 bg-white border border-neutral-200 rounded-md font-body text-[13px] text-neutral-700 no-underline">
+                  class="px-3.5 py-1.5 bg-white border border-neutral-200 rounded-md font-body text-[13px] text-neutral-700 no-underline">
                   ← Prev
                 </a>
               )}
               {page < totalPages && (
                 <a href={pageUrl(page + 1)}
-                  class="px-[14px] py-1.5 bg-white border border-neutral-200 rounded-md font-body text-[13px] text-neutral-700 no-underline">
+                  class="px-3.5 py-1.5 bg-white border border-neutral-200 rounded-md font-body text-[13px] text-neutral-700 no-underline">
                   Next →
                 </a>
               )}

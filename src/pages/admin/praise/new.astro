@@ -89,7 +89,7 @@ const initialName = memberName
           clearTimeout(this.debounceTimer);
           this.debounceTimer = setTimeout(async () => {
             try {
-              const res = await fetch('/api/members?q=' + encodeURIComponent(q) + '&status=active,approved');
+              const res = await fetch('/api/members?q=' + encodeURIComponent(q) + '&status=active');
               const j = await res.json();
               const existing = new Set(this.recipients.map(r => r.id));
               this.results = (j.data || []).filter(m => !existing.has(m.id)).slice(0, 10);
@@ -151,7 +151,7 @@ const initialName = memberName
             <template x-for="r in results" :key="r.id">
               <li
                 @mousedown.prevent="select(r)"
-                class="px-3 py-2.5 cursor-pointer rounded-[6px] text-sm font-body text-neutral-800"
+                class="px-3 py-2.5 cursor-pointer rounded-1.5 text-sm font-body text-neutral-800"
                 @mouseenter="$el.style.background='var(--color-neutral-100)'"
                 @mouseleave="$el.style.background=''"
                 x-text="r.full_name"

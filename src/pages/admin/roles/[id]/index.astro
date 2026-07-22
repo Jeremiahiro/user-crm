@@ -90,7 +90,7 @@ function getInitials(name: string) {
             <tbody>
               {members.filter(m => m.people).map((m, i) => (
                 <tr class={i > 0 ? 'border-t border-neutral-100 hover:bg-neutral-50' : 'hover:bg-neutral-50'}>
-                  <td class="px-4 py-[14px]">
+                  <td class="px-4 py-3.5">
                     <a href={`/admin/members/${m.people!.id}`}
                       class="flex items-center gap-2.5 no-underline">
                       <div class="w-8 h-8 rounded-full bg-brand-gold text-brand-navy flex items-center justify-center font-body text-[11px] font-semibold shrink-0 overflow-hidden">
@@ -104,10 +104,10 @@ function getInitials(name: string) {
                       </div>
                     </a>
                   </td>
-                  <td class="px-4 py-[14px]">
+                  <td class="px-4 py-3.5">
                     <Badge variant={statusVariant(m.people!.status)}>{titleCase(m.people!.status)}</Badge>
                   </td>
-                  <td class="px-4 py-[14px] font-body text-[13px] text-neutral-500">
+                  <td class="px-4 py-3.5 font-body text-[13px] text-neutral-500">
                     {fmtDate(m.assigned_at)}
                   </td>
                 </tr>

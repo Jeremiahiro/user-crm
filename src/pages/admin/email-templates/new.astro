@@ -94,7 +94,7 @@ if (Astro.request.method === 'POST') {
 ---
 
 <DashboardLayout title="New Email Template">
-  <div class="max-w-[800px]" id="new-template-root" data-default-html="">
+  <div class="max-w-200" id="new-template-root" data-default-html="">
     <Breadcrumb crumbs={[{ label: 'Email Templates', href: '/admin/email-templates' }, { label: 'New Template' }]} />
     <h1 class="font-heading text-[22px] font-bold text-brand-navy mt-0 mb-6">New Email Template</h1>
 
@@ -113,10 +113,10 @@ if (Astro.request.method === 'POST') {
             class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm" />
           {errors.name && <p class="font-body text-xs text-danger-600 m-0">{errors.name}</p>}
         </div>
-        <div class="flex flex-col gap-1 min-w-[140px]">
+        <div class="flex flex-col gap-1 min-w-35">
           <label class="font-body text-[13px] font-medium text-neutral-700">Category *</label>
           <select name="category" id="category-select"
-            class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm bg-white h-[42px]">
+            class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm bg-white h-10.5">
             {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
               <option value={v} selected={values.category === v}>{l}</option>
             ))}
@@ -164,7 +164,7 @@ if (Astro.request.method === 'POST') {
       <!-- Live preview -->
       <div id="preview-panel" class="hidden border border-neutral-200 rounded-lg overflow-hidden">
         <div class="px-3.5 py-2 bg-neutral-50 border-b border-neutral-200 font-body text-xs text-neutral-500">Preview (variables replaced with sample values)</div>
-        <iframe id="preview-frame" class="w-full h-[500px] border-none block"></iframe>
+        <iframe id="preview-frame" class="w-full h-125 border-none block"></iframe>
       </div>
 
       <div class="flex gap-3 pt-1">

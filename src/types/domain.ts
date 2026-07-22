@@ -2,12 +2,9 @@ export type PersonStatus =
   | 'applicant'
   | 'in_progress'
   | 'in_training'
-  | 'approved'
   | 'active'
   | 'suspended'
   | 'inactive'
-  | 'alumni'
-  | 'left'
   | 'cancelled'
 
 export type CancellationType =
@@ -21,7 +18,6 @@ export type PersonType =
   | 'member'
   | 'mentor'
   | 'volunteer'
-  | 'alumni'
   | 'parent'
   | 'trustee'
 

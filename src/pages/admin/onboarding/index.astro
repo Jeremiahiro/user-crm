@@ -200,15 +200,15 @@ const peopleJson = JSON.stringify(filtered.map(p => {
 
     <!-- Toolbar -->
     <div class="flex items-center gap-3 mb-5">
-      <div class="relative flex-1 max-w-[360px]">
-        <svg class="absolute left-[11px] top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="relative flex-1 max-w-90">
+        <svg class="absolute left-2.75 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
         </svg>
         <input
           type="text"
           x-model="search"
           placeholder="Search by name or email…"
-          class="w-full py-[9px] pl-[34px] pr-3 border border-neutral-200 rounded-md font-body text-sm text-neutral-800 outline-none box-border"
+          class="w-full py-2.25 pl-8.5 pr-3 border border-neutral-200 rounded-md font-body text-sm text-neutral-800 outline-none box-border"
         />
       </div>
 
@@ -216,14 +216,14 @@ const peopleJson = JSON.stringify(filtered.map(p => {
       <div class="flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-md p-1 ml-auto">
         <button @click="view = 'kanban'" title="Board view"
           :class="view === 'kanban' ? 'view-btn--active bg-white text-brand-navy shadow-sm' : 'text-neutral-400'"
-          class="view-btn flex items-center justify-center w-[34px] h-[34px] border-none rounded-[6px] cursor-pointer transition-all duration-150">
+          class="view-btn flex items-center justify-center w-8.5 h-8.5 border-none rounded-1.5 cursor-pointer transition-all duration-150">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
           </svg>
         </button>
         <button @click="view = 'list'" title="List view"
           :class="view === 'list' ? 'view-btn--active bg-white text-brand-navy shadow-sm' : 'text-neutral-400'"
-          class="view-btn flex items-center justify-center w-[34px] h-[34px] border-none rounded-[6px] cursor-pointer transition-all duration-150">
+          class="view-btn flex items-center justify-center w-8.5 h-8.5 border-none rounded-1.5 cursor-pointer transition-all duration-150">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
           </svg>
@@ -238,12 +238,12 @@ const peopleJson = JSON.stringify(filtered.map(p => {
         ? 'bg-success-50 border-success-200 text-success-800'
         : 'bg-danger-50 border-danger-200 text-danger-800'"
       x-text="banner.text"
-      class="hidden py-3 px-[18px] border rounded-md font-body text-sm mb-4"
+      class="hidden py-3 px-4.5 border rounded-md font-body text-sm mb-4"
     ></div>
 
     <!-- ── KANBAN VIEW ── -->
-    <div x-show="view === 'kanban'" class="overflow-x-auto">
-      <div class="grid gap-4 items-start min-w-[1280px] [grid-template-columns:repeat(6,minmax(240px,1fr))]">
+    <div x-show="view === 'kanban'" class="overflow-x-auto min-h-screen">
+      <div class="grid gap-4 items-start min-w-320 [grid-template-columns:repeat(6,minmax(240px,1fr))]">
 
         {STAGES.map(stage => (
           <div>
@@ -257,7 +257,7 @@ const peopleJson = JSON.stringify(filtered.map(p => {
             <!-- Cards -->
             <div class="flex flex-col gap-2.5">
               <template x-if={"byStatus('" + stage.key + "').length === 0"}>
-                <div class="p-[18px] text-center border border-dashed border-neutral-200 rounded-lg">
+                <div class="p-4.5 text-center border border-dashed border-neutral-200 rounded-lg">
                   <p class="font-body text-xs text-neutral-300 m-0">None</p>
                 </div>
               </template>
@@ -280,11 +280,11 @@ const peopleJson = JSON.stringify(filtered.map(p => {
 
                   {(stage.key === 'in_progress' || stage.key === 'in_training') && (
                     <div class="mb-2.5">
-                      <div class="flex justify-between mb-[3px]">
+                      <div class="flex justify-between mb-0.75">
                         <span class="font-body text-[10px] text-neutral-400">Checklist</span>
                         <span x-text="p.done + '/' + p.total" class="font-heading text-[10px] font-bold text-neutral-600"></span>
                       </div>
-                      <div class="h-[3px] bg-neutral-100 rounded-full overflow-hidden">
+                      <div class="h-0.75 bg-neutral-100 rounded-full overflow-hidden">
                         <div :style="'width:' + Math.round((p.done/p.total)*100) + '%; height:100%; background:' + (p.done===p.total ? 'var(--color-success-500)' : 'var(--color-brand-gold)') + '; border-radius:9999px'"></div>
                       </div>
                     </div>
@@ -312,7 +312,7 @@ const peopleJson = JSON.stringify(filtered.map(p => {
                           x-show="open"
                           x-cloak
                           @click.outside="open = false"
-                          class="absolute bottom-full right-0 mb-1.5 bg-white border border-neutral-200 rounded-lg shadow-md z-20 min-w-[180px] overflow-hidden">
+                          class="absolute bottom-full right-0 mb-1.5 bg-white border border-neutral-200 rounded-lg shadow-md z-20 min-w-45 overflow-hidden">
 
                           {stage.advanceLabel && (
                             <button
@@ -427,20 +427,20 @@ const peopleJson = JSON.stringify(filtered.map(p => {
       class="fixed inset-0 z-50 bg-black/45"
       @keydown.escape.window="modal.open = false">
       <div class="flex items-center justify-center w-full h-full" @click.self="modal.open = false">
-        <div class="bg-white rounded-xl p-7 max-w-[420px] w-[calc(100%-48px)] shadow-lg">
+        <div class="bg-white rounded-xl p-7 max-w-105 w-[calc(100%-48px)] shadow-lg">
           <h3 x-text="modal.label + '?'" class="font-heading text-[17px] font-bold text-brand-navy m-0 mb-2"></h3>
           <p class="font-body text-sm text-neutral-600 m-0 mb-6">Would you like to send a status notification email to the applicant?</p>
           <div class="flex gap-2 justify-end flex-wrap">
             <button @click="modal.open = false"
-              class="py-[9px] px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">
+              class="py-2.25 px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">
               Cancel
             </button>
             <button @click="confirmAdvance(false)"
-              class="py-[9px] px-4 bg-neutral-200 text-neutral-800 border-none rounded-md font-body text-sm font-medium cursor-pointer">
+              class="py-2.25 px-4 bg-neutral-200 text-neutral-800 border-none rounded-md font-body text-sm font-medium cursor-pointer">
               No email
             </button>
             <button @click="confirmAdvance(true)"
-              class="py-[9px] px-[18px] bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">
+              class="py-2.25 px-4.5 bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">
               Send email
             </button>
           </div>
@@ -453,7 +453,7 @@ const peopleJson = JSON.stringify(filtered.map(p => {
       class="fixed inset-0 z-50 bg-black/45"
       @keydown.escape.window="modal.open = false">
       <div class="flex items-center justify-center w-full h-full" @click.self="modal.open = false">
-        <div class="bg-white rounded-xl p-7 max-w-[440px] w-[calc(100%-48px)] shadow-lg">
+        <div class="bg-white rounded-xl p-7 max-w-110 w-[calc(100%-48px)] shadow-lg">
           <h3 class="font-heading text-[17px] font-bold text-danger-700 m-0 mb-1.5">Cancel application</h3>
           <p x-text="'Cancel ' + modal.label + '\'s application?'" class="font-body text-sm text-neutral-600 m-0 mb-5"></p>
 
@@ -462,7 +462,7 @@ const peopleJson = JSON.stringify(filtered.map(p => {
               Reason <span class="text-danger-600">*</span>
             </label>
             <select x-model="cancel.type"
-              class="w-full py-[9px] px-3 border border-neutral-300 rounded-md font-body text-sm bg-white text-neutral-800">
+              class="w-full py-2.25 px-3 border border-neutral-300 rounded-md font-body text-sm bg-white text-neutral-800">
               <option value="" disabled>Select a reason…</option>
               <option value="opted_out">Opted out voluntarily</option>
               <option value="training_incomplete">Did not complete training</option>
@@ -478,18 +478,18 @@ const peopleJson = JSON.stringify(filtered.map(p => {
             </label>
             <textarea x-model="cancel.reason" rows="2"
               placeholder="Any additional context…"
-              class="w-full py-[9px] px-3 border border-neutral-300 rounded-md font-body text-sm resize-y box-border"></textarea>
+              class="w-full py-2.25 px-3 border border-neutral-300 rounded-md font-body text-sm resize-y box-border"></textarea>
           </div>
 
           <div class="flex gap-2 justify-end">
             <button @click="modal.open = false"
-              class="py-[9px] px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">
+              class="py-2.25 px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">
               Back
             </button>
             <button @click="confirmCancel()"
               :disabled="!cancel.type"
               :class="cancel.type ? 'bg-danger-600 text-white cursor-pointer' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'"
-              class="py-[9px] px-5 border-none rounded-md font-body text-sm font-semibold">
+              class="py-2.25 px-5 border-none rounded-md font-body text-sm font-semibold">
               Cancel application
             </button>
           </div>

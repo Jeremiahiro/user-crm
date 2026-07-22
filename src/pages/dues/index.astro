@@ -60,7 +60,7 @@ function pendingCount(y: number): number {
 ---
 
 <DashboardLayout title="My Dues">
-  <div class="max-w-[1100px]">
+  <div class="max-w-275">
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0 mb-1">My Dues</h1>
@@ -81,7 +81,7 @@ function pendingCount(y: number): number {
       return (
         <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
           <!-- Year header -->
-          <div class="flex items-center justify-between py-[14px] px-5 border-b border-neutral-100 bg-neutral-50">
+          <div class="flex items-center justify-between py-3.5 px-5 border-b border-neutral-100 bg-neutral-50">
             <h2 class="font-heading text-[15px] font-bold text-brand-navy m-0">{y}</h2>
             {pending > 0 && (
               <span class="py-0.5 px-2.5 bg-warning-50 border border-warning-200 rounded-full font-body text-xs font-semibold text-warning-700">
@@ -145,7 +145,7 @@ function pendingCount(y: number): number {
           </div>
 
           <!-- Legend row -->
-          <div class="flex gap-4 flex-wrap px-5 pb-[14px]">
+          <div class="flex gap-4 flex-wrap px-5 pb-3.5">
             <span class="font-body text-[11px] text-neutral-400">
               Click an unpaid month to submit for approval
             </span>

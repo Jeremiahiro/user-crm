@@ -44,7 +44,7 @@ type YearStats = {
 const yearStats: YearStats[] = years.map(y => {
   const cohort = people.filter(p => getYear(p.applied_at) === y)
   const applicants = cohort.length
-  const activated = cohort.filter(p => p.status === 'active' || p.status === 'alumni' || p.status === 'inactive' || p.status === 'left' || p.status === 'suspended').length
+  const activated = cohort.filter(p => p.status === 'active' || p.status === 'inactive' || p.status === 'suspended').length
   const cancelled = cohort.filter(p => p.status === 'cancelled').length
   const inProgress = cohort.filter(p => ['applicant', 'in_progress', 'in_training'].includes(p.status)).length
   const conversionRate = applicants > 0 ? Math.round((activated / applicants) * 100) : 0
@@ -53,7 +53,7 @@ const yearStats: YearStats[] = years.map(y => {
 
 // ── Overall funnel (all time) ─────────────────────────────────────────────
 const totalApplicants = people.length
-const totalActivated = people.filter(p => ['active', 'alumni', 'inactive', 'left', 'suspended'].includes(p.status)).length
+const totalActivated = people.filter(p => ['active', 'inactive', 'suspended'].includes(p.status)).length
 const totalCancelled = people.filter(p => p.status === 'cancelled').length
 const totalInProgress = people.filter(p => ['applicant', 'in_progress', 'in_training'].includes(p.status)).length
 const overallConversion = totalApplicants > 0 ? Math.round((totalActivated / totalApplicants) * 100) : 0
@@ -61,7 +61,7 @@ const overallConversion = totalApplicants > 0 ? Math.round((totalActivated / tot
 // ── Average time to activation (days) ─────────────────────────────────────
 const activatedWithBoth = people.filter(p =>
   p.applied_at && p.date_joined &&
-  ['active', 'alumni', 'inactive', 'left', 'suspended'].includes(p.status)
+  ['active', 'inactive', 'suspended'].includes(p.status)
 )
 const avgDaysToActivation = activatedWithBoth.length > 0
   ? Math.round(

@@ -117,12 +117,9 @@ describe('toInputDate', () => {
 describe('statusVariant', () => {
   it.each([
     ['active', 'success'],
-    ['approved', 'info'],
     ['pending_review', 'warning'],
     ['applicant', 'neutral'],
     ['inactive', 'neutral'],
-    ['alumni', 'neutral'],
-    ['left', 'danger'],
   ])('maps %s → %s', (status, expected) => {
     expect(statusVariant(status)).toBe(expected)
   })

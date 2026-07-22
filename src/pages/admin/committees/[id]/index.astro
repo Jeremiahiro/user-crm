@@ -133,7 +133,7 @@ function fmtDate(iso: string) {
         <!-- Backdrop -->
         <div x-show="openAdd" style="display:none"
           class="fixed inset-0 z-50 bg-black/45 flex items-center justify-center">
-          <div class="bg-white rounded-xl p-7 max-w-[440px] w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]" @click.stop>
+          <div class="bg-white rounded-xl p-7 max-w-110 w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]" @click.stop>
             <h3 class="font-heading text-lg font-bold text-brand-navy m-0 mb-4">Add member</h3>
 
             <div class="flex flex-col gap-4">
@@ -201,7 +201,7 @@ function fmtDate(iso: string) {
         <!-- Remove confirm modal -->
         <div x-show="removeTarget" style="display:none"
           class="fixed inset-0 z-50 bg-black/45 flex items-center justify-center">
-          <div class="bg-white rounded-xl p-7 max-w-[400px] w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]" @click.stop>
+          <div class="bg-white rounded-xl p-7 max-w-100 w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]" @click.stop>
             <h3 class="font-heading text-lg font-bold text-brand-navy m-0 mb-2">Remove member?</h3>
             <p class="font-body text-sm text-neutral-600 m-0 mb-6">
               Remove <strong x-text="removeTarget?.name"></strong> from this committee?
@@ -220,7 +220,7 @@ function fmtDate(iso: string) {
         <!-- Archive confirm modal -->
         <div x-show="openDelete" style="display:none"
           class="fixed inset-0 z-50 bg-black/45 flex items-center justify-center">
-          <div class="bg-white rounded-xl p-7 max-w-[400px] w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]" @click.stop>
+          <div class="bg-white rounded-xl p-7 max-w-100 w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]" @click.stop>
             <h3 class="font-heading text-lg font-bold text-brand-navy m-0 mb-2">Archive committee?</h3>
             <p class="font-body text-sm text-neutral-600 m-0 mb-6">
               This committee will be hidden from all views. Members won't be removed.

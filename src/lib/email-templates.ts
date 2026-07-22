@@ -235,23 +235,27 @@ export function documentUploadLinkEmail(params: {
   return { subject, html }
 }
 
-// 6 — Member approval / status change
+// 6 — Member status change
 export function memberStatusEmail(params: {
   fullName: string
-  newStatus: 'approved' | 'active' | 'inactive'
+  newStatus: 'in_progress' | 'in_training' | 'active' | 'inactive'
   message?: string
   portalUrl: string
 }): EmailTemplate {
   const { fullName, newStatus, message, portalUrl } = params
 
   const statusMessages: Record<typeof newStatus, { subject: string; body: string }> = {
-    approved: {
-      subject: 'Your membership application has been approved',
-      body: 'Your membership application to 100 Black Men of London has been approved. You are now listed as an approved member.',
+    in_progress: {
+      subject: 'Your application is now in progress',
+      body: 'Your application to 100 Black Men of London has moved to the In Progress stage. Our team will be in touch with next steps.',
+    },
+    in_training: {
+      subject: 'You have been accepted for training',
+      body: 'Congratulations — your application has progressed to the In Training stage. Please complete the required training items so we can finalise your membership.',
     },
     active: {
       subject: 'Your membership is now active',
-      body: 'Your 100 Black Men of London membership has been confirmed as active.',
+      body: 'Your 100 Black Men of London membership has been confirmed as active. Welcome to the chapter!',
     },
     inactive: {
       subject: 'Your membership status has been updated',

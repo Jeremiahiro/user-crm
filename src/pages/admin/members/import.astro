@@ -6,7 +6,7 @@ if (!Astro.locals.user) return Astro.redirect('/login')
 ---
 
 <DashboardLayout title="Import Members">
-  <div class="max-w-[900px]">
+  <div class="max-w-225">
     <Breadcrumb crumbs={[{ label: 'Members', href: '/admin/members' }, { label: 'Import CSV' }]} />
     <div class="flex items-center justify-between mb-2">
       <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0">Import Members</h1>
@@ -122,10 +122,10 @@ if (!Astro.locals.user) return Astro.redirect('/login')
     { key: 'gender',       label: 'Gender',         required: false, type: 'text' },
     { key: 'address',      label: 'Address',        required: false, type: 'text' },
     { key: 'status',       label: 'Status',         required: false, type: 'enum',
-      values: ['applicant','pending_review','approved','active','suspended','inactive','alumni','left'],
+      values: ['applicant','pending_review','active','suspended','inactive'],
       default: 'active' },
     { key: 'person_types', label: 'Person types',   required: false, type: 'multi',
-      values: ['member','mentor','volunteer','alumni','parent','trustee'],
+      values: ['member','mentor','volunteer','parent','trustee'],
       default: 'member' },
     { key: 'date_joined',  label: 'Date joined',    required: false, type: 'date' },
     { key: 'source',       label: 'Source',         required: false, type: 'enum',
@@ -272,8 +272,7 @@ if (!Astro.locals.user) return Astro.redirect('/login')
   // ── PREVIEW TABLE ─────────────────────────────────────────────────────────────
   const STATUS_COLORS = {
     active: '#166534', applicant: '#6b7280', pending_review: '#92400e',
-    approved: '#1e40af', suspended: '#991b1b', inactive: '#6b7280',
-    alumni: '#6b7280', left: '#991b1b',
+    suspended: '#991b1b', inactive: '#6b7280',
   }
 
   function getRowValue(row, fieldKey) {
@@ -295,7 +294,7 @@ if (!Astro.locals.user) return Astro.redirect('/login')
     if (!lastName || lastName.trim() === '') errors.push('last_name required')
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.push('valid email required')
     const status = getRowValue(row, 'status')
-    const validStatuses = ['applicant','pending_review','approved','active','suspended','inactive','alumni','left']
+    const validStatuses = ['applicant','pending_review','active','suspended','inactive']
     if (status && !validStatuses.includes(status.trim())) errors.push(`invalid status "${status}"`)
     return errors
   }
@@ -367,7 +366,7 @@ if (!Astro.locals.user) return Astro.redirect('/login')
     const payload = validRows.map(row => {
       const personTypes = (getRowValue(row, 'person_types') ?? 'member')
         .split(/[,;|]/).map(v => v.trim().toLowerCase()).filter(v =>
-          ['member','mentor','volunteer','alumni','parent','trustee'].includes(v)
+          ['member','mentor','volunteer','parent','trustee'].includes(v)
         )
       return {
         first_name: (getRowValue(row, 'first_name') ?? '').trim(),

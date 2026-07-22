@@ -38,7 +38,7 @@ if (onBehalfOf && onBehalfOf !== (Astro.locals.user?.person_id ?? '')) {
 ---
 
 <DashboardLayout title="Upload Document">
-  <div class="max-w-[600px]">
+  <div class="max-w-150">
     <Breadcrumb crumbs={[{ label: 'Documents', href: '/admin/documents' }, { label: 'Upload Document' }]} />
     <h1 class="font-heading text-[22px] font-bold text-brand-navy mb-1">Upload Document</h1>
     <p class="font-body text-sm text-neutral-500 mb-6">
@@ -59,7 +59,7 @@ if (onBehalfOf && onBehalfOf !== (Astro.locals.user?.person_id ?? '')) {
               class="w-full py-2.5 px-3 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 box-border" />
             <div id="personDropdown"
               style="display: none;"
-              class="absolute top-full left-0 right-0 bg-white border border-neutral-300 border-t-0 rounded-b-md max-h-[220px] overflow-y-auto z-[200] shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
+              class="absolute top-full left-0 right-0 bg-white border border-neutral-300 border-t-0 rounded-b-md max-h-55 overflow-y-auto z-[200] shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
             </div>
           </div>
           <input type="hidden" id="personIdInput" value={onBehalfOf} />
@@ -107,7 +107,7 @@ if (onBehalfOf && onBehalfOf !== (Astro.locals.user?.person_id ?? '')) {
             class="w-full py-2.5 px-3 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 box-border" />
           <div id="trainingDropdown"
             style="display: none;"
-            class="absolute top-full left-0 right-0 bg-white border border-neutral-300 border-t-0 rounded-b-md max-h-[220px] overflow-y-auto z-[200] shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
+            class="absolute top-full left-0 right-0 bg-white border border-neutral-300 border-t-0 rounded-b-md max-h-55 overflow-y-auto z-[200] shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
           </div>
         </div>
         <input type="hidden" id="trainingIdInput" value={preselectedTrainingId} />

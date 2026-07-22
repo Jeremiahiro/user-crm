@@ -90,7 +90,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     .from('people')
     .select('id, person_roles(roles(name))')
     .eq('is_archived', false)
-    .in('status', ['active', 'approved'])
+    .eq('status', 'active')
 
   type PersonWithRoles = { id: string; person_roles: { roles: { name: string } | null }[] }
   const adminIds = ((adminPeople ?? []) as PersonWithRoles[])

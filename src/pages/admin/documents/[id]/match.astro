@@ -72,7 +72,7 @@ function formatDate(d: string | null) {
 ---
 
 <DashboardLayout title="Match Unmatched Document">
-  <div class="max-w-[560px]">
+  <div class="max-w-140">
     <Breadcrumb crumbs={[{ label: 'Documents', href: '/admin/documents' }, { label: 'Match Member' }]} />
     <h1 class="font-heading text-[22px] font-bold text-brand-navy mb-6">Match Unmatched Document</h1>
 
@@ -80,7 +80,7 @@ function formatDate(d: string | null) {
     <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6 mb-6">
       <table class="border-collapse w-full">
         <tr>
-          <td class="font-body text-[13px] text-neutral-500 py-1 pr-4 w-[140px]">Type</td>
+          <td class="font-body text-[13px] text-neutral-500 py-1 pr-4 w-35">Type</td>
           <td class="font-body text-[13px] text-neutral-800 py-1">{TYPE_LABELS[doc.type as string] ?? doc.type}</td>
         </tr>
         <tr>

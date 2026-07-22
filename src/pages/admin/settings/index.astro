@@ -132,7 +132,7 @@ let logoSuccess = ''
             <input type="file" name="logo" id="logo-file" accept="image/png,image/jpeg,image/svg+xml,image/webp"
               class="font-body text-[13px] text-neutral-700" />
             <button type="submit" id="logo-btn"
-              class="py-[7px] px-4 bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
+              class="py-1.75 px-4 bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
               Upload
             </button>
           </form>
@@ -150,13 +150,13 @@ let logoSuccess = ''
                 <label for="dbs_validity_years" class="block text-[13px] font-semibold text-neutral-800 mb-1">Validity (years)</label>
                 <p class="text-xs text-neutral-500 mb-2">How long a certificate is valid from its clearance date.</p>
                 <input id="dbs_validity_years" name="dbs_validity_years" type="number" min="1" max="10" value={dbsValidityYears} required
-                  class="w-[100px] py-2 px-3 border border-neutral-300 rounded-md text-sm font-body" />
+                  class="w-25 py-2 px-3 border border-neutral-300 rounded-md text-sm font-body" />
               </div>
               <div>
                 <label for="dbs_warn_days" class="block text-[13px] font-semibold text-neutral-800 mb-1">Warning window (days)</label>
                 <p class="text-xs text-neutral-500 mb-2">Days before expiry to flag a certificate as "expiring soon".</p>
                 <input id="dbs_warn_days" name="dbs_warn_days" type="number" min="7" max="365" value={dbsWarnDays} required
-                  class="w-[100px] py-2 px-3 border border-neutral-300 rounded-md text-sm font-body" />
+                  class="w-25 py-2 px-3 border border-neutral-300 rounded-md text-sm font-body" />
               </div>
             </div>
             {lastUpdated && (
@@ -211,27 +211,27 @@ let logoSuccess = ''
           <p class="font-body text-xs text-neutral-500 mb-3.5">Manage lookup tables and reference data.</p>
           <div class="flex flex-col gap-0.5">
             <a href="/admin/pillars"
-              class="flex items-center justify-between py-[10px] px-3 rounded-md no-underline text-neutral-800 font-body text-[13px] font-medium hover:bg-neutral-50">
+              class="flex items-center justify-between py-2.5 px-3 rounded-md no-underline text-neutral-800 font-body text-[13px] font-medium hover:bg-neutral-50">
               <span>Pillars</span>
               <span class="text-neutral-400 text-xs">→</span>
             </a>
             <a href="/admin/roles"
-              class="flex items-center justify-between py-[10px] px-3 rounded-md no-underline text-neutral-800 font-body text-[13px] font-medium hover:bg-neutral-50">
+              class="flex items-center justify-between py-2.5 px-3 rounded-md no-underline text-neutral-800 font-body text-[13px] font-medium hover:bg-neutral-50">
               <span>Roles</span>
               <span class="text-neutral-400 text-xs">→</span>
             </a>
             <a href="/admin/positions"
-              class="flex items-center justify-between py-[10px] px-3 rounded-md no-underline text-neutral-800 font-body text-[13px] font-medium hover:bg-neutral-50">
+              class="flex items-center justify-between py-2.5 px-3 rounded-md no-underline text-neutral-800 font-body text-[13px] font-medium hover:bg-neutral-50">
               <span>Elected Positions</span>
               <span class="text-neutral-400 text-xs">→</span>
             </a>
             <a href="/admin/document-types"
-              class="flex items-center justify-between py-[10px] px-3 rounded-md no-underline text-neutral-800 font-body text-[13px] font-medium hover:bg-neutral-50">
+              class="flex items-center justify-between py-2.5 px-3 rounded-md no-underline text-neutral-800 font-body text-[13px] font-medium hover:bg-neutral-50">
               <span>Document Types</span>
               <span class="text-neutral-400 text-xs">→</span>
             </a>
             <a href="/admin/email-templates"
-              class="flex items-center justify-between py-[10px] px-3 rounded-md no-underline text-neutral-800 font-body text-[13px] font-medium hover:bg-neutral-50">
+              class="flex items-center justify-between py-2.5 px-3 rounded-md no-underline text-neutral-800 font-body text-[13px] font-medium hover:bg-neutral-50">
               <span>Email Templates</span>
               <span class="text-neutral-400 text-xs">→</span>
             </a>
@@ -243,7 +243,7 @@ let logoSuccess = ''
           <h2 class="font-heading text-sm font-bold text-brand-navy mt-0 mb-1 uppercase tracking-[0.04em]">Logs & History</h2>
           <p class="font-body text-xs text-neutral-500 mb-3.5">Track all changes made in the portal.</p>
           <a href="/admin/audit"
-            class="inline-flex items-center gap-1.5 py-2 px-[14px] border border-neutral-200 rounded-md no-underline text-neutral-700 font-body text-[13px] font-medium bg-neutral-50">
+            class="inline-flex items-center gap-1.5 py-2 px-3.5 border border-neutral-200 rounded-md no-underline text-neutral-700 font-body text-[13px] font-medium bg-neutral-50">
             View Audit Log →
           </a>
         </div>

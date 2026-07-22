@@ -284,7 +284,7 @@ const authorName = Astro.locals.user.name ?? Astro.locals.user.email
     <div x-show="banner.show" x-cloak
       :class="banner.ok ? 'bg-success-50 border-success-200 text-success-800' : 'bg-danger-50 border-danger-200 text-danger-800'"
       x-text="banner.text"
-      class="py-3 px-[18px] border rounded-md font-body text-sm mb-4">
+      class="py-3 px-4.5 border rounded-md font-body text-sm mb-4">
     </div>
 
     <!-- Two-column layout -->
@@ -358,7 +358,7 @@ const authorName = Astro.locals.user.name ?? Astro.locals.user.email
                       </span>
                     </div>
                     {i < STAGE_ORDER.length - 1 && (
-                      <div class={`flex-1 h-0.5 mb-[18px] ${i < stageIndex ? 'bg-brand-navy' : 'bg-neutral-200'}`}></div>
+                      <div class={`flex-1 h-0.5 mb-4.5 ${i < stageIndex ? 'bg-brand-navy' : 'bg-neutral-200'}`}></div>
                     )}
                   </>
                 )
@@ -366,6 +366,88 @@ const authorName = Astro.locals.user.name ?? Astro.locals.user.email
             </div>
           </div>
         )}
+
+        <!-- ── CHECKLIST: In Training items (shown from in_training stage onwards) ── -->
+        {(['in_training', 'active', 'cancelled'] as string[]).includes(currentStatus) && (() => {
+          const keys = IN_TRAINING_KEYS
+          return (
+            <div class="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+              <div class="py-4 px-5 border-b border-neutral-100">
+                <h2 class="font-heading text-sm font-bold text-brand-navy m-0">In Training Checklist</h2>
+              </div>
+              <div>
+                {keys.map((key, i) => {
+                  const meta = CHECKLIST_ITEMS[key as keyof typeof CHECKLIST_ITEMS]
+                  return (
+                    <div class={`flex items-center gap-3.5 py-3.5 px-5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}>
+                      <button
+                        @click={`toggleItem('${key}')`}
+                        :class={`items['${key}']?.completed_at ? 'bg-success-500 border-success-500' : 'bg-white border-neutral-300'`}
+                        class="w-5.5 h-5.5 border-2 rounded-full flex items-center justify-center cursor-pointer shrink-0 transition-all duration-150 p-0"
+                        title={`Toggle ${meta.label}`}>
+                        <svg x-show={`items['${key}']?.completed_at`} style="display:none"
+                          class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      </button>
+                      <div class="flex-1">
+                        <p :class={`items['${key}']?.completed_at ? 'text-neutral-800' : 'text-neutral-500'`}
+                          class="font-body text-sm font-medium m-0 mb-0.5">
+                          {meta.label}
+                        </p>
+                        <p x-show={`items['${key}']?.completed_at`} style="display:none"
+                          x-text={`items['${key}']?.completed_at ? ('✓ ' + fmtDate(items['${key}'].completed_at) + (items['${key}'].completed_by ? ' · ' + items['${key}'].completed_by : '')) : ''`}
+                          class="font-body text-xs text-neutral-400 m-0">
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
+
+        <!-- ── CHECKLIST: In Progress items (shown from in_progress stage onwards) ── -->
+        {currentStatus !== 'applicant' && (() => {
+          const keys = IN_PROGRESS_KEYS
+          return (
+            <div class="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+              <div class="py-4 px-5 border-b border-neutral-100">
+                <h2 class="font-heading text-sm font-bold text-brand-navy m-0">In Progress Checklist</h2>
+              </div>
+              <div>
+                {keys.map((key, i) => {
+                  const meta = CHECKLIST_ITEMS[key as keyof typeof CHECKLIST_ITEMS]
+                  return (
+                    <div class={`flex items-center gap-3.5 py-3.5 px-5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}>
+                      <button
+                        @click={`toggleItem('${key}')`}
+                        :class={`items['${key}']?.completed_at ? 'bg-success-500 border-success-500' : 'bg-white border-neutral-300'`}
+                        class="w-5.5 h-5.5 border-2 rounded-full flex items-center justify-center cursor-pointer shrink-0 transition-all duration-150 p-0"
+                        title={`Toggle ${meta.label}`}>
+                        <svg x-show={`items['${key}']?.completed_at`} style="display:none"
+                          class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      </button>
+                      <div class="flex-1">
+                        <p :class={`items['${key}']?.completed_at ? 'text-neutral-800' : 'text-neutral-500'`}
+                          class="font-body text-sm font-medium m-0 mb-0.5">
+                          {meta.label}
+                        </p>
+                        <p x-show={`items['${key}']?.completed_at`} style="display:none"
+                          x-text={`items['${key}']?.completed_at ? ('✓ ' + fmtDate(items['${key}'].completed_at) + (items['${key}'].completed_by ? ' · ' + items['${key}'].completed_by : '')) : ''`}
+                          class="font-body text-xs text-neutral-400 m-0">
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
 
         <!-- Application Details — always visible -->
         <div class="bg-white border border-neutral-200 rounded-xl overflow-hidden">
@@ -410,132 +492,61 @@ const authorName = Astro.locals.user.name ?? Astro.locals.user.email
           </div>
         </div>
 
-        <!-- ── CHECKLIST: In Progress items (shown from in_progress stage onwards) ── -->
-        {currentStatus !== 'applicant' && (() => {
-          const keys = IN_PROGRESS_KEYS
-          return (
-            <div class="bg-white border border-neutral-200 rounded-xl overflow-hidden">
-              <div class="py-4 px-5 border-b border-neutral-100">
-                <h2 class="font-heading text-sm font-bold text-brand-navy m-0">In Progress Checklist</h2>
-              </div>
-              <div>
-                {keys.map((key, i) => {
-                  const meta = CHECKLIST_ITEMS[key as keyof typeof CHECKLIST_ITEMS]
-                  return (
-                    <div class={`flex items-center gap-3.5 py-3.5 px-5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}>
-                      <button
-                        @click={`toggleItem('${key}')`}
-                        :class={`items['${key}']?.completed_at ? 'bg-success-500 border-success-500' : 'bg-white border-neutral-300'`}
-                        class="w-[22px] h-[22px] border-2 rounded-full flex items-center justify-center cursor-pointer shrink-0 transition-all duration-150 p-0"
-                        title={`Toggle ${meta.label}`}>
-                        <svg x-show={`items['${key}']?.completed_at`} style="display:none"
-                          class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                      </button>
-                      <div class="flex-1">
-                        <p :class={`items['${key}']?.completed_at ? 'text-neutral-800' : 'text-neutral-500'`}
-                          class="font-body text-sm font-medium m-0 mb-0.5">
-                          {meta.label}
-                        </p>
-                        <p x-show={`items['${key}']?.completed_at`} style="display:none"
-                          x-text={`items['${key}']?.completed_at ? ('✓ ' + fmtDate(items['${key}'].completed_at) + (items['${key}'].completed_by ? ' · ' + items['${key}'].completed_by : '')) : ''`}
-                          class="font-body text-xs text-neutral-400 m-0">
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })()}
+      </div>
 
-        <!-- ── CHECKLIST: In Training items (shown from in_training stage onwards) ── -->
-        {(['in_training', 'active', 'cancelled'] as string[]).includes(currentStatus) && (() => {
-          const keys = IN_TRAINING_KEYS
-          return (
-            <div class="bg-white border border-neutral-200 rounded-xl overflow-hidden">
-              <div class="py-4 px-5 border-b border-neutral-100">
-                <h2 class="font-heading text-sm font-bold text-brand-navy m-0">In Training Checklist</h2>
-              </div>
-              <div>
-                {keys.map((key, i) => {
-                  const meta = CHECKLIST_ITEMS[key as keyof typeof CHECKLIST_ITEMS]
-                  return (
-                    <div class={`flex items-center gap-3.5 py-3.5 px-5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}>
-                      <button
-                        @click={`toggleItem('${key}')`}
-                        :class={`items['${key}']?.completed_at ? 'bg-success-500 border-success-500' : 'bg-white border-neutral-300'`}
-                        class="w-[22px] h-[22px] border-2 rounded-full flex items-center justify-center cursor-pointer shrink-0 transition-all duration-150 p-0"
-                        title={`Toggle ${meta.label}`}>
-                        <svg x-show={`items['${key}']?.completed_at`} style="display:none"
-                          class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                      </button>
-                      <div class="flex-1">
-                        <p :class={`items['${key}']?.completed_at ? 'text-neutral-800' : 'text-neutral-500'`}
-                          class="font-body text-sm font-medium m-0 mb-0.5">
-                          {meta.label}
-                        </p>
-                        <p x-show={`items['${key}']?.completed_at`} style="display:none"
-                          x-text={`items['${key}']?.completed_at ? ('✓ ' + fmtDate(items['${key}'].completed_at) + (items['${key}'].completed_by ? ' · ' + items['${key}'].completed_by : '')) : ''`}
-                          class="font-body text-xs text-neutral-400 m-0">
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })()}
+      <!-- ── RIGHT SIDEBAR — TIMELINE ── -->
+      <div class="sticky top-5 flex flex-col gap-4">
 
-        <!-- Actions card -->
-        <div class="bg-white border border-neutral-200 rounded-xl py-5 px-6">
-          <h2 class="font-heading text-sm font-bold text-brand-navy m-0 mb-4">Actions</h2>
-          <div class="flex flex-wrap gap-2.5">
+        <!-- Actions (hidden when no actions are available, e.g. active members) -->
+        {(nextAction || prevAction || isCancelled || (!isCancelled && currentStatus !== 'active')) && (
+        <div class="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+          <div class="py-3.5 px-5 border-b border-neutral-100">
+            <h2 class="font-heading text-sm font-bold text-brand-navy m-0">Actions</h2>
+          </div>
+          <div class="flex flex-col gap-2.5 p-4">
             {nextAction && (
               <div>
                 <button
                   @click="canAdvance && openAdvance()"
                   :disabled="!canAdvance"
-                  :class="canAdvance ? 'bg-brand-navy text-white cursor-pointer' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'"
-                  class="py-2.5 px-5 border-none rounded-md font-body text-sm font-semibold">
+                  class="w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-lg border-none text-left transition-colors duration-150 font-body text-[13px] font-semibold"
+                  :class="canAdvance ? 'bg-brand-navy text-white cursor-pointer hover:bg-brand-navy/90' : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'">
                   {nextAction}
+                  <svg class="w-3.5 h-3.5 shrink-0 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
                 <p x-show="!canAdvance" style="display:none"
-                  class="font-body text-xs text-warning-700 mt-2 m-0">
+                  class="font-body text-[11px] text-warning-700 mt-1.5 mb-0 mx-0">
                   Complete all checklist items first
                 </p>
               </div>
             )}
-            {prevAction && (
-              <button @click="openRevert()"
-                class="py-2.5 px-5 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-md font-body text-sm font-medium cursor-pointer">
-                {prevAction}
-              </button>
-            )}
-            {!isCancelled && currentStatus !== 'active' && (
-              <button @click="openCancel()"
-                class="py-2.5 px-5 bg-white text-danger-600 border border-danger-300 rounded-md font-body text-sm font-medium cursor-pointer">
-                Cancel application
-              </button>
+            {(prevAction || (!isCancelled && currentStatus !== 'active')) && (
+              <div class="flex gap-2">
+                {prevAction && (
+                  <button @click="openRevert()"
+                    class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-neutral-100 text-neutral-600 rounded-lg border border-neutral-200 cursor-pointer hover:bg-neutral-200 transition-colors duration-150 font-body text-[13px] font-medium whitespace-nowrap">
+                    Move back
+                  </button>
+                )}
+                {!isCancelled && currentStatus !== 'active' && (
+                  <button @click="openCancel()"
+                    class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-danger-50 text-danger-600 rounded-lg border border-danger-200 cursor-pointer hover:bg-danger-100 transition-colors duration-150 font-body text-[13px] font-medium whitespace-nowrap">
+                    Cancel
+                  </button>
+                )}
+              </div>
             )}
             {isCancelled && (
               <button @click="openReinstate()"
-                class="py-2.5 px-5 bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">
+                class="w-full flex items-center justify-between gap-2 px-4 py-2.5 bg-brand-navy text-white rounded-lg border-none text-left cursor-pointer hover:bg-brand-navy/90 transition-colors duration-150 font-body text-[13px] font-semibold">
                 Reinstate applicant
+                <svg class="w-3.5 h-3.5 shrink-0 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
             )}
           </div>
         </div>
+        )}
 
-      </div>
-
-      <!-- ── RIGHT SIDEBAR — TIMELINE ── -->
-      <div class="sticky top-5">
         <div class="bg-white border border-neutral-200 rounded-xl overflow-hidden">
 
           <!-- Note input -->
@@ -562,7 +573,7 @@ const authorName = Astro.locals.user.name ?? Astro.locals.user.email
           </div>
 
           <!-- Event feed -->
-          <div class="max-h-[540px] overflow-y-auto">
+          <div class="max-h-135 overflow-y-auto">
             <template x-if="events.length === 0">
               <div class="py-10 text-center">
                 <p class="font-body text-[13px] text-neutral-300 m-0">No activity yet.</p>
@@ -579,11 +590,11 @@ const authorName = Astro.locals.user.name ?? Astro.locals.user.email
                     ev.event_type === 'checklist' && ev.completed ? 'bg-success-500' :
                     ev.event_type === 'checklist' && !ev.completed ? 'bg-neutral-300' :
                     'bg-neutral-400'"
-                  class="absolute left-[18px] top-5 w-2.5 h-2.5 rounded-full">
+                  class="absolute left-4.5 top-5 w-2.5 h-2.5 rounded-full">
                 </div>
                 <!-- Connector line -->
                 <div x-show="i < events.length - 1"
-                  class="absolute left-[22px] top-[30px] bottom-[-16px] w-0.5 bg-neutral-100">
+                  class="absolute left-5.5 top-7.5 -bottom-4 w-0.5 bg-neutral-100">
                 </div>
 
                 <!-- Content -->
@@ -602,7 +613,7 @@ const authorName = Astro.locals.user.name ?? Astro.locals.user.email
                       </p>
                     </template>
                     <template x-if="ev.event_type === 'note'">
-                      <p x-text="ev.note" class="font-body text-[13px] text-neutral-800 m-0 mb-0.5 break-words"></p>
+                      <p x-text="ev.note" class="font-body text-[13px] text-neutral-800 m-0 mb-0.5 wrap-break-word"></p>
                     </template>
                     <div class="flex items-center gap-1.5 mt-1">
                       <span x-text="fmtDate(ev.created_at)" class="font-body text-[11px] text-neutral-400"></span>
@@ -636,32 +647,32 @@ const authorName = Astro.locals.user.name ?? Astro.locals.user.email
 
         <!-- Advance -->
         <template x-if="modal.type === 'advance'">
-          <div class="bg-white rounded-xl p-7 max-w-[420px] w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
+          <div class="bg-white rounded-xl p-7 max-w-105 w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
             <h3 class="font-heading text-[17px] font-bold text-brand-navy m-0 mb-2">Advance stage</h3>
             <p class="font-body text-sm text-neutral-600 m-0 mb-6">Send a status notification email to the applicant?</p>
             <div class="flex gap-2 justify-end">
-              <button @click="modal.open = false" class="py-[9px] px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">Cancel</button>
-              <button @click="doAdvance(false)" class="py-[9px] px-4 bg-neutral-200 text-neutral-800 border-none rounded-md font-body text-sm font-medium cursor-pointer">No email</button>
-              <button @click="doAdvance(true)" class="py-[9px] px-[18px] bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">Send email</button>
+              <button @click="modal.open = false" class="py-2.25 px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">Cancel</button>
+              <button @click="doAdvance(false)" class="py-2.25 px-4 bg-neutral-200 text-neutral-800 border-none rounded-md font-body text-sm font-medium cursor-pointer">No email</button>
+              <button @click="doAdvance(true)" class="py-2.25 px-4.5 bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">Send email</button>
             </div>
           </div>
         </template>
 
         <!-- Revert -->
         <template x-if="modal.type === 'revert'">
-          <div class="bg-white rounded-xl p-7 max-w-[380px] w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
+          <div class="bg-white rounded-xl p-7 max-w-95 w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
             <h3 class="font-heading text-[17px] font-bold text-brand-navy m-0 mb-2">Move back a stage?</h3>
             <p class="font-body text-sm text-neutral-600 m-0 mb-6">This will revert the applicant to the previous stage. Checklist items will remain as-is.</p>
             <div class="flex gap-2 justify-end">
-              <button @click="modal.open = false" class="py-[9px] px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">Cancel</button>
-              <button @click="doRevert()" class="py-[9px] px-[18px] bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">Move back</button>
+              <button @click="modal.open = false" class="py-2.25 px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">Cancel</button>
+              <button @click="doRevert()" class="py-2.25 px-4.5 bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">Move back</button>
             </div>
           </div>
         </template>
 
         <!-- Cancel application -->
         <template x-if="modal.type === 'cancel'">
-          <div class="bg-white rounded-xl p-7 max-w-[440px] w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
+          <div class="bg-white rounded-xl p-7 max-w-110 w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
             <h3 class="font-heading text-[17px] font-bold text-danger-700 m-0 mb-1.5">Cancel application</h3>
             <p class="font-body text-sm text-neutral-600 m-0 mb-5">This applicant will be moved to Cancelled. You can reinstate them later if needed.</p>
             <div class="mb-3.5">
@@ -669,7 +680,7 @@ const authorName = Astro.locals.user.name ?? Astro.locals.user.email
                 Reason <span class="text-danger-600">*</span>
               </label>
               <select x-model="cancelForm.type"
-                class="w-full py-[9px] px-3 border border-neutral-300 rounded-md font-body text-sm bg-white text-neutral-800">
+                class="w-full py-2.25 px-3 border border-neutral-300 rounded-md font-body text-sm bg-white text-neutral-800">
                 <option value="" disabled>Select a reason…</option>
                 <option value="opted_out">Opted out voluntarily</option>
                 <option value="training_incomplete">Did not complete training</option>
@@ -681,13 +692,13 @@ const authorName = Astro.locals.user.name ?? Astro.locals.user.email
             <div class="mb-6">
               <label class="block font-body text-[13px] font-semibold text-neutral-700 mb-1.5">Notes (optional)</label>
               <textarea x-model="cancelForm.reason" rows="2" placeholder="Any additional context…"
-                class="w-full py-[9px] px-3 border border-neutral-300 rounded-md font-body text-sm resize-y box-border"></textarea>
+                class="w-full py-2.25 px-3 border border-neutral-300 rounded-md font-body text-sm resize-y box-border"></textarea>
             </div>
             <div class="flex gap-2 justify-end">
-              <button @click="modal.open = false" class="py-[9px] px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">Back</button>
+              <button @click="modal.open = false" class="py-2.25 px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">Back</button>
               <button @click="doCancel()" :disabled="!cancelForm.type"
                 :class="cancelForm.type ? 'bg-danger-600 text-white cursor-pointer' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'"
-                class="py-[9px] px-5 border-none rounded-md font-body text-sm font-semibold">
+                class="py-2.25 px-5 border-none rounded-md font-body text-sm font-semibold">
                 Cancel application
               </button>
             </div>
@@ -696,12 +707,12 @@ const authorName = Astro.locals.user.name ?? Astro.locals.user.email
 
         <!-- Reinstate -->
         <template x-if="modal.type === 'reinstate'">
-          <div class="bg-white rounded-xl p-7 max-w-[380px] w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
+          <div class="bg-white rounded-xl p-7 max-w-95 w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
             <h3 class="font-heading text-[17px] font-bold text-brand-navy m-0 mb-2">Reinstate applicant?</h3>
             <p class="font-body text-sm text-neutral-600 m-0 mb-6">This will move the applicant back to Applicant status and clear the cancellation record.</p>
             <div class="flex gap-2 justify-end">
-              <button @click="modal.open = false" class="py-[9px] px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">Cancel</button>
-              <button @click="doReinstate()" class="py-[9px] px-[18px] bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">Reinstate</button>
+              <button @click="modal.open = false" class="py-2.25 px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">Cancel</button>
+              <button @click="doReinstate()" class="py-2.25 px-4.5 bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">Reinstate</button>
             </div>
           </div>
         </template>

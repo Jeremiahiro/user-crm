@@ -78,7 +78,7 @@ const t = training as any
 </style>
 
 <DashboardLayout title={t.title}>
-  <div class="max-w-[860px]" x-data={`{
+  <div class="max-w-215" x-data={`{
     modal: { open: false, tid: '', aid: '', message: '' },
     async doDelete() {
       const res = await fetch('/api/trainings/' + this.modal.tid + '/assignments?assignment_id=' + this.modal.aid, { method: 'DELETE' })
@@ -141,7 +141,7 @@ const t = training as any
       ) : !t.requires_document ? (
         <div>
           {completeError && (
-            <div class="bg-danger-50 border border-danger-200 rounded-md py-2.5 px-[14px] mb-3 font-body text-[13px] text-danger-700">
+            <div class="bg-danger-50 border border-danger-200 rounded-md py-2.5 px-3.5 mb-3 font-body text-[13px] text-danger-700">
               {completeError}
             </div>
           )}
@@ -231,7 +231,7 @@ const t = training as any
     <!-- Delete assignment confirm modal -->
     <div x-show="modal.open" x-cloak @click="modal.open = false"
       class="fixed inset-0 bg-black/45 z-[1000] flex items-center justify-center">
-      <div @click.stop class="bg-white rounded-lg py-7 px-8 max-w-[380px] w-[90%] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
+      <div @click.stop class="bg-white rounded-lg py-7 px-8 max-w-95 w-[90%] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
         <p class="font-body text-sm font-semibold text-neutral-800 mb-1.5">Remove assignment</p>
         <p x-text="modal.message" class="font-body text-[13px] text-neutral-600 mb-5 leading-normal"></p>
         <div class="flex gap-2.5 justify-end">

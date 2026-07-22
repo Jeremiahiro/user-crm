@@ -35,7 +35,7 @@ const { data: allPeople } = await supabaseAdmin
   .from('people')
   .select('id, full_name, person_types')
   .eq('is_archived', false)
-  .in('status', ['active', 'approved'])
+  .eq('status', 'active')
   .order('full_name', { ascending: true })
 
 // Mentees in this programme year
@@ -104,7 +104,7 @@ function formatDate(d: string | null) {
       { label: 'Apology', dotClass: 'bg-warning-100',  textClass: 'text-warning-700' },
     ].map(item => (
       <div class="flex items-center gap-1.5">
-        <span class={`inline-block w-3 h-3 rounded-[3px] ${item.dotClass}`}></span>
+        <span class={`inline-block w-3 h-3 rounded-0.75 ${item.dotClass}`}></span>
         <span class={`font-body text-[13px] ${item.textClass}`}>{item.label}</span>
       </div>
     ))}
@@ -117,14 +117,14 @@ function formatDate(d: string | null) {
         Mentors (<span id="mentor-count">{mentorAtt.size}</span>)
       </h2>
       <div class="flex gap-2 items-center">
-        <select id="mentor-select" class="px-3 py-[7px] border border-neutral-300 rounded-md font-body text-[13px] text-neutral-700 bg-white max-w-[240px]">
+        <select id="mentor-select" class="px-3 py-1.75 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-700 bg-white max-w-60">
           <option value="">— Select a mentor —</option>
           {peopleRows.filter(p => !mentorIdsOnList.has(p.id as string)).map(p => (
             <option value={p.id as string}>{p.full_name as string}</option>
           ))}
         </select>
         <button id="add-mentor-btn"
-          class="px-4 py-[7px] bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
+          class="px-4 py-1.75 bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
           Add
         </button>
       </div>
@@ -149,7 +149,7 @@ function formatDate(d: string | null) {
             <div class="flex gap-1.5 items-center">
               {(['present', 'absent', 'apology'] as const).map(s => (
                 <button
-                  class={`att-btn${att.status === s ? ' active' : ''} px-[14px] py-1.5 border-[1.5px] rounded-md font-body text-[13px] font-medium cursor-pointer ${s === 'present' ? 'border-success-300' : s === 'apology' ? 'border-warning-300' : 'border-neutral-300'} ${att.status === s ? (s === 'present' ? 'bg-success-100 text-success-700' : s === 'apology' ? 'bg-warning-100 text-warning-700' : 'bg-neutral-200 text-neutral-700') : 'bg-white text-neutral-600'}`}
+                  class={`att-btn${att.status === s ? ' active' : ''} px-3.5 py-1.5 border-[1.5px] rounded-md font-body text-[13px] font-medium cursor-pointer ${s === 'present' ? 'border-success-300' : s === 'apology' ? 'border-warning-300' : 'border-neutral-300'} ${att.status === s ? (s === 'present' ? 'bg-success-100 text-success-700' : s === 'apology' ? 'bg-warning-100 text-warning-700' : 'bg-neutral-200 text-neutral-700') : 'bg-white text-neutral-600'}`}
                   data-status={s}
                   data-session-id={id}
                   data-person-id={personId}
@@ -192,7 +192,7 @@ function formatDate(d: string | null) {
               <div class="status-buttons flex gap-1.5">
                 {(['present', 'absent', 'apology'] as const).map(s => (
                   <button
-                    class={`att-btn${att?.status === s ? ' active' : ''} px-[14px] py-1.5 border-[1.5px] rounded-md font-body text-[13px] font-medium cursor-pointer ${s === 'present' ? 'border-success-300' : s === 'apology' ? 'border-warning-300' : 'border-neutral-300'} ${att?.status === s ? (s === 'present' ? 'bg-success-100 text-success-700' : s === 'apology' ? 'bg-warning-100 text-warning-700' : 'bg-neutral-200 text-neutral-700') : 'bg-white text-neutral-600'}`}
+                    class={`att-btn${att?.status === s ? ' active' : ''} px-3.5 py-1.5 border-[1.5px] rounded-md font-body text-[13px] font-medium cursor-pointer ${s === 'present' ? 'border-success-300' : s === 'apology' ? 'border-warning-300' : 'border-neutral-300'} ${att?.status === s ? (s === 'present' ? 'bg-success-100 text-success-700' : s === 'apology' ? 'bg-warning-100 text-warning-700' : 'bg-neutral-200 text-neutral-700') : 'bg-white text-neutral-600'}`}
                     data-status={s}
                     data-session-id={id}
                     data-mentee-id={mentee.id as string}
@@ -216,9 +216,9 @@ function formatDate(d: string | null) {
       </h2>
       <div class="flex gap-2 items-center">
         <input id="parent-name-input" type="text" placeholder="Parent name"
-          class="px-3 py-[7px] border border-neutral-300 rounded-md font-body text-[13px] w-[200px]" />
+          class="px-3 py-1.75 border border-neutral-300 rounded-md font-body text-[13px] w-50" />
         <button id="add-parent-btn"
-          class="px-4 py-[7px] bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
+          class="px-4 py-1.75 bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
           Add
         </button>
       </div>
@@ -253,9 +253,9 @@ function formatDate(d: string | null) {
       </h2>
       <div class="flex gap-2 items-center">
         <input id="visitor-name-input" type="text" placeholder="Visitor name"
-          class="px-3 py-[7px] border border-neutral-300 rounded-md font-body text-[13px] w-[200px]" />
+          class="px-3 py-1.75 border border-neutral-300 rounded-md font-body text-[13px] w-50" />
         <button id="add-visitor-btn"
-          class="px-4 py-[7px] bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
+          class="px-4 py-1.75 bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
           Add
         </button>
       </div>

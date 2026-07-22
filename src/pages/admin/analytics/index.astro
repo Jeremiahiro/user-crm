@@ -76,22 +76,16 @@ const [
 
 const STATUS_LABELS: Record<string, string> = {
   active: 'Active',
-  approved: 'Approved',
   pending_review: 'Pending Review',
   applicant: 'Applicant',
   inactive: 'Inactive',
-  alumni: 'Alumni',
-  left: 'Left',
 }
 
 const STATUS_COLORS: Record<string, string> = {
   active: 'var(--color-success-500)',
-  approved: 'var(--color-info-500)',
   pending_review: 'var(--color-warning-500)',
   applicant: 'var(--color-neutral-400)',
   inactive: 'var(--color-neutral-400)',
-  alumni: 'var(--color-neutral-500)',
-  left: 'var(--color-danger-500)',
 }
 
 const memberRows = allMembers ?? []
@@ -387,7 +381,7 @@ function pct(n: number, total: number) {
     {growthYears.length === 0 ? (
       <p class="font-body text-sm text-neutral-400">No join date data available.</p>
     ) : (
-      <div class="flex items-end gap-4 h-[140px]">
+      <div class="flex items-end gap-4 h-35">
         {growthYears.map(year => {
           const count = joinYearCounts[year] ?? 0
           const barH = maxGrowth > 0 ? Math.round((count / maxGrowth) * 120) : 0

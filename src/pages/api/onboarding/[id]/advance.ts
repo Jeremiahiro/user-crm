@@ -182,7 +182,7 @@ export const POST: APIRoute = async ({ params, request, locals, url }) => {
     try {
       const template = memberStatusEmail({
         fullName:  person.full_name as string,
-        newStatus: nextStatus as 'active',
+        newStatus: nextStatus as 'in_progress' | 'in_training' | 'active',
         portalUrl: url.origin,
       })
       const result = await sendEmail({

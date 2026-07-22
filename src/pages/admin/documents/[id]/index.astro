@@ -101,13 +101,13 @@ const uploaderName = JSON.stringify(d.uploader?.full_name ?? '')
 </style>
 
 <DashboardLayout title={d.title}>
-  <div class="max-w-[900px]">
+  <div class="max-w-225">
     <Breadcrumb crumbs={[{ label: 'Documents', href: '/admin/documents' }, { label: d.title }]} />
 
     <!-- Header -->
     <div class="flex items-center gap-3 mb-6 flex-wrap">
       <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0">{d.title}</h1>
-      <span class="inline-block py-[3px] px-3 rounded-full font-body text-xs font-semibold"
+      <span class="inline-block py-0.75 px-3 rounded-full font-body text-xs font-semibold"
         style={`background-color: ${STATUS_BG[d.status] ?? 'var(--color-neutral-100)'}; color: ${STATUS_COLOR[d.status] ?? 'var(--color-neutral-700)'}; border: 1px solid ${STATUS_BORDER[d.status] ?? 'var(--color-neutral-200)'};`}>
         {d.status.charAt(0).toUpperCase() + d.status.slice(1)}
       </span>
@@ -159,7 +159,7 @@ const uploaderName = JSON.stringify(d.uploader?.full_name ?? '')
                 class="font-body text-sm font-medium text-brand-navy no-underline">
                 {d.uploader.full_name}
               </a>
-              <p class="font-body text-xs text-neutral-400 mt-[2px]">{d.uploader.email}</p>
+              <p class="font-body text-xs text-neutral-400 mt-0.5">{d.uploader.email}</p>
             </div>
           ) : (
             <p class="font-body text-sm text-neutral-400 m-0">—</p>
@@ -169,7 +169,7 @@ const uploaderName = JSON.stringify(d.uploader?.full_name ?? '')
         {viewUrl && (
           <div class="pt-2">
             <a href={viewUrl} target="_blank" rel="noopener noreferrer"
-              class="inline-block py-2.5 px-[18px] bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
+              class="inline-block py-2.5 px-4.5 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
               View file &#8599;
             </a>
           </div>
@@ -183,7 +183,7 @@ const uploaderName = JSON.stringify(d.uploader?.full_name ?? '')
         {d.status === 'approved' && (
           <div class="bg-success-50 border border-success-100 rounded-md py-3.5 px-4">
             <p class="font-body text-[13px] font-semibold text-success-700 mb-1">Approved</p>
-            {d.reviewer && <p class="font-body text-xs text-success-700 mb-[2px]">by {d.reviewer.full_name}</p>}
+            {d.reviewer && <p class="font-body text-xs text-success-700 mb-0.5">by {d.reviewer.full_name}</p>}
             {d.reviewed_at && <p class="font-body text-xs text-success-700 mb-1.5">{fmt(d.reviewed_at)}</p>}
             {d.reviewer_notes && <p class="font-body text-[13px] text-success-700 m-0 whitespace-pre-wrap">{d.reviewer_notes}</p>}
           </div>
@@ -192,7 +192,7 @@ const uploaderName = JSON.stringify(d.uploader?.full_name ?? '')
         {d.status === 'rejected' && (
           <div class="bg-danger-50 border border-danger-100 rounded-md py-3.5 px-4">
             <p class="font-body text-[13px] font-semibold text-danger-700 mb-1">Rejected</p>
-            {d.reviewer && <p class="font-body text-xs text-danger-700 mb-[2px]">by {d.reviewer.full_name}</p>}
+            {d.reviewer && <p class="font-body text-xs text-danger-700 mb-0.5">by {d.reviewer.full_name}</p>}
             {d.reviewed_at && <p class="font-body text-xs text-danger-700 mb-1.5">{fmt(d.reviewed_at)}</p>}
             {d.reviewer_notes && <p class="font-body text-[13px] text-danger-700 m-0 whitespace-pre-wrap">{d.reviewer_notes}</p>}
           </div>
@@ -298,7 +298,7 @@ const uploaderName = JSON.stringify(d.uploader?.full_name ?? '')
                 @blur="setTimeout(() => { open = false }, 150)"
                 placeholder="Search by name or email…"
                 autocomplete="off"
-                class="w-full py-[9px] px-3 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-800 box-border" />
+                class="w-full py-2.25 px-3 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-800 box-border" />
               <div x-show="open"
                 class="absolute top-full left-0 right-0 bg-white border border-neutral-300 border-t-0 rounded-t-none rounded-b-md max-h-50 overflow-y-auto z-[200] shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
                 <template x-if="results.length === 0">
@@ -323,7 +323,7 @@ const uploaderName = JSON.stringify(d.uploader?.full_name ?? '')
             <button type="button" @click="trySubmit()"
               :disabled="!personId"
               :style="personId ? 'opacity:1; cursor:pointer;' : 'opacity:0.4; cursor:not-allowed;'"
-              class="py-[9px] px-4 bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold transition-opacity duration-150">
+              class="py-2.25 px-4 bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold transition-opacity duration-150">
               Reassign document
             </button>
           </form>
@@ -331,7 +331,7 @@ const uploaderName = JSON.stringify(d.uploader?.full_name ?? '')
           <!-- Reassign confirm modal -->
           <div x-show="confirmOpen" x-cloak @click="confirmOpen = false"
             class="fixed inset-0 bg-black/45 z-[1000] flex items-center justify-center">
-            <div @click.stop class="bg-white rounded-lg py-7 px-8 max-w-[380px] w-[90%] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
+            <div @click.stop class="bg-white rounded-lg py-7 px-8 max-w-95 w-[90%] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
               <p class="font-body text-sm font-semibold text-neutral-800 mb-1.5">Reassign document?</p>
               <p class="font-body text-[13px] text-neutral-600 mb-1 leading-normal">Assign this document to:</p>
               <p x-text="selectedLabel" class="font-body text-[13px] font-semibold text-neutral-800 mb-5"></p>

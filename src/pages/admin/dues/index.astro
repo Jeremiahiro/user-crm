@@ -14,7 +14,7 @@ let memberQuery = supabaseAdmin
   .from('people')
   .select('id, full_name, person_types, date_joined, person_teams(team_id)')
   .eq('is_archived', false)
-  .in('status', ['active', 'approved'])
+  .eq('status', 'active')
   .order('full_name')
 
 const { data: rawMembers } = await memberQuery
@@ -274,39 +274,39 @@ const initialStateJSON = JSON.stringify(initialStateObj)
       </button>
 
       <button type="button" id="pill-paid" class="status-pill flex items-center gap-2" onclick="duesFilter('paid')">
-        <div class="w-4 h-4 rounded-[3px] bg-success-600 shrink-0"></div>
+        <div class="w-4 h-4 rounded-0.75 bg-success-600 shrink-0"></div>
         <span class="font-body text-xs">Fully paid</span>
       </button>
 
       <button type="button" id="pill-pending" class="status-pill flex items-center gap-2" onclick="duesFilter('pending')">
-        <div class="relative w-4 h-4 rounded-[3px] bg-white border-2 border-neutral-300 shrink-0">
-          <div class="absolute top-[-3px] right-[-3px] w-[7px] h-[7px] bg-[#f59e0b] rounded-full border border-white"></div>
+        <div class="relative w-4 h-4 rounded-0.75 bg-white border-2 border-neutral-300 shrink-0">
+          <div class="absolute top-[-3px] right-[-3px] w-1.75 h-1.75 bg-[#f59e0b] rounded-full border border-white"></div>
         </div>
         <span class="font-body text-xs">Has pending</span>
       </button>
 
       <button type="button" id="pill-behind" class="status-pill flex items-center gap-2" onclick="duesFilter('behind')">
-        <div class="w-4 h-4 rounded-[3px] bg-white border-2 border-neutral-300 shrink-0"></div>
+        <div class="w-4 h-4 rounded-0.75 bg-white border-2 border-neutral-300 shrink-0"></div>
         <span class="font-body text-xs">Behind</span>
       </button>
 
-      <div class="flex items-center gap-2 py-1.5 px-[14px] ml-2 border-l border-neutral-200">
-        <div class="w-4 h-4 rounded-[3px] bg-white border-2 border-neutral-200 opacity-40 shrink-0"></div>
+      <div class="flex items-center gap-2 py-1.5 px-3.5 ml-2 border-l border-neutral-200">
+        <div class="w-4 h-4 rounded-0.75 bg-white border-2 border-neutral-200 opacity-40 shrink-0"></div>
         <span class="font-body text-xs text-neutral-400">N/A = before join date</span>
       </div>
     </div>
 
     <!-- Matrix table -->
     {members.length > 0 ? (
-      <div class="bg-white border border-neutral-200 rounded-lg overflow-auto mb-[80px]">
-        <table class="border-collapse min-w-[940px] w-full">
+      <div class="bg-white border border-neutral-200 rounded-lg overflow-auto mb-20">
+        <table class="border-collapse min-w-235 w-full">
           <thead>
             <tr class="bg-neutral-50 border-b-2 border-neutral-200">
-              <th class="sticky-col px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em] sticky left-0 bg-neutral-50 min-w-[200px] z-[2] border-r border-neutral-200">
+              <th class="sticky-col px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em] sticky left-0 bg-neutral-50 min-w-50 z-[2] border-r border-neutral-200">
                 Member
               </th>
               {months.map(m => (
-                <th class="py-2.5 px-0 text-center font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.06em] w-[56px]">
+                <th class="py-2.5 px-0 text-center font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.06em] w-14">
                   {m}
                 </th>
               ))}

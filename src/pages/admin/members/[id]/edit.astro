@@ -112,16 +112,13 @@ function dbsStatus(expiry: string | null): { label: string; color: string } {
   return { label: 'Valid', color: 'var(--color-success-600)' }
 }
 
-const PERSON_TYPES = ['member', 'mentor', 'volunteer', 'alumni', 'parent', 'trustee']
+const PERSON_TYPES = ['member', 'mentor', 'volunteer', 'parent', 'trustee']
 const STATUS_OPTIONS = [
   { value: 'applicant',      label: 'Applicant' },
   { value: 'pending_review', label: 'Pending Review' },
-  { value: 'approved',       label: 'Approved' },
   { value: 'active',         label: 'Active' },
   { value: 'suspended',      label: 'Suspended' },
   { value: 'inactive',       label: 'Inactive' },
-  { value: 'alumni',         label: 'Alumni' },
-  { value: 'left',           label: 'Left' },
 ]
 
 let errors: Record<string, string> = {}
@@ -178,15 +175,15 @@ if (Astro.request.method === 'POST') {
 ---
 
 <DashboardLayout title={`Edit ${member.full_name}`}>
-  <div class="max-w-[1060px]">
+  <div class="max-w-265">
     <Breadcrumb crumbs={[{ label: 'Members', href: '/admin/members' }, { label: member.full_name as string, href: `/admin/members/${id}` }, { label: 'Edit' }]} />
 
     <!-- Page header -->
     <div class="flex items-center justify-between mb-5 gap-4 flex-wrap">
       <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0">Edit Member</h1>
       <div class="flex gap-2.5">
-        <button form="member-form" type="submit" class="px-5 py-[9px] bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">Save changes</button>
-        <a href={`/admin/members/${id}`} class="px-5 py-[9px] bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">Cancel</a>
+        <button form="member-form" type="submit" class="px-5 py-2.25 bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">Save changes</button>
+        <a href={`/admin/members/${id}`} class="px-5 py-2.25 bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">Cancel</a>
       </div>
     </div>
 
@@ -208,15 +205,15 @@ if (Astro.request.method === 'POST') {
             <img id="photo-img" src={currentPhotoUrl} alt={member.full_name as string} width={80} height={80} class="w-full h-full object-cover" />
           </div>
           <div class="flex-1">
-            <p class="font-body text-sm font-semibold text-neutral-800 m-0 mb-[3px]">Profile photo</p>
+            <p class="font-body text-sm font-semibold text-neutral-800 m-0 mb-0.75">Profile photo</p>
             <p class="font-body text-xs text-neutral-400 m-0 mb-2.5">JPEG, PNG or WebP · max 5 MB</p>
             <div class="flex items-center gap-2.5 flex-wrap">
-              <label class="px-[14px] py-1.5 bg-brand-navy text-white rounded-md font-body text-[13px] font-medium cursor-pointer">
+              <label class="px-3.5 py-1.5 bg-brand-navy text-white rounded-md font-body text-[13px] font-medium cursor-pointer">
                 <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" />
                 Choose photo
               </label>
               <span id="photo-filename" class="font-body text-xs text-neutral-500">No file selected</span>
-              <button id="photo-upload-btn" type="button" style="display:none;" class="px-[14px] py-1.5 bg-brand-gold text-brand-navy border-none rounded-md font-body text-[13px] font-semibold cursor-pointer">Upload</button>
+              <button id="photo-upload-btn" type="button" style="display:none;" class="px-3.5 py-1.5 bg-brand-gold text-brand-navy border-none rounded-md font-body text-[13px] font-semibold cursor-pointer">Upload</button>
             </div>
             <p id="photo-status" class="font-body text-xs mt-1.5" style="display: none;"></p>
           </div>
@@ -382,7 +379,7 @@ if (Astro.request.method === 'POST') {
               class="fixed inset-0 bg-[rgba(0,0,0,0.5)] flex items-center justify-center z-[1000]"
               @click.self="showModal = false"
             >
-              <div class="bg-white rounded-lg p-6 max-w-[320px] w-[90%] text-center">
+              <div class="bg-white rounded-lg p-6 max-w-80 w-[90%] text-center">
                 <p class="font-body text-sm text-neutral-700 m-0 mb-4">
                   Remove this buddy pairing? Both members will be notified.
                 </p>
@@ -407,14 +404,14 @@ if (Astro.request.method === 'POST') {
                 <button
                   type="button"
                   @click={`assignmentId = '${currentBuddy.assignment.id}'; showModal = true`}
-                  class="w-full py-[7px] px-0 bg-neutral-50 border border-neutral-200 rounded-md font-body text-[13px] text-danger-600 cursor-pointer">
+                  class="w-full py-1.75 px-0 bg-neutral-50 border border-neutral-200 rounded-md font-body text-[13px] text-danger-600 cursor-pointer">
                   Remove buddy
                 </button>
               </div>
             ) : (
               <div class="flex flex-col gap-2 mb-3">
                 <p class="font-body text-[11px] text-neutral-400 m-0 mb-0.5">Assign a buddy to this member</p>
-                <select x-model="buddyId" class="py-[9px] px-3 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-800 bg-white w-full">
+                <select x-model="buddyId" class="py-2.25 px-3 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-800 bg-white w-full">
                   <option value="">— Select a member —</option>
                   {allActiveMembers.map(m => (
                     <option value={m.id}>{m.full_name}</option>
@@ -423,7 +420,7 @@ if (Astro.request.method === 'POST') {
                 <button
                   type="button"
                   @click="assignBuddy()"
-                  class="w-full py-[9px] px-0 bg-brand-navy text-white border-none rounded-md font-body text-[13px] font-semibold cursor-pointer">
+                  class="w-full py-2.25 px-0 bg-brand-navy text-white border-none rounded-md font-body text-[13px] font-semibold cursor-pointer">
                   Assign buddy
                 </button>
               </div>

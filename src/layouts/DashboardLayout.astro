@@ -293,7 +293,7 @@ function isActive(href: string): boolean {
   <body class="m-0 font-body bg-neutral-50">
     <!-- Top Nav -->
     <header
-      class="fixed top-0 left-0 right-0 h-[60px] bg-brand-navy flex items-center justify-between px-6 z-[100] box-border"
+      class="fixed top-0 left-0 right-0 h-15 bg-brand-navy flex items-center justify-between px-6 z-[100] box-border"
     >
       <a href="/dashboard" class="flex items-center gap-2.5 no-underline">
         {
@@ -301,7 +301,7 @@ function isActive(href: string): boolean {
             <img
               src={orgLogoUrl}
               alt="Organisation logo"
-              class="h-9 max-w-[120px] object-contain"
+              class="h-9 max-w-30 object-contain"
             />
           ) : (
             <span class="font-heading text-xl font-bold text-white tracking-[-0.3px]">
@@ -370,11 +370,11 @@ function isActive(href: string): boolean {
       </div>
     </header>
 
-    <div class="flex pt-[60px] min-h-screen">
+    <div class="flex pt-15 min-h-screen">
       <!-- Sidebar -->
       <nav
         id="sidebar"
-        class="bg-white border-r border-neutral-200 fixed top-[60px] left-0 bottom-0 overflow-y-auto overflow-x-hidden py-3 pb-4 box-border z-50"
+        class="bg-white border-r border-neutral-200 fixed top-15 left-0 bottom-0 overflow-y-auto overflow-x-hidden py-3 pb-4 box-border z-50"
       >
         <!-- Collapse toggle -->
         <div
@@ -383,7 +383,7 @@ function isActive(href: string): boolean {
           <button
             id="toggle-sidebar"
             title="Collapse sidebar"
-            class="cursor-pointer bg-transparent border-none text-neutral-400 flex items-center justify-center p-1.5 rounded-[6px] transition-[background-color,color] duration-150 hover:bg-neutral-100 hover:text-neutral-600"
+            class="cursor-pointer bg-transparent border-none text-neutral-400 flex items-center justify-center p-1.5 rounded-1.5 transition-[background-color,color] duration-150 hover:bg-neutral-100 hover:text-neutral-600"
           >
             <svg
               id="icon-collapse"
@@ -472,7 +472,7 @@ function isActive(href: string): boolean {
                         class={[
                           "nav-item flex items-center gap-2.5 px-2 mx-2 h-9 rounded-md no-underline text-[13px] font-medium font-body transition-colors duration-150",
                           active
-                            ? "bg-neutral-100 text-brand-navy border-l-[3px] border-brand-gold pl-[5px]"
+                            ? "bg-neutral-100 text-brand-navy border-l-0.75 border-brand-gold pl-1.25"
                             : "text-neutral-600",
                         ].join(" ")}
                       >

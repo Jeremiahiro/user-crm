@@ -238,7 +238,7 @@ function gravatarUrl(email: string) {
       </div>
       <Pagination page={page} totalPages={totalPages} baseUrl={paginationBase} />
     ) : (
-      <div class="bg-white border border-neutral-200 rounded-lg p-[60px] text-center">
+      <div class="bg-white border border-neutral-200 rounded-lg p-15 text-center">
         <p class="font-heading text-base font-bold text-neutral-700 mb-2">No volunteers found</p>
         <p class="font-body text-sm text-neutral-400 mb-5">
           {searchQ || statusFilter || teamFilter ? 'Try adjusting your filters.' : 'Volunteers are people with the "volunteer" person type.'}

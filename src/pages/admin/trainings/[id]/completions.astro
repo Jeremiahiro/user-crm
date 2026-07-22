@@ -40,7 +40,7 @@ const t = training as any
 ---
 
 <DashboardLayout title={`${t.title} — Completions`}>
-  <div class="max-w-[960px]">
+  <div class="max-w-240">
     <Breadcrumb crumbs={[
       { label: 'Trainings', href: '/admin/trainings' },
       { label: t.title, href: `/admin/trainings/${trainingId}` },
@@ -51,19 +51,19 @@ const t = training as any
 
     <!-- Stat cards -->
     <div class="grid grid-cols-4 gap-4 mb-7">
-      <div class="bg-white border border-success-100 rounded-lg py-[18px] px-5">
+      <div class="bg-white border border-success-100 rounded-lg py-4.5 px-5">
         <p class="font-body text-[11px] font-semibold text-success-700 uppercase tracking-[0.05em] mb-1">Completed</p>
         <p class="font-heading text-[28px] font-bold text-success-700 m-0">{completed}</p>
       </div>
-      <div class="bg-white border border-neutral-200 rounded-lg py-[18px] px-5">
+      <div class="bg-white border border-neutral-200 rounded-lg py-4.5 px-5">
         <p class="font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.05em] mb-1">Pending</p>
         <p class="font-heading text-[28px] font-bold text-neutral-700 m-0">{pending}</p>
       </div>
-      <div class="bg-white border border-danger-100 rounded-lg py-[18px] px-5">
+      <div class="bg-white border border-danger-100 rounded-lg py-4.5 px-5">
         <p class="font-body text-[11px] font-semibold text-danger-700 uppercase tracking-[0.05em] mb-1">Overdue</p>
         <p class="font-heading text-[28px] font-bold text-danger-700 m-0">{overdue}</p>
       </div>
-      <div class="bg-white border border-neutral-200 rounded-lg py-[18px] px-5">
+      <div class="bg-white border border-neutral-200 rounded-lg py-4.5 px-5">
         <p class="font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.05em] mb-1">Total assigned</p>
         <p class="font-heading text-[28px] font-bold text-neutral-800 m-0">{total}</p>
       </div>

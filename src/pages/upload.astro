@@ -182,10 +182,10 @@ const hasErrors = Object.keys(errors).length > 0 || !!globalError
               <div class="bg-danger-50 border border-[#fca5a5] rounded-md py-3 px-4 mb-5 font-body text-sm text-[#991b1b]">{globalError}</div>
             )}
 
-            <form method="POST" enctype="multipart/form-data" class="flex flex-col gap-[18px]">
+            <form method="POST" enctype="multipart/form-data" class="flex flex-col gap-4.5">
 
               <!-- Email -->
-              <div class="flex flex-col gap-[5px]">
+              <div class="flex flex-col gap-1.25">
                 <label for="emailInput" class="font-body text-[13px] font-medium text-neutral-700">Your email address *</label>
                 <input
                   id="emailInput"
@@ -205,7 +205,7 @@ const hasErrors = Object.keys(errors).length > 0 || !!globalError
 
               <!-- Document type (only when training doesn't fix it) -->
               {showDocTypeDropdown && (
-                <div class="flex flex-col gap-[5px]">
+                <div class="flex flex-col gap-1.25">
                   <label for="docTypeSelect" class="font-body text-[13px] font-medium text-neutral-700">Document type *</label>
                   <select
                     id="docTypeSelect"
@@ -231,7 +231,7 @@ const hasErrors = Object.keys(errors).length > 0 || !!globalError
               )}
 
               <!-- Title -->
-              <div class="flex flex-col gap-[5px]">
+              <div class="flex flex-col gap-1.25">
                 <label for="titleInput" class="font-body text-[13px] font-medium text-neutral-700">Document name *</label>
                 <input
                   id="titleInput"
@@ -249,7 +249,7 @@ const hasErrors = Object.keys(errors).length > 0 || !!globalError
               </div>
 
               <!-- File -->
-              <div class="flex flex-col gap-[5px]">
+              <div class="flex flex-col gap-1.25">
                 <label for="fileInput" class="font-body text-[13px] font-medium text-neutral-700">File *</label>
 
                 <!-- Drop zone -->

@@ -63,7 +63,7 @@ const { data: programmeYears } = await supabaseAdmin
   <!-- Filters -->
   <form method="GET" class="flex gap-2.5 mb-5 flex-wrap items-end">
     <input type="text" name="q" value={q} placeholder="Search name, email, school…"
-      class="px-3 py-2 border border-neutral-300 rounded-md font-body text-sm min-w-[220px]" />
+      class="px-3 py-2 border border-neutral-300 rounded-md font-body text-sm min-w-55" />
     <select name="mentor_id" onchange="this.form.submit()"
       class="px-3 py-2 border border-neutral-300 rounded-md font-body text-sm bg-white">
       <option value="" selected={!mentorId}>All mentors</option>

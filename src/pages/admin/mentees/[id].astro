@@ -149,8 +149,8 @@ const tabs = [
             ['Phone', (mentee.phone as string | null) ?? '—'],
           ].map(([label, value]) => (
             <tr>
-              <td class="font-body text-[13px] text-neutral-400 py-[5px] pr-4 w-[130px] align-top">{label}</td>
-              <td class="font-body text-[13px] text-neutral-800 py-[5px]">{value}</td>
+              <td class="font-body text-[13px] text-neutral-400 py-1.25 pr-4 w-32.5 align-top">{label}</td>
+              <td class="font-body text-[13px] text-neutral-800 py-1.25">{value}</td>
             </tr>
           ))}
         </table>
@@ -161,32 +161,32 @@ const tabs = [
         <h2 class="font-heading text-xs font-bold text-neutral-500 uppercase tracking-[0.08em] m-0 mb-4">Programme</h2>
         <table class="border-collapse w-full">
           <tr>
-            <td class="font-body text-[13px] text-neutral-400 py-[5px] pr-4 w-[130px]">Mentor</td>
-            <td class="font-body text-[13px] py-[5px]">
+            <td class="font-body text-[13px] text-neutral-400 py-1.25 pr-4 w-32.5">Mentor</td>
+            <td class="font-body text-[13px] py-1.25">
               {mentor ? (
                 <a href={`/admin/members/${mentor.id}`} class="text-brand-navy no-underline font-medium">{mentor.full_name}</a>
               ) : <span class="text-warning-600 font-medium">Unassigned</span>}
             </td>
           </tr>
           <tr>
-            <td class="font-body text-[13px] text-neutral-400 py-[5px] pr-4">Programme year</td>
-            <td class="font-body text-[13px] text-neutral-800 py-[5px]">
+            <td class="font-body text-[13px] text-neutral-400 py-1.25 pr-4">Programme year</td>
+            <td class="font-body text-[13px] text-neutral-800 py-1.25">
               {programmeYear ? (
                 <a href={`/admin/cmp/years/${programmeYear.id}`} class="text-brand-navy no-underline">{programmeYear.name}</a>
               ) : '—'}
             </td>
           </tr>
           <tr>
-            <td class="font-body text-[13px] text-neutral-400 py-[5px] pr-4">Sessions attended</td>
-            <td class="font-body text-[13px] text-neutral-800 py-[5px]">{attendedCount} / {totalSessions}</td>
+            <td class="font-body text-[13px] text-neutral-400 py-1.25 pr-4">Sessions attended</td>
+            <td class="font-body text-[13px] text-neutral-800 py-1.25">{attendedCount} / {totalSessions}</td>
           </tr>
           <tr>
-            <td class="font-body text-[13px] text-neutral-400 py-[5px] pr-4">Mentor notes</td>
-            <td class="font-body text-[13px] text-neutral-800 py-[5px]">{noteRows.length}</td>
+            <td class="font-body text-[13px] text-neutral-400 py-1.25 pr-4">Mentor notes</td>
+            <td class="font-body text-[13px] text-neutral-800 py-1.25">{noteRows.length}</td>
           </tr>
           <tr>
-            <td class="font-body text-[13px] text-neutral-400 py-[5px] pr-4">Call logs</td>
-            <td class="font-body text-[13px] text-neutral-800 py-[5px]">{callRows.length}</td>
+            <td class="font-body text-[13px] text-neutral-400 py-1.25 pr-4">Call logs</td>
+            <td class="font-body text-[13px] text-neutral-800 py-1.25">{callRows.length}</td>
           </tr>
         </table>
       </div>
@@ -200,8 +200,8 @@ const tabs = [
             ['Email', (mentee.guardian_email as string | null) ?? '—'],
           ].map(([label, value]) => (
             <tr>
-              <td class="font-body text-[13px] text-neutral-400 py-[5px] pr-4 w-[130px]">{label}</td>
-              <td class="font-body text-[13px] text-neutral-800 py-[5px]">{value}</td>
+              <td class="font-body text-[13px] text-neutral-400 py-1.25 pr-4 w-32.5">{label}</td>
+              <td class="font-body text-[13px] text-neutral-800 py-1.25">{value}</td>
             </tr>
           ))}
         </table>
@@ -221,7 +221,7 @@ const tabs = [
         ].map(s => (
           <div class={`border rounded-lg py-4 px-5 ${s.bgClass} ${s.borderClass}`}>
             <p class={`font-heading text-[28px] font-bold m-0 ${s.textClass}`}>{s.count}</p>
-            <p class={`font-body text-[13px] mt-[2px] mb-0 ${s.textClass}`}>{s.label}</p>
+            <p class={`font-body text-[13px] mt-0.5 mb-0 ${s.textClass}`}>{s.label}</p>
           </div>
         ))}
       </div>
@@ -235,9 +235,9 @@ const tabs = [
           <table class="w-full border-collapse">
             <thead class="bg-neutral-50 border-b border-neutral-200">
               <tr>
-                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-[0.05em]">Session</th>
-                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-[0.05em]">Date</th>
-                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-[0.05em]">Status</th>
+                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Session</th>
+                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Date</th>
+                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -280,7 +280,7 @@ const tabs = [
           class="w-full py-2.5 px-3 border border-neutral-300 rounded-md font-body text-sm resize-y box-border"></textarea>
         <div class="mt-2.5 flex gap-2">
           <button id="btnSaveNote"
-            class="py-2 px-[18px] bg-brand-navy text-white border-none rounded-md font-body text-[13px] font-semibold cursor-pointer">
+            class="py-2 px-4.5 bg-brand-navy text-white border-none rounded-md font-body text-[13px] font-semibold cursor-pointer">
             Save note
           </button>
         </div>
@@ -303,7 +303,7 @@ const tabs = [
                   {formatDate(n.created_at)}
                 </span>
               </div>
-              <button class="btn-delete-note py-[3px] px-2.5 bg-neutral-100 border-none rounded-md font-body text-xs text-neutral-500 cursor-pointer" data-id={n.id}>
+              <button class="btn-delete-note py-0.75 px-2.5 bg-neutral-100 border-none rounded-md font-body text-xs text-neutral-500 cursor-pointer" data-id={n.id}>
                 Delete
               </button>
             </div>
@@ -334,7 +334,7 @@ const tabs = [
           <div class="flex flex-col gap-1">
             <label class="font-body text-xs font-medium text-neutral-700">Outcome *</label>
             <select id="callOutcome"
-              class="py-2 px-3 border border-neutral-300 rounded-md font-body text-sm bg-white h-[38px]">
+              class="py-2 px-3 border border-neutral-300 rounded-md font-body text-sm bg-white h-9.5">
               <option value="reached">Reached</option>
               <option value="no_answer">No answer</option>
               <option value="left_voicemail">Left voicemail</option>
@@ -348,7 +348,7 @@ const tabs = [
             class="py-2 px-3 border border-neutral-300 rounded-md font-body text-sm resize-y"></textarea>
         </div>
         <button id="btnSaveCall"
-          class="py-2 px-[18px] bg-brand-navy text-white border-none rounded-md font-body text-[13px] font-semibold cursor-pointer">
+          class="py-2 px-4.5 bg-brand-navy text-white border-none rounded-md font-body text-[13px] font-semibold cursor-pointer">
           Log call
         </button>
       </div>
@@ -363,12 +363,12 @@ const tabs = [
           <table class="w-full border-collapse">
             <thead class="bg-neutral-50 border-b border-neutral-200">
               <tr>
-                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-[0.05em]">Date</th>
-                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-[0.05em]">Caller</th>
-                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-[0.05em]">Outcome</th>
-                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-[0.05em]">Duration</th>
-                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-[0.05em]">Notes</th>
-                <th class="py-[9px] px-4"></th>
+                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Date</th>
+                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Caller</th>
+                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Outcome</th>
+                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Duration</th>
+                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Notes</th>
+                <th class="py-2.25 px-4"></th>
               </tr>
             </thead>
             <tbody>
@@ -385,13 +385,13 @@ const tabs = [
                   <td class="py-3 px-4 font-body text-[13px] text-neutral-600">
                     {c.duration_minutes != null ? `${c.duration_minutes} min` : '—'}
                   </td>
-                  <td class="py-3 px-4 font-body text-[13px] text-neutral-600 max-w-[280px]">
+                  <td class="py-3 px-4 font-body text-[13px] text-neutral-600 max-w-70">
                     {c.summary ? (
                       <span class="line-clamp-2">{c.summary}</span>
                     ) : <span class="text-neutral-300">—</span>}
                   </td>
                   <td class="py-3 px-4 text-right">
-                    <button class="btn-delete-call py-[3px] px-2.5 bg-neutral-100 border-none rounded-md font-body text-xs text-neutral-500 cursor-pointer" data-id={c.id}>
+                    <button class="btn-delete-call py-0.75 px-2.5 bg-neutral-100 border-none rounded-md font-body text-xs text-neutral-500 cursor-pointer" data-id={c.id}>
                       Delete
                     </button>
                   </td>

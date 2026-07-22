@@ -69,7 +69,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   // Notify assigned people
   let recipientIds: string[] = []
   if (parsed.data.scope === 'all') {
-    const { data: people } = await supabaseAdmin.from('people').select('id').in('status', ['active', 'approved'])
+    const { data: people } = await supabaseAdmin.from('people').select('id').eq('status', 'active')
     recipientIds = (people ?? []).map((p: { id: string }) => p.id)
   } else if (parsed.data.scope === 'team') {
     const { data: members } = await supabaseAdmin.from('person_teams').select('person_id').eq('team_id', teamId!)

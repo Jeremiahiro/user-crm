@@ -51,7 +51,7 @@ const safeDocTypes = docTypes ?? []
 </style>
 
 <DashboardLayout title="New Training">
-  <div class="max-w-[600px]">
+  <div class="max-w-150">
     <Breadcrumb crumbs={[{ label: 'Trainings', href: '/admin/trainings' }, { label: 'New Training' }]} />
     <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0 mb-6">New Training</h1>
 
@@ -75,7 +75,7 @@ const safeDocTypes = docTypes ?? []
       <div class="flex flex-col gap-1">
         <label class="font-body text-[13px] font-medium text-neutral-700">Description</label>
         <input type="hidden" name="description" id="descriptionInput" value={values.description ?? ''} />
-        <div id="descriptionEditor" class="min-h-[200px]"></div>
+        <div id="descriptionEditor" class="min-h-50"></div>
       </div>
 
       <!-- Requires document checkbox -->

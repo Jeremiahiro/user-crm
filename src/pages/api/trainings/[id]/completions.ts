@@ -43,7 +43,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
         if (!deadlineMap.has(m.person_id)) deadlineMap.set(m.person_id, a.deadline)
       }
     } else if (a.scope === 'all') {
-      const { data: allPeople } = await supabaseAdmin.from('people').select('id').in('status', ['active', 'approved'])
+      const { data: allPeople } = await supabaseAdmin.from('people').select('id').eq('status', 'active')
       for (const p of (allPeople ?? []) as { id: string }[]) {
         personSet.add(p.id)
         if (!deadlineMap.has(p.id)) deadlineMap.set(p.id, a.deadline)

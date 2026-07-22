@@ -5,7 +5,6 @@ interface Props {
     | 'inactive'
     | 'applicant'
     | 'pending'
-    | 'alumni'
     | 'volunteer'
   class?: string
 }
@@ -33,6 +32,5 @@ const { variant, class: className = '' } = Astro.props
   .badge-inactive  { background-color: #F3F4F6; color: #374151; }
   .badge-applicant { background-color: #EFF6FF; color: #1D4ED8; }
   .badge-pending   { background-color: #FFFBEB; color: #92400E; }
-  .badge-alumni    { background-color: #FAF5FF; color: #7E22CE; }
-  .badge-volunteer { background-color: #ECFDF5; color: #065F46; }
+.badge-volunteer { background-color: #ECFDF5; color: #065F46; }
 </style>

@@ -58,7 +58,7 @@ const rows = (tenures ?? []) as TenureRow[]
           <tbody>
             {rows.map(t => (
               <tr class={`border-t border-neutral-100 ${!t.term_end ? 'bg-neutral-50' : ''}`}>
-                <td class="px-4 py-[14px]">
+                <td class="px-4 py-3.5">
                   {t.people ? (
                     <a href={`/admin/members/${t.people.id}`}
                        class="font-body text-sm font-semibold text-brand-navy no-underline block">
@@ -69,9 +69,9 @@ const rows = (tenures ?? []) as TenureRow[]
                     <span class="font-body text-sm text-neutral-400">Unknown member</span>
                   )}
                 </td>
-                <td class="px-4 py-[14px] font-body text-[13px] text-neutral-700">{t.term_start}</td>
-                <td class="px-4 py-[14px] font-body text-[13px] text-neutral-500">{t.term_end ?? '—'}</td>
-                <td class="px-4 py-[14px] font-body text-[13px] text-neutral-600">{(t.elected_by ?? '').replace(/_/g, ' ')}</td>
+                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">{t.term_start}</td>
+                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-500">{t.term_end ?? '—'}</td>
+                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600">{(t.elected_by ?? '').replace(/_/g, ' ')}</td>
               </tr>
             ))}
           </tbody>

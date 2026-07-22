@@ -114,7 +114,7 @@ function countInCategory(cat: string) {
           <a href={href}
             class={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-t-md font-body text-[13px] no-underline -mb-px border-b-2 ${active ? 'font-semibold text-brand-navy border-brand-navy' : 'font-normal text-neutral-500 border-transparent'}`}>
             {label}
-            <span class={`text-[11px] px-1.5 py-[1px] rounded-[20px] ${active ? 'bg-brand-navy text-white' : 'bg-neutral-200 text-neutral-600'}`}>{count}</span>
+            <span class={`text-[11px] px-1.5 py-0.25 rounded-5 ${active ? 'bg-brand-navy text-white' : 'bg-neutral-200 text-neutral-600'}`}>{count}</span>
           </a>
         )
       })}
@@ -163,7 +163,7 @@ function countInCategory(cat: string) {
                     {CATEGORY_LABELS[t.category] ?? t.category}
                   </Badge>
                 </td>
-                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600 max-w-[240px] overflow-hidden text-ellipsis whitespace-nowrap">
+                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600 max-w-60 overflow-hidden text-ellipsis whitespace-nowrap">
                   {t.subject}
                 </td>
                 <td class="px-4 py-3.5">
@@ -174,7 +174,7 @@ function countInCategory(cat: string) {
                 <td class="px-4 py-3.5 text-right whitespace-nowrap">
                   <div class="flex gap-2 justify-end items-center">
                     <a href={`/admin/email-templates/${t.id}/edit`}
-                      class="px-3 py-[5px] bg-neutral-100 text-neutral-700 rounded-md font-body text-xs font-medium no-underline">
+                      class="px-3 py-1.25 bg-neutral-100 text-neutral-700 rounded-md font-body text-xs font-medium no-underline">
                       Edit
                     </a>
                     {admin && t.is_active && (
@@ -182,7 +182,7 @@ function countInCategory(cat: string) {
                         data-template-id={t.id}
                         data-template-name={t.name}
                         @click="openModal($el)"
-                        class="px-3 py-[5px] bg-white text-danger-600 border border-danger-200 rounded-md font-body text-xs cursor-pointer">
+                        class="px-3 py-1.25 bg-white text-danger-600 border border-danger-200 rounded-md font-body text-xs cursor-pointer">
                         Archive
                       </button>
                     )}
@@ -198,7 +198,7 @@ function countInCategory(cat: string) {
     <!-- Confirmation Modal -->
     <div x-show="modalOpen" @click.self="modalOpen = false" @keydown.escape.window="modalOpen = false"
       class="fixed inset-0 z-[100] flex items-center justify-center bg-black/45">
-      <div class="bg-white rounded-lg py-7 px-8 max-w-[420px] w-[90%] shadow-[0_25px_50px_rgba(0,0,0,0.2)]">
+      <div class="bg-white rounded-lg py-7 px-8 max-w-105 w-[90%] shadow-[0_25px_50px_rgba(0,0,0,0.2)]">
         <h3 class="font-heading text-[17px] font-bold text-brand-navy mt-0 mb-2.5">Archive template</h3>
         <p x-text="message" class="font-body text-sm text-neutral-700 mb-5 mt-0 mx-0 leading-normal"></p>
         <p x-show="error" x-text="error" class="font-body text-[13px] text-danger-600 mb-3.5 mt-0 mx-0"></p>

@@ -2,22 +2,15 @@
 import DashboardLayout from '@/layouts/DashboardLayout.astro'
 import Breadcrumb from '@/components/ui/Breadcrumb.astro'
 import Input from '@/components/ui/Input.astro'
-import { supabaseAdmin } from '@/lib/supabase'
-
 if (!Astro.locals.user) return Astro.redirect('/login')
 
-const { data: teams } = await supabaseAdmin.from('teams').select('id, name').eq('is_active', true).order('name')
-
-const PERSON_TYPES = ['member', 'mentor', 'volunteer', 'alumni', 'parent', 'trustee']
+const PERSON_TYPES = ['member', 'mentor', 'volunteer', 'parent', 'trustee']
 const STATUS_OPTIONS = [
   { value: 'applicant',      label: 'Applicant' },
   { value: 'pending_review', label: 'Pending Review' },
-  { value: 'approved',       label: 'Approved' },
   { value: 'active',         label: 'Active' },
   { value: 'suspended',      label: 'Suspended' },
   { value: 'inactive',       label: 'Inactive' },
-  { value: 'alumni',         label: 'Alumni' },
-  { value: 'left',           label: 'Left' },
 ]
 
 let errors: Record<string, string> = {}

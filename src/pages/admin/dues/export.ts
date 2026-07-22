@@ -17,7 +17,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
     .from('people')
     .select('id, full_name, email, person_types')
     .eq('is_archived', false)
-    .in('status', ['active', 'approved'])
+    .eq('status', 'active')
     .order('full_name')
 
   let members = (rawMembers ?? []) as RawMember[]

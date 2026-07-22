@@ -356,8 +356,8 @@ const AWARD_LABELS: Record<string, string> = {
               <p class="font-heading text-[32px] font-bold text-brand-navy m-0 leading-none">{duesCompliancePct}%</p>
               <p class="font-body text-[13px] text-neutral-400 m-0">{membersPaidThisYear}/{eligibleCount}</p>
             </div>
-            <div class="mt-2.5 h-1 bg-neutral-100 rounded-[2px] overflow-hidden">
-              <div class="h-full bg-brand-navy rounded-[2px] transition-[width] duration-300" style={`width: ${duesCompliancePct}%;`}></div>
+            <div class="mt-2.5 h-1 bg-neutral-100 rounded-0.5 overflow-hidden">
+              <div class="h-full bg-brand-navy rounded-0.5 transition-[width] duration-300" style={`width: ${duesCompliancePct}%;`}></div>
             </div>
           </div>
         </a>
@@ -593,7 +593,7 @@ const AWARD_LABELS: Record<string, string> = {
               </p>
             </div>
           </div>
-          <a href="/dues" class="py-2 px-[18px] bg-brand-navy text-white rounded-md font-body text-[13px] font-medium no-underline whitespace-nowrap">
+          <a href="/dues" class="py-2 px-4.5 bg-brand-navy text-white rounded-md font-body text-[13px] font-medium no-underline whitespace-nowrap">
             View dues
           </a>
         </div>

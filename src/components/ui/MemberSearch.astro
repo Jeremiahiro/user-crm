@@ -13,7 +13,7 @@
  *   value        — pre-selected person ID (e.g. on edit / validation failure)
  *   initialName  — display name matching the pre-selected value
  *   placeholder  — input placeholder
- *   statusFilter — comma-separated status values to restrict results (e.g. "active,approved")
+ *   statusFilter — comma-separated status values to restrict results (e.g. "active,pending_review")
  *   error        — validation error message to show beneath the field
  */
 
@@ -59,7 +59,7 @@ const uid = `ms-${name}-${Math.random().toString(36).slice(2, 8)}`
     type="text"
     class={[
       'member-search-input',
-      'w-full px-3 py-[10px] rounded-md font-body text-sm text-neutral-900 box-border',
+      'w-full px-3 py-2.5 rounded-md font-body text-sm text-neutral-900 box-border',
       'border',
       error ? 'border-danger-400' : 'border-neutral-300',
       'outline-none',

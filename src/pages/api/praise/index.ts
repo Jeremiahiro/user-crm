@@ -109,7 +109,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   // Fetch all recipients + all active members for broadcast
   const [{ data: recipients }, { data: allMembers }] = await Promise.all([
     supabaseAdmin.from('people').select('id, full_name, email').in('id', recipientIds),
-    supabaseAdmin.from('people').select('id').in('status', ['active', 'approved']).eq('is_archived', false),
+    supabaseAdmin.from('people').select('id').eq('status', 'active').eq('is_archived', false),
   ])
 
   const recs = (recipients ?? []) as { id: string; full_name: string; email: string | null }[]
