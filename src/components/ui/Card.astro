@@ -16,49 +16,22 @@ const {
   value,
   label,
 } = Astro.props
-
-const baseStyle = `
-  background-color: white;
-  border: 1.5px solid var(--color-neutral-300);
-  border-radius: var(--radius-lg);
-  padding: 24px;
-  box-sizing: border-box;
-  ${leftAccentColor ? `border-left: 4px solid ${leftAccentColor};` : ''}
-`
 ---
 
-<div style={baseStyle} class={className}>
-  {
-    stat && value !== undefined ? (
-      <>
-        <p
-          style="
-            font-size: 11px;
-            font-weight: 500;
-            color: var(--color-neutral-500);
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            margin: 0 0 8px 0;
-            font-family: var(--font-body);
-          "
-        >
-          {label ?? heading}
-        </p>
-        <p
-          style="
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--color-brand-navy);
-            margin: 0;
-            font-family: var(--font-heading);
-            line-height: 1.25;
-          "
-        >
-          {value}
-        </p>
-      </>
-    ) : (
-      <slot />
-    )
-  }
+<div
+  class={`bg-white border-[1.5px] border-neutral-300 rounded-lg p-6 box-border ${className}`}
+  style={leftAccentColor ? `border-left: 4px solid ${leftAccentColor};` : undefined}
+>
+  {stat && value !== undefined ? (
+    <>
+      <p class="text-[11px] font-medium text-neutral-500 uppercase tracking-[0.06em] mb-2 mt-0 font-body">
+        {label ?? heading}
+      </p>
+      <p class="text-[28px] font-bold text-brand-navy m-0 font-heading leading-tight">
+        {value}
+      </p>
+    </>
+  ) : (
+    <slot />
+  )}
 </div>

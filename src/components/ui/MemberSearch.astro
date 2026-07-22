@@ -39,55 +39,46 @@ const {
   error = '',
 } = Astro.props
 
-// Unique ID so multiple instances on the same page don't collide
 const uid = `ms-${name}-${Math.random().toString(36).slice(2, 8)}`
 ---
 
 <div
-  class="member-search-wrapper"
+  class="member-search-wrapper relative"
   data-uid={uid}
   data-status={statusFilter}
-  style="position: relative;"
 >
   <label
     for={uid + '-input'}
-    style="display: block; font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700); margin-bottom: 4px;"
+    class="block font-body text-[13px] font-medium text-neutral-700 mb-1"
   >
-    {label}{required && <span style="color: var(--color-danger-600); margin-left: 2px;">*</span>}
+    {label}{required && <span class="text-danger-600 ml-0.5">*</span>}
   </label>
 
-  <!-- Visible search input -->
   <input
     id={uid + '-input'}
     type="text"
-    class="member-search-input"
+    class={[
+      'member-search-input',
+      'w-full px-3 py-[10px] rounded-md font-body text-sm text-neutral-900 box-border',
+      'border',
+      error ? 'border-danger-400' : 'border-neutral-300',
+      'outline-none',
+    ].join(' ')}
     autocomplete="off"
     spellcheck="false"
     placeholder={placeholder}
     value={initialName}
-    style={`width: 100%; padding: 10px 12px; border: 1px solid ${error ? 'var(--color-danger-400)' : 'var(--color-neutral-300)'}; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-900); box-sizing: border-box;`}
   />
 
-  <!-- Hidden field submitted with the form -->
-  <input
-    type="hidden"
-    name={name}
-    class="member-search-value"
-    value={value}
-  />
+  <input type="hidden" name={name} class="member-search-value" value={value} />
 
-  <!-- Results dropdown -->
-  <ul
-    class="member-search-results"
-    role="listbox"
-    style="display: none; position: absolute; top: calc(100% + 2px); left: 0; right: 0; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); margin: 0; padding: 4px; list-style: none; max-height: 240px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 16px rgba(0,0,0,0.12);"
-  ></ul>
+  <ul class="member-search-results" role="listbox"></ul>
 
   {error && (
-    <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-600); margin: 4px 0 0;">{error}</p>
+    <p class="font-body text-xs text-danger-600 mt-1 mb-0">{error}</p>
   )}
 
-  <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 4px 0 0;">
+  <p class="font-body text-xs text-neutral-400 mt-1 mb-0">
     Type at least 3 characters to search
   </p>
 </div>
@@ -111,7 +102,7 @@ const uid = `ms-${name}-${Math.random().toString(36).slice(2, 8)}`
 
     function highlightItem(index: number) {
       getItems().forEach((el, i) => {
-        el.style.background = i === index ? 'var(--color-neutral-100)' : ''
+        el.classList.toggle('ms-result-item--highlighted', i === index)
       })
     }
 
@@ -139,7 +130,7 @@ const uid = `ms-${name}-${Math.random().toString(36).slice(2, 8)}`
 
       if (items.length === 0) {
         const li = document.createElement('li')
-        li.style.cssText = 'padding: 10px 12px; font-size: 13px; color: var(--color-neutral-400); font-family: var(--font-body);'
+        li.className = 'ms-no-results'
         li.textContent = 'No members found'
         results.appendChild(li)
         results.style.display = 'block'
@@ -150,14 +141,14 @@ const uid = `ms-${name}-${Math.random().toString(36).slice(2, 8)}`
         const li = document.createElement('li')
         li.dataset.id = item.id
         li.setAttribute('role', 'option')
-        li.style.cssText = 'padding: 10px 12px; cursor: pointer; border-radius: 6px; font-size: 14px; font-family: var(--font-body); color: var(--color-neutral-800);'
+        li.className = 'ms-result-item'
         li.textContent = item.full_name
         li.addEventListener('mouseenter', () => {
           activeIndex = Array.from(getItems()).indexOf(li)
           highlightItem(activeIndex)
         })
         li.addEventListener('mousedown', e => {
-          e.preventDefault() // prevent input blur before click fires
+          e.preventDefault()
           select(item.id, item.full_name)
         })
         results.appendChild(li)
@@ -210,7 +201,6 @@ const uid = `ms-${name}-${Math.random().toString(36).slice(2, 8)}`
       }
     })
 
-    // Close when focus leaves both the input and the results list
     input.addEventListener('blur', () => {
       setTimeout(() => {
         if (!wrapper.contains(document.activeElement)) closeResults()

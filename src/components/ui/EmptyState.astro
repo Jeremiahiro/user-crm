@@ -8,62 +8,23 @@ interface Props {
 const { heading, subtext, class: className = '' } = Astro.props
 ---
 
-<div
-  class={className}
-  style="
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 64px 32px;
-    text-align: center;
-  "
->
+<div class={`flex flex-col items-center justify-center py-16 px-8 text-center ${className}`}>
   <div
-    style="
-      width: 48px;
-      height: 48px;
-      border-radius: var(--radius-full);
-      background-color: var(--color-neutral-100);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 16px;
-      font-size: 20px;
-    "
+    class="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center mb-4 text-xl"
     aria-hidden="true"
   >
     ○
   </div>
 
-  <h3
-    style="
-      font-family: var(--font-heading);
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--color-neutral-900);
-      margin: 0 0 8px 0;
-    "
-  >
+  <h3 class="font-heading text-lg font-semibold text-neutral-900 mt-0 mb-2">
     {heading}
   </h3>
 
-  {
-    subtext && (
-      <p
-        style="
-          font-size: 14px;
-          color: var(--color-neutral-500);
-          margin: 0 0 24px 0;
-          max-width: 320px;
-          line-height: 1.6;
-          font-family: var(--font-body);
-        "
-      >
-        {subtext}
-      </p>
-    )
-  }
+  {subtext && (
+    <p class="text-sm text-neutral-500 mt-0 mb-6 max-w-[320px] leading-relaxed font-body">
+      {subtext}
+    </p>
+  )}
 
   <slot name="cta" />
 </div>

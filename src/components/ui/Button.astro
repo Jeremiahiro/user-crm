@@ -19,91 +19,38 @@ const {
   ...rest
 } = Astro.props
 
-const variantStyles: Record<string, string> = {
-  primary: `
-    background-color: var(--color-brand-navy);
-    color: white;
-    border: none;
-  `,
-  accent: `
-    background-color: var(--color-brand-gold);
-    color: var(--color-neutral-950);
-    border: none;
-  `,
-  secondary: `
-    background-color: white;
-    color: var(--color-neutral-900);
-    border: 1.5px solid var(--color-neutral-300);
-  `,
-  ghost: `
-    background-color: transparent;
-    color: var(--color-neutral-700);
-    border: none;
-  `,
-  danger: `
-    background-color: var(--color-danger-600);
-    color: white;
-    border: none;
-  `,
+const variantClasses: Record<string, string> = {
+  primary: 'bg-brand-navy text-white border-none',
+  accent: 'bg-brand-gold text-neutral-950 border-none',
+  secondary: 'bg-white text-neutral-900 border-[1.5px] border-neutral-300',
+  ghost: 'bg-transparent text-neutral-700 border-none',
+  danger: 'bg-danger-600 text-white border-none',
 }
 
-const sizeStyles: Record<string, string> = {
-  sm: `
-    height: 32px;
-    font-size: 13px;
-    padding: 6px 12px;
-  `,
-  md: `
-    height: 40px;
-    font-size: 14px;
-    padding: 10px 18px;
-  `,
-  lg: `
-    height: 48px;
-    font-size: 16px;
-    padding: 12px 24px;
-  `,
+const sizeClasses: Record<string, string> = {
+  sm: 'h-8 text-[13px] px-3',
+  md: 'h-10 text-sm px-[18px]',
+  lg: 'h-12 text-base px-6',
 }
 
-const baseStyle = `
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border-radius: var(--radius-md);
-  font-family: var(--font-body);
-  font-weight: 600;
-  cursor: ${disabled ? 'not-allowed' : 'pointer'};
-  opacity: ${disabled ? '0.4' : '1'};
-  text-decoration: none;
-  transition: opacity 0.15s, background-color 0.15s;
-  box-sizing: border-box;
-  white-space: nowrap;
-  ${variantStyles[variant] ?? variantStyles['primary']}
-  ${sizeStyles[size] ?? sizeStyles['md']}
-`
+const classes = [
+  'inline-flex items-center justify-center gap-1.5',
+  'rounded-md font-body font-semibold',
+  'no-underline whitespace-nowrap box-border',
+  'transition-[opacity,background-color] duration-150',
+  disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer',
+  variantClasses[variant] ?? variantClasses.primary,
+  sizeClasses[size] ?? sizeClasses.md,
+  className,
+].join(' ')
 ---
 
-{
-  href ? (
-    <a
-      href={disabled ? undefined : href}
-      style={baseStyle}
-      class={className}
-      aria-disabled={disabled}
-      {...rest}
-    >
-      <slot />
-    </a>
-  ) : (
-    <button
-      type={type}
-      style={baseStyle}
-      class={className}
-      disabled={disabled}
-      {...rest}
-    >
-      <slot />
-    </button>
-  )
-}
+{href ? (
+  <a href={disabled ? undefined : href} class={classes} aria-disabled={disabled} {...rest}>
+    <slot />
+  </a>
+) : (
+  <button type={type} class={classes} disabled={disabled} {...rest}>
+    <slot />
+  </button>
+)}

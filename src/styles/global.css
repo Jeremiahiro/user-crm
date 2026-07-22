@@ -1,5 +1,44 @@
 @import "tailwindcss";
 
+/* MemberSearch dropdown — styles needed here because items are created dynamically in JS */
+.member-search-results {
+  display: none;
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-md);
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.ms-result-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-family: var(--font-body);
+  color: var(--color-neutral-800);
+}
+
+.ms-result-item--highlighted {
+  background-color: var(--color-neutral-100);
+}
+
+.ms-no-results {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--color-neutral-400);
+  font-family: var(--font-body);
+}
+
 @theme {
   /* Brand */
   --color-brand-navy: #1A1A2E;
