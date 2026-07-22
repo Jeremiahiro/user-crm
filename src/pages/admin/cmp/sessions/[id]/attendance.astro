@@ -29,7 +29,6 @@ const { data: session } = await supabaseAdmin
 if (!session) return Astro.redirect('/admin/cmp/years')
 
 const programmeYearId = session.programme_year_id as string | null
-const programmeYear = (session as unknown as { cmp_programme_years: { id: string; name: string } | null }).cmp_programme_years
 
 // All active people — for mentor selector
 const { data: allPeople } = await supabaseAdmin

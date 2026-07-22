@@ -49,6 +49,7 @@ if (user?.person_id) {
 
 const icons: Record<string, string> = {
   grid: `<rect x="3" y="3" width="4" height="4"/><rect x="9" y="3" width="4" height="4"/><rect x="3" y="9" width="4" height="4"/><rect x="9" y="9" width="4" height="4"/>`,
+  briefcase: `<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>`,
   users: `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>`,
   layers: `<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>`,
   flag: `<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>`,
@@ -93,8 +94,7 @@ const navItems = {
     icon: "user-cog",
   },
   teams: { label: "Teams", href: "/admin/teams", icon: "layers" },
-  pillars: { label: "Pillars", href: "/admin/pillars", icon: "flag" },
-  committees: { label: "Committees", href: "/admin/committees", icon: "users" },
+  committees: { label: "Committees", href: "/admin/committees", icon: "briefcase" },
   cmp: { label: "CMP", href: "/admin/cmp", icon: "calendar" },
   trainings: {
     label: "Trainings",
@@ -111,8 +111,6 @@ const navItems = {
     icon: "file-text",
   },
   email: { label: "Email", href: "/admin/email", icon: "mail" },
-  roles: { label: "Roles", href: "/admin/roles", icon: "shield" },
-  positions: { label: "Positions", href: "/admin/positions", icon: "user-cog" },
   audit: { label: "Audit Log", href: "/admin/audit", icon: "file-text" },
   settings: { label: "Settings", href: "/admin/settings", icon: "settings" },
 };
@@ -126,8 +124,12 @@ const navSections: NavSection[] = isAdmin
           navItems.members,
           navItems.volunteers,
           navItems.onboarding,
+        ],
+      },
+      {
+        label: "Groups",
+        items: [
           navItems.teams,
-          navItems.pillars,
           navItems.committees,
         ],
       },
@@ -148,8 +150,6 @@ const navSections: NavSection[] = isAdmin
         label: "Admin",
         items: [
           navItems.email,
-          navItems.roles,
-          navItems.positions,
           navItems.audit,
           navItems.settings,
         ],
@@ -158,7 +158,7 @@ const navSections: NavSection[] = isAdmin
   : isMentor
     ? [
         { label: "Overview", items: [navItems.dashboard] },
-        { label: "People", items: [navItems.teams, navItems.pillars, navItems.committees] },
+        { label: "Groups", items: [navItems.teams, navItems.committees] },
         {
           label: "Programmes",
           items: [
@@ -171,7 +171,7 @@ const navSections: NavSection[] = isAdmin
       ]
     : [
         { label: "Overview", items: [navItems.dashboard] },
-        { label: "People", items: [navItems.teams, navItems.pillars, navItems.committees] },
+        { label: "Groups", items: [navItems.teams, navItems.committees] },
         {
           label: "Programmes",
           items: [navItems.trainings, navItems.awards, navItems.praise],
