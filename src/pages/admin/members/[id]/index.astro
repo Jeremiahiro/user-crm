@@ -87,7 +87,12 @@ type Due = { id: string; year: number; month: number; paid_at: string | null }
 const teamAssignments = (member.person_teams as TeamAssignment[]) ?? []
 const userRoles = (member.user_roles as UserRole[]) ?? []
 const tenures = (member.elected_position_tenures as Tenure[]) ?? []
-const dbsRecords = (member.dbs_records as DbsRecord[]) ?? []
+const dbsRecords = ((member.dbs_records as DbsRecord[]) ?? [])
+  .sort((a, b) => {
+    const da = a.clearance_date ? new Date(a.clearance_date).getTime() : 0
+    const db = b.clearance_date ? new Date(b.clearance_date).getTime() : 0
+    return db - da
+  })
 const dues = (member.dues as Due[]) ?? []
 
 const activeTenure = tenures.find(t => !t.term_end)
@@ -147,6 +152,14 @@ const praiseSlice = praise.slice((praisePageClamped - 1) * RECOG_PAGE_SIZE, prai
 const auditEntries = (memberAuditLog ?? []) as unknown as AuditEntry[]
 const teams = (allTeams ?? []) as { id: string; name: string }[]
 const roles = (allRoles ?? []) as { id: string; name: string }[]
+
+// Breadcrumb — derive from person_types so it survives tab changes and redirects
+const personTypes = (member.person_types ?? []) as string[]
+const breadcrumbParent = personTypes.includes('member')
+  ? { label: 'Members', href: '/admin/members' }
+  : personTypes.includes('volunteer')
+    ? { label: 'Volunteers', href: '/admin/volunteers' }
+    : { label: 'Members', href: '/admin/members' }
 const positions = (allPositions ?? []) as { id: string; title: string }[]
 
 const isLoginEnabled = (member.login_enabled as boolean | null) ?? false
@@ -200,7 +213,7 @@ const AWARD_LABELS: Record<string, string> = {
 
 const tabs = [
   { id: 'overview',    label: 'Overview' },
-  ...(canSeeAdminTabs ? [{ id: 'dues', label: 'Dues' }] : []),
+  ...(canSeeAdminTabs && !member.person_types?.includes('volunteer') ? [{ id: 'dues', label: 'Dues' }] : []),
   ...(canSeeAdminTabs ? [{ id: 'dbs', label: 'DBS' }] : []),
   ...(canSeeAdminTabs ? [{ id: 'roles', label: 'Teams & Roles' }] : []),
   { id: 'recognition', label: `Recognition${allAwards.length + allPraise.length > 0 ? ` (${allAwards.length + allPraise.length})` : ''}` },
@@ -224,9 +237,9 @@ const hasApplicationData = !!(
 )
 ---
 
-<DashboardLayout title={member.full_name as string}>
-  <div id="member-root" data-member-id={id}>
-    <Breadcrumb crumbs={[{ label: 'Members', href: '/admin/members' }, { label: member.full_name as string }]} />
+<DashboardLayout title={member.full_name as string} activeHref={breadcrumbParent.href}>
+  <div id="member-root" data-member-id={id} data-login-enabled={isLoginEnabled ? 'true' : 'false'} x-data="memberPage()">
+    <Breadcrumb crumbs={[breadcrumbParent, { label: member.full_name as string }]} />
     <!-- Member header -->
     <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--color-neutral-200);">
       <div style="display: flex; align-items: center; gap: 16px;">
@@ -260,12 +273,11 @@ const hasApplicationData = !!(
           <button
             id="login-access-btn"
             data-enabled={isLoginEnabled ? 'true' : 'false'}
-            data-person-id={id}
-            style={`padding: 8px 16px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid;
-              ${isLoginEnabled
-                ? 'background-color: var(--color-success-50); color: var(--color-success-700); border-color: var(--color-success-300);'
-                : 'background-color: var(--color-neutral-100); color: var(--color-neutral-500); border-color: var(--color-neutral-300);'}`}>
-            {isLoginEnabled ? '🔓 Login enabled' : '🔒 Login disabled'}
+            @click="toggleLogin()"
+            :disabled="loginLoading"
+            style="padding: 8px 16px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid;"
+            :style="loginEnabled ? 'background-color: var(--color-success-50); color: var(--color-success-700); border-color: var(--color-success-300);' : 'background-color: var(--color-neutral-100); color: var(--color-neutral-500); border-color: var(--color-neutral-300);'">
+            <span x-text="loginEnabled ? '🔓 Login enabled' : '🔒 Login disabled'">{isLoginEnabled ? '🔓 Login enabled' : '🔒 Login disabled'}</span>
           </button>
         )}
         {admin && (
@@ -282,18 +294,16 @@ const hasApplicationData = !!(
         )}
         {admin && !(member.is_archived as boolean) && (
           <button
-            id="archive-btn"
-            data-member-id={id}
             data-member-name={member.full_name as string}
+            @click="archive($el.dataset.memberName)"
             style="padding: 8px 16px; background-color: white; color: var(--color-danger-600); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
             Archive
           </button>
         )}
         {isSuperAdmin && (
           <button
-            id="delete-btn"
-            data-member-id={id}
             data-member-name={member.full_name as string}
+            @click="openDelete($el.dataset.memberName)"
             style="padding: 8px 16px; background-color: var(--color-danger-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;"
             title="Permanently remove this member and all their data from the system">
             Delete
@@ -326,7 +336,7 @@ const hasApplicationData = !!(
             <dl style="display: grid; grid-template-columns: 120px 1fr; gap: 10px 16px;">
               {[
                 ['Email', member.email],
-                ...(member.email_secondary ? [['Secondary email', member.email_secondary]] : []),
+                ['Secondary email', (member.email_secondary as string | null) ?? '—'],
                 ['Phone', (member.phone as string | null) ?? '—'],
                 ['Date of birth', fmtDob(member.date_of_birth as string | null, admin)],
                 ['Gender', (member.gender as string | null) ?? '—'],
@@ -406,7 +416,7 @@ const hasApplicationData = !!(
                     <option value="co_option">Co-option</option>
                   </select>
                 </div>
-                <button id="assign-position-btn" data-member-id={id}
+                <button @click="assignPosition()"
                   style="padding: 8px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
                   Assign
                 </button>
@@ -441,7 +451,7 @@ const hasApplicationData = !!(
             <div style="display: flex; flex-direction: column; gap: 14px;">
               {(member.intake_status as string | null) && (
                 <div style="display: flex; gap: 12px;">
-                  <span style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-500); min-width: 180px;">Intake status</span>
+                  <span style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-500); min-width: 180px;">Status</span>
                   <span style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800);">{member.intake_status as string}</span>
                 </div>
               )}
@@ -526,7 +536,7 @@ const hasApplicationData = !!(
                 <h3 style="font-family: var(--font-heading); font-size: 16px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">{year}</h3>
                 {!allPaid && (
                   <button
-                    class="pay-year-btn"
+                    @click="payYear($el.dataset.year, $el.dataset.unpaidMonths)"
                     data-year={year}
                     data-unpaid-months={unpaidMonths.join(',')}
                     style="padding: 6px 14px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; font-weight: 600; cursor: pointer;">
@@ -543,7 +553,7 @@ const hasApplicationData = !!(
                   const paid = yearDues.find(d => d.month === monthNum)
                   return (
                     <button
-                      class="due-btn"
+                      @click="toggleDue(parseInt($el.dataset.year), parseInt($el.dataset.month), $el.dataset.dueId)"
                       data-year={year}
                       data-month={monthNum}
                       data-due-id={paid?.id ?? ''}
@@ -612,7 +622,7 @@ const hasApplicationData = !!(
                         <a href={`/admin/members/${id}/dbs/${r.id}/edit`}
                            style="font-family: var(--font-body); font-size: 12px; color: var(--color-brand-navy); text-decoration: none; margin-right: 10px;">Edit</a>
                         {admin && (
-                          <button class="dbs-delete-btn" data-dbs-id={r.id}
+                          <button @click="deleteDbs($el.dataset.dbsId)" data-dbs-id={r.id}
                             style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-600); background: none; border: none; cursor: pointer; padding: 0;">
                             Delete
                           </button>
@@ -645,7 +655,7 @@ const hasApplicationData = !!(
                     {ta.teams.name}
                     {ta.teams.pillars && <span style="font-size: 11px; color: var(--color-neutral-400);">· {ta.teams.pillars.name}</span>}
                   </a>
-                  <button class="remove-team-btn" data-team-id={ta.teams.id}
+                  <button @click="removeFromTeam($el.dataset.teamId)" data-team-id={ta.teams.id}
                     style="background: none; border: none; cursor: pointer; padding: 6px 10px 6px 4px; color: var(--color-neutral-400); font-size: 14px; line-height: 1; border-radius: 0 var(--radius-full) var(--radius-full) 0;"
                     title="Remove from team">×</button>
                 </div>
@@ -668,7 +678,7 @@ const hasApplicationData = !!(
                 <input type="checkbox" id="team-lead-check" style="width: 14px; height: 14px; accent-color: var(--color-brand-gold);" />
                 Team lead
               </label>
-              <button id="add-team-btn"
+              <button @click="addTeam()"
                 style="padding: 7px 14px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
                 Add
               </button>
@@ -686,7 +696,7 @@ const hasApplicationData = !!(
                     {ur.roles.name}
                   </span>
                   {isSuperAdmin && (
-                    <button class="remove-role-btn" data-role-id={ur.roles.id}
+                    <button @click="revokeRole($el.dataset.roleId)" data-role-id={ur.roles.id}
                       style="background: none; border: none; cursor: pointer; padding: 6px 10px 6px 2px; color: rgba(255,255,255,0.7); font-size: 14px; line-height: 1;"
                       title={`Revoke ${ur.roles.name}`}>×</button>
                   )}
@@ -706,7 +716,7 @@ const hasApplicationData = !!(
                   <option value={r.id}>{r.name}</option>
                 ))}
               </select>
-              <button id="add-role-btn"
+              <button @click="assignRole()"
                 style="padding: 7px 14px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
                 Assign
               </button>
@@ -949,207 +959,283 @@ const hasApplicationData = !!(
       </div>
     )}
 
-    <!-- ─── Single consolidated script — NO define:vars (avoids IIFE scope trap) ── -->
+    <!-- ─── Alpine: confirm modal ───────────────────────────────────── -->
+    <div x-show="modal.open" x-cloak style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; background: rgba(0,0,0,0.45);">
+      <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;" @click.self="modal.pending || (modal.open = false)">
+        <div style="background: white; border-radius: var(--radius-lg); padding: 28px 32px; max-width: 420px; width: calc(100% - 48px); box-shadow: 0 24px 64px rgba(0,0,0,0.2);">
+          <h3 x-text="modal.title" style="font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 10px;"></h3>
+          <p x-text="modal.body" style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-600); margin: 0 0 28px; white-space: pre-line; line-height: 1.6;"></p>
+          <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button
+              @click="modal.open = false"
+              :disabled="modal.pending"
+              style="padding: 9px 20px; background: white; color: var(--color-neutral-700); border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer;">
+              Cancel
+            </button>
+            <button
+              @click="doConfirm()"
+              :disabled="modal.pending"
+              :style="{
+                background: modal.danger ? 'var(--color-danger-600)' : 'var(--color-brand-navy)',
+                color: 'white',
+                padding: '9px 20px',
+                border: 'none',
+                borderRadius: 'var(--radius-md)',
+                fontFamily: 'var(--font-body)',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                minWidth: '100px'
+              }">
+              <span x-text="modal.pending ? 'Please wait…' : modal.confirmText"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Alpine: permanent delete modal ───────────────────────── -->
+    <div
+      x-show="deleteModal.open"
+      style="display:none; position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.45);"
+      @click.self="deleteModal.pending || (deleteModal.open = false)"
+    >
+      <div style="background: white; border-radius: var(--radius-lg); padding: 28px; max-width: 480px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.25);">
+        <h3 style="font-family: var(--font-heading); font-size: 17px; font-weight: 700; color: var(--color-danger-700); margin: 0 0 10px;">⚠ Permanent Delete</h3>
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-600); margin: 0 0 6px;">
+          This will remove <strong x-text="deleteModal.memberName"></strong> and all their data.
+          <strong>This cannot be undone.</strong>
+        </p>
+        <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0 0 14px;">Type the member's full name to confirm:</p>
+        <input
+          x-model="deleteModal.inputName"
+          type="text"
+          placeholder="Full name"
+          style="width: 100%; padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; margin-bottom: 20px; box-sizing: border-box;" />
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button
+            @click="deleteModal.open = false; deleteModal.inputName = ''"
+            :disabled="deleteModal.pending"
+            style="padding: 8px 16px; background: var(--color-neutral-100); color: var(--color-neutral-700); border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; cursor: pointer;">
+            Cancel
+          </button>
+          <button
+            @click="doDelete()"
+            :disabled="deleteModal.inputName.trim() !== deleteModal.memberName || deleteModal.pending"
+            style="padding: 8px 16px; background: var(--color-danger-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+            <span x-text="deleteModal.pending ? 'Deleting…' : 'Permanently Delete'"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <script is:inline>
-      (function () {
+      window.memberPage = function () {
         var root = document.getElementById('member-root')
-        var memberId = root ? root.dataset.memberId : ''
-
-        // ── Login access toggle ──────────────────────────────────────
         var loginBtn = document.getElementById('login-access-btn')
-        if (loginBtn) {
-          loginBtn.addEventListener('click', function () {
-            var enabled = loginBtn.dataset.enabled === 'true'
-            var label = enabled ? 'disable' : 'enable'
-            if (!confirm(label.charAt(0).toUpperCase() + label.slice(1) + ' login access for this member?')) return
-            loginBtn.disabled = true
-            fetch('/api/members/' + memberId + '/login-access', {
-              method: 'POST',
+        return {
+          memberId: root ? root.dataset.memberId : '',
+          loginEnabled: root ? root.dataset.loginEnabled === 'true' : false,
+          loginLoading: false,
+
+          // ── Generic confirm modal ──────────────────────────────────
+          modal: { open: false, title: '', body: '', confirmText: 'Confirm', danger: true, pending: false, onConfirm: null },
+
+          openConfirm: function (title, body, onConfirm, opts) {
+            this.modal = {
+              open: true, title: title, body: body,
+              confirmText: (opts && opts.confirmText) ? opts.confirmText : 'Confirm',
+              danger: opts ? opts.danger !== false : true,
+              pending: false, onConfirm: onConfirm,
+            }
+          },
+
+          doConfirm: async function () {
+            this.modal.pending = true
+            try { await this.modal.onConfirm() } finally { this.modal.pending = false; this.modal.open = false }
+          },
+
+          // ── Permanent delete modal ─────────────────────────────────
+          deleteModal: { open: false, memberName: '', inputName: '', pending: false },
+
+          openDelete: function (memberName) {
+            this.deleteModal = { open: true, memberName: memberName, inputName: '', pending: false }
+          },
+
+          doDelete: async function () {
+            if (this.deleteModal.inputName.trim() !== this.deleteModal.memberName) {
+              alert('Name did not match. Type exactly: ' + this.deleteModal.memberName)
+              return
+            }
+            this.deleteModal.pending = true
+            var r = await fetch('/api/members/' + this.memberId + '?action=permanent', { method: 'DELETE' })
+            this.deleteModal.pending = false
+            if (r.ok) { window.location.href = '/admin/members' }
+            else { var e = await r.json(); alert(e.error || 'Failed to delete member') }
+          },
+
+          // ── Login access toggle ────────────────────────────────────
+          toggleLogin: function () {
+            var self = this
+            var newVal = !this.loginEnabled
+            this.openConfirm(
+              (newVal ? 'Enable' : 'Disable') + ' login access',
+              (newVal ? 'Enable' : 'Disable') + ' login access for this member?',
+              async function () {
+                self.loginLoading = true
+                var r = await fetch('/api/members/' + self.memberId + '/login-access', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ enabled: newVal }),
+                })
+                self.loginLoading = false
+                if (r.ok) { self.loginEnabled = newVal }
+                else { var e = await r.json(); alert(e.error || 'Failed to update login access') }
+              },
+              { confirmText: newVal ? 'Enable' : 'Disable', danger: false }
+            )
+          },
+
+          // ── Archive ────────────────────────────────────────────────
+          archive: function (memberName) {
+            var self = this
+            this.openConfirm(
+              'Archive ' + memberName,
+              'Archive ' + memberName + '? They will no longer appear in active lists.\n\nNote: you cannot archive a member with an active elected tenure.',
+              async function () {
+                var r = await fetch('/api/members/' + self.memberId, { method: 'DELETE' })
+                if (r.ok) { window.location.href = '/admin/members' }
+                else { var e = await r.json(); alert(e.error || 'Failed to archive member') }
+              },
+              { confirmText: 'Archive' }
+            )
+          },
+
+          // ── Pay all dues for year ──────────────────────────────────
+          payYear: function (yearStr, unpaidStr) {
+            var self = this
+            var year = parseInt(yearStr, 10)
+            var months = (unpaidStr || '').split(',').map(Number).filter(Boolean)
+            if (!months.length) return
+            this.openConfirm(
+              'Mark all paid — ' + year,
+              'Mark all ' + months.length + ' unpaid month' + (months.length === 1 ? '' : 's') + ' for ' + year + ' as paid?',
+              async function () {
+                await Promise.all(months.map(function (month) {
+                  return fetch('/api/members/' + self.memberId + '/dues', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ year: year, month: month }),
+                  })
+                }))
+                window.location.reload()
+              },
+              { confirmText: 'Mark all paid', danger: false }
+            )
+          },
+
+          // ── Individual due toggle ──────────────────────────────────
+          toggleDue: async function (year, month, dueId) {
+            var url = dueId
+              ? '/api/members/' + this.memberId + '/dues/' + dueId
+              : '/api/members/' + this.memberId + '/dues'
+            var r = await fetch(url, {
+              method: dueId ? 'DELETE' : 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ enabled: !enabled }),
-            }).then(function (r) {
-              if (r.ok) { window.location.reload() }
-              else { r.json().then(function (e) { alert(e.error || 'Failed to update login access') }) }
+              body: dueId ? undefined : JSON.stringify({ year: year, month: month }),
             })
-          })
-        }
+            if (r.ok) { window.location.reload() }
+            else { var e = await r.json(); alert(e.error || 'Failed to update dues') }
+          },
 
-        // ── Archive ──────────────────────────────────────────────────
-        var archiveBtn = document.getElementById('archive-btn')
-        if (archiveBtn) {
-          archiveBtn.addEventListener('click', function () {
-            var name = archiveBtn.dataset.memberName
-            if (!confirm('Archive ' + name + '? They will no longer appear in active lists.\n\nNote: you cannot archive a member with an active elected tenure.')) return
-            archiveBtn.disabled = true
-            archiveBtn.textContent = 'Archiving…'
-            fetch('/api/members/' + memberId, { method: 'DELETE' }).then(function (r) {
-              if (r.ok) { window.location.href = '/admin/members' }
-              else { r.json().then(function (e) { alert(e.error || 'Failed to archive member'); archiveBtn.disabled = false; archiveBtn.textContent = 'Archive' }) }
-            })
-          })
-        }
-
-        // ── Delete (Super Admin) ─────────────────────────────────────
-        var deleteBtn = document.getElementById('delete-btn')
-        if (deleteBtn) {
-          deleteBtn.addEventListener('click', function () {
-            var name = deleteBtn.dataset.memberName
-            var confirmed = window.prompt('⚠ PERMANENT DELETE\n\nThis will remove ' + name + ' and all their data. This cannot be undone.\n\nType the member\'s full name to confirm:')
-            if (confirmed === null) return
-            if (confirmed.trim() !== name) { alert('Name didn\'t match. Type exactly: ' + name); return }
-            deleteBtn.disabled = true
-            deleteBtn.textContent = 'Deleting…'
-            fetch('/api/members/' + memberId + '?action=permanent', { method: 'DELETE' }).then(function (r) {
-              if (r.ok) { window.location.href = '/admin/members' }
-              else { r.json().then(function (e) { alert(e.error || 'Failed to delete member'); deleteBtn.disabled = false; deleteBtn.textContent = 'Delete' }) }
-            })
-          })
-        }
-
-        // ── Pay all months for year ──────────────────────────────────
-        document.querySelectorAll('.pay-year-btn').forEach(function (btn) {
-          btn.addEventListener('click', function () {
-            var year = parseInt(btn.dataset.year, 10)
-            var unpaid = (btn.dataset.unpaidMonths || '').split(',').map(Number).filter(Boolean)
-            if (unpaid.length === 0) return
-            if (!confirm('Mark all ' + unpaid.length + ' unpaid months for ' + year + ' as paid?')) return
-            btn.disabled = true
-            btn.textContent = 'Saving…'
-            var promises = unpaid.map(function (month) {
-              return fetch('/api/members/' + memberId + '/dues', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ year: year, month: month }),
-              })
-            })
-            Promise.all(promises).then(function () { window.location.reload() })
-              .catch(function () { alert('Some months may not have saved. Reloading…'); window.location.reload() })
-          })
-        })
-
-        // ── Dues toggle ──────────────────────────────────────────────
-        document.querySelectorAll('.due-btn').forEach(function (btn) {
-          btn.addEventListener('click', function () {
-            var year = parseInt(btn.dataset.year, 10)
-            var month = parseInt(btn.dataset.month, 10)
-            var existingId = btn.dataset.dueId || null
-            var url = existingId
-              ? '/api/members/' + memberId + '/dues/' + existingId
-              : '/api/members/' + memberId + '/dues'
-            btn.disabled = true
-            fetch(url, {
-              method: existingId ? 'DELETE' : 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: existingId ? undefined : JSON.stringify({ year: year, month: month }),
-            }).then(function (r) {
-              if (r.ok) { window.location.reload() }
-              else { r.json().then(function (e) { alert(e.error || 'Failed to update dues'); btn.disabled = false }) }
-            })
-          })
-        })
-
-        // ── Add to team ──────────────────────────────────────────────
-        var addTeamBtn = document.getElementById('add-team-btn')
-        if (addTeamBtn) {
-          addTeamBtn.addEventListener('click', function () {
+          // ── Add to team ────────────────────────────────────────────
+          addTeam: async function () {
             var sel = document.getElementById('team-select')
             var teamId = sel ? sel.value : ''
             if (!teamId) { alert('Please select a team first.'); return }
             var isLead = document.getElementById('team-lead-check') ? document.getElementById('team-lead-check').checked : false
-            addTeamBtn.disabled = true
-            fetch('/api/members/' + memberId + '/teams', {
+            var r = await fetch('/api/members/' + this.memberId + '/teams', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ team_id: teamId, is_team_lead: isLead }),
-            }).then(function (r) {
-              if (r.ok) { window.location.reload() }
-              else { r.json().then(function (e) { alert(e.error || 'Failed to add to team'); addTeamBtn.disabled = false }) }
             })
-          })
-        }
+            if (r.ok) { window.location.reload() }
+            else { var e = await r.json(); alert(e.error || 'Failed to add to team') }
+          },
 
-        // ── Remove from team ─────────────────────────────────────────
-        document.querySelectorAll('.remove-team-btn').forEach(function (btn) {
-          btn.addEventListener('click', function () {
-            var teamId = btn.dataset.teamId
-            if (!confirm('Remove this member from the team?')) return
-            btn.disabled = true
-            fetch('/api/members/' + memberId + '/teams?team_id=' + teamId, { method: 'DELETE' }).then(function (r) {
-              if (r.ok) { window.location.reload() }
-              else { r.json().then(function (e) { alert(e.error || 'Failed to remove from team'); btn.disabled = false }) }
-            })
-          })
-        })
+          // ── Remove from team ───────────────────────────────────────
+          removeFromTeam: function (teamId) {
+            var self = this
+            this.openConfirm(
+              'Remove from team',
+              'Remove this member from the team?',
+              async function () {
+                var r = await fetch('/api/members/' + self.memberId + '/teams?team_id=' + teamId, { method: 'DELETE' })
+                if (r.ok) { window.location.reload() }
+                else { var e = await r.json(); alert(e.error || 'Failed to remove from team') }
+              }
+            )
+          },
 
-        // ── Assign role ──────────────────────────────────────────────
-        var addRoleBtn = document.getElementById('add-role-btn')
-        if (addRoleBtn) {
-          addRoleBtn.addEventListener('click', function () {
+          // ── Assign role ────────────────────────────────────────────
+          assignRole: async function () {
             var sel = document.getElementById('role-select')
             var roleId = sel ? sel.value : ''
             if (!roleId) { alert('Please select a role first.'); return }
-            addRoleBtn.disabled = true
-            fetch('/api/members/' + memberId + '/roles', {
+            var r = await fetch('/api/members/' + this.memberId + '/roles', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ role_id: roleId }),
-            }).then(function (r) {
-              if (r.ok) { window.location.reload() }
-              else { r.json().then(function (e) { alert(e.error || 'Failed to assign role'); addRoleBtn.disabled = false }) }
             })
-          })
-        }
+            if (r.ok) { window.location.reload() }
+            else { var e = await r.json(); alert(e.error || 'Failed to assign role') }
+          },
 
-        // ── Revoke role ──────────────────────────────────────────────
-        document.querySelectorAll('.remove-role-btn').forEach(function (btn) {
-          btn.addEventListener('click', function () {
-            var roleId = btn.dataset.roleId
-            if (!confirm('Revoke this role from the member?')) return
-            btn.disabled = true
-            fetch('/api/members/' + memberId + '/roles?role_id=' + roleId, { method: 'DELETE' }).then(function (r) {
-              if (r.ok) { window.location.reload() }
-              else { r.json().then(function (e) { alert(e.error || 'Failed to revoke role'); btn.disabled = false }) }
-            })
-          })
-        })
+          // ── Revoke role ────────────────────────────────────────────
+          revokeRole: function (roleId) {
+            var self = this
+            this.openConfirm(
+              'Revoke role',
+              'Revoke this role from the member?',
+              async function () {
+                var r = await fetch('/api/members/' + self.memberId + '/roles?role_id=' + roleId, { method: 'DELETE' })
+                if (r.ok) { window.location.reload() }
+                else { var e = await r.json(); alert(e.error || 'Failed to revoke role') }
+              }
+            )
+          },
 
-        // ── Delete DBS record ────────────────────────────────────────
-        document.querySelectorAll('.dbs-delete-btn').forEach(function (btn) {
-          btn.addEventListener('click', function () {
-            var dbsId = btn.dataset.dbsId
-            if (!confirm('Delete this DBS record? This action cannot be undone.')) return
-            btn.disabled = true
-            fetch('/api/dbs/' + dbsId, { method: 'DELETE' }).then(function (r) {
-              if (r.ok) { window.location.reload() }
-              else { r.json().then(function (e) { alert(e.error || 'Failed to delete DBS record'); btn.disabled = false }) }
-            })
-          })
-        })
+          // ── Delete DBS record ──────────────────────────────────────
+          deleteDbs: function (dbsId) {
+            var self = this
+            this.openConfirm(
+              'Delete DBS record',
+              'Delete this DBS record? This action cannot be undone.',
+              async function () {
+                var r = await fetch('/api/dbs/' + dbsId, { method: 'DELETE' })
+                if (r.ok) { window.location.reload() }
+                else { var e = await r.json(); alert(e.error || 'Failed to delete DBS record') }
+              }
+            )
+          },
 
-        // ── Assign elected position ──────────────────────────────────
-        var assignPositionBtn = document.getElementById('assign-position-btn')
-        if (assignPositionBtn) {
-          assignPositionBtn.addEventListener('click', function () {
-            var posSelect = document.getElementById('position-select')
-            var positionId = posSelect ? posSelect.value : ''
+          // ── Assign elected position ────────────────────────────────
+          assignPosition: async function () {
+            var positionId = document.getElementById('position-select') ? document.getElementById('position-select').value : ''
             var termStart = document.getElementById('position-term-start') ? document.getElementById('position-term-start').value : ''
             var electedBy = document.getElementById('position-elected-by') ? document.getElementById('position-elected-by').value : 'chapter_vote'
             if (!positionId) { alert('Please select a position first.'); return }
             if (!termStart) { alert('Please enter a term start date.'); return }
-            assignPositionBtn.disabled = true
-            assignPositionBtn.textContent = 'Assigning…'
-            fetch('/api/positions/' + positionId + '/assign', {
+            var r = await fetch('/api/positions/' + positionId + '/assign', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ person_id: memberId, term_start: termStart, elected_by: electedBy }),
-            }).then(function (r) {
-              if (r.ok) { window.location.reload() }
-              else { r.json().then(function (e) { alert(e.error || 'Failed to assign position'); assignPositionBtn.disabled = false; assignPositionBtn.textContent = 'Assign' }) }
+              body: JSON.stringify({ person_id: this.memberId, term_start: termStart, elected_by: electedBy }),
             })
-          })
+            if (r.ok) { window.location.reload() }
+            else { var e = await r.json(); alert(e.error || 'Failed to assign position') }
+          },
         }
-
-      })()
+      }
     </script>
 
   </div>

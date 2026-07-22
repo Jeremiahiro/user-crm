@@ -27,7 +27,7 @@ let successCount = 0
 
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData()
-  const recipientIds = (form.getAll('recipient_id') as string[]).filter(Boolean)
+  const recipientIds = (form.getAll('recipient_ids[]') as string[]).filter(Boolean)
   const message = (form.get('message') as string ?? '').trim()
 
   const res = await fetch(`${Astro.url.origin}/api/praise`, {
@@ -74,7 +74,44 @@ const initialName = memberName
       </div>
     )}
 
-    <form method="POST" id="praise-form" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+    <form
+      method="POST"
+      id="praise-form"
+      x-data={`{
+        recipients: ${JSON.stringify(initialId ? [{ id: initialId, full_name: initialName }] : [])},
+        search: '',
+        results: [],
+        open: false,
+        showError: false,
+        debounceTimer: null,
+        doSearch() {
+          const q = this.search.trim();
+          if (q.length < 3) { this.results = []; this.open = false; return; }
+          clearTimeout(this.debounceTimer);
+          this.debounceTimer = setTimeout(async () => {
+            try {
+              const res = await fetch('/api/members?q=' + encodeURIComponent(q) + '&status=active,approved');
+              const j = await res.json();
+              const existing = new Set(this.recipients.map(r => r.id));
+              this.results = (j.data || []).filter(m => !existing.has(m.id)).slice(0, 10);
+              this.open = this.results.length > 0;
+            } catch { this.results = []; this.open = false; }
+          }, 300);
+        },
+        select(r) {
+          if (!this.recipients.find(x => x.id === r.id)) { this.recipients.push(r); }
+          this.search = '';
+          this.results = [];
+          this.open = false;
+          this.showError = false;
+        },
+        remove(id) {
+          this.recipients = this.recipients.filter(r => r.id !== id);
+        }
+      }`}
+      @submit.prevent="if (recipients.length === 0) { showError = true } else { $el.submit() }"
+      style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;"
+    >
       <input type="hidden" name="return_to" value={returnTo} />
 
       <!-- Recipients -->
@@ -83,30 +120,49 @@ const initialName = memberName
           Recognising <span style="color: var(--color-danger-600);">*</span>
         </label>
 
-        <div id="recipients-container" style="display: flex; flex-direction: column; gap: 8px;">
-          <!-- First recipient — pre-filled if coming from a member profile -->
-          <div class="recipient-field" style="display: flex; align-items: flex-start; gap: 8px;">
-            <div style="flex: 1; position: relative;">
-              <input
-                type="text"
-                class="search-input"
-                autocomplete="off"
-                spellcheck="false"
-                placeholder="Type at least 3 characters…"
-                value={initialName}
-                style="width: 100%; padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; box-sizing: border-box;"
-              />
-              <input type="hidden" name="recipient_id" class="search-value" value={initialId} />
-              <ul class="search-results" style="display:none; position:absolute; top:calc(100% + 2px); left:0; right:0; background:white; border:1px solid var(--color-neutral-200); border-radius:var(--radius-md); margin:0; padding:4px; list-style:none; max-height:220px; overflow-y:auto; z-index:100; box-shadow:0 4px 16px rgba(0,0,0,0.12);"></ul>
-            </div>
-          </div>
+        <!-- Selected recipient chips -->
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
+          <template x-for="r in recipients" :key="r.id">
+            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--color-brand-navy); color: white; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 13px; font-weight: 500;">
+              <span x-text="r.full_name"></span>
+              <button type="button" @click="remove(r.id)" style="background: none; border: none; color: white; cursor: pointer; padding: 0; line-height: 1; font-size: 14px; opacity: 0.8;">&times;</button>
+              <input type="hidden" name="recipient_ids[]" :value="r.id" />
+            </span>
+          </template>
         </div>
 
-        <button type="button" id="add-recipient-btn"
-          style="margin-top: 8px; background: none; border: none; padding: 0; font-family: var(--font-body); font-size: 13px; color: var(--color-brand-navy); cursor: pointer; text-decoration: underline;">
-          + Add another recipient
-        </button>
-        <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 4px 0 0;">Type at least 3 characters to search</p>
+        <!-- Search input -->
+        <div style="position: relative;">
+          <input
+            type="text"
+            x-model="search"
+            @input="doSearch()"
+            @blur="setTimeout(() => { open = false }, 150)"
+            @keydown.escape="open = false; search = ''; results = []"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Type at least 3 characters to search…"
+            style="width: 100%; padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; box-sizing: border-box;"
+          />
+          <!-- Dropdown results -->
+          <ul
+            x-show="open && results.length"
+            style="position: absolute; top: calc(100% + 2px); left: 0; right: 0; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); margin: 0; padding: 4px; list-style: none; max-height: 220px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 16px rgba(0,0,0,0.12);"
+          >
+            <template x-for="r in results" :key="r.id">
+              <li
+                @mousedown.prevent="select(r)"
+                style="padding: 10px 12px; cursor: pointer; border-radius: 6px; font-size: 14px; font-family: var(--font-body); color: var(--color-neutral-800);"
+                @mouseenter="$el.style.background='var(--color-neutral-100)'"
+                @mouseleave="$el.style.background=''"
+                x-text="r.full_name"
+              ></li>
+            </template>
+          </ul>
+        </div>
+
+        <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 4px 0 0;">Type at least 3 characters to search for a member</p>
+        <p x-show="showError" style="font-family: var(--font-body); font-size: 13px; color: var(--color-danger-600); margin: 6px 0 0;">Please select at least one recipient.</p>
       </div>
 
       <!-- Message -->
@@ -131,128 +187,3 @@ const initialName = memberName
     </form>
   </div>
 </DashboardLayout>
-
-<script is:inline>
-  // ── Member search logic ───────────────────────────────────────────────────
-
-  function attachSearch(field) {
-    var input   = field.querySelector('.search-input')
-    var hidden  = field.querySelector('.search-value')
-    var results = field.querySelector('.search-results')
-    if (!input || !hidden || !results) return
-
-    var debounceTimer
-    var activeIndex = -1
-    var currentItems = []
-
-    function getItems() { return results.querySelectorAll('li[data-id]') }
-
-    function highlight(idx) {
-      getItems().forEach(function(el, i) {
-        el.style.background = i === idx ? 'var(--color-neutral-100)' : ''
-      })
-    }
-
-    function selectItem(id, name) {
-      hidden.value = id
-      input.value  = name
-      close()
-    }
-
-    function close() {
-      results.style.display = 'none'
-      results.innerHTML = ''
-      activeIndex = -1
-      currentItems = []
-    }
-
-    function render(items) {
-      results.innerHTML = ''
-      activeIndex = -1
-      currentItems = items
-
-      if (items.length === 0) {
-        var li = document.createElement('li')
-        li.style.cssText = 'padding:10px 12px;font-size:13px;color:var(--color-neutral-400);font-family:var(--font-body);'
-        li.textContent = 'No members found'
-        results.appendChild(li)
-        results.style.display = 'block'
-        return
-      }
-
-      items.forEach(function(item, idx) {
-        var li = document.createElement('li')
-        li.dataset.id = item.id
-        li.style.cssText = 'padding:10px 12px;cursor:pointer;border-radius:6px;font-size:14px;font-family:var(--font-body);color:var(--color-neutral-800);'
-        li.textContent = item.full_name
-        li.addEventListener('mouseenter', function() { activeIndex = idx; highlight(idx) })
-        li.addEventListener('mousedown', function(e) { e.preventDefault(); selectItem(item.id, item.full_name) })
-        results.appendChild(li)
-      })
-      results.style.display = 'block'
-    }
-
-    input.addEventListener('input', function() {
-      var q = input.value.trim()
-      hidden.value = ''
-      clearTimeout(debounceTimer)
-      if (q.length < 3) { close(); return }
-      debounceTimer = setTimeout(function() {
-        fetch('/api/members?q=' + encodeURIComponent(q) + '&status=active,approved')
-          .then(function(r) { return r.json() })
-          .then(function(j) { render((j.data || []).slice(0, 10)) })
-          .catch(function() { close() })
-      }, 300)
-    })
-
-    input.addEventListener('keydown', function(e) {
-      var items = getItems()
-      if (e.key === 'ArrowDown') { e.preventDefault(); activeIndex = Math.min(activeIndex + 1, items.length - 1); highlight(activeIndex) }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); activeIndex = Math.max(activeIndex - 1, 0); highlight(activeIndex) }
-      else if (e.key === 'Enter' && activeIndex >= 0 && currentItems[activeIndex]) { e.preventDefault(); selectItem(currentItems[activeIndex].id, currentItems[activeIndex].full_name) }
-      else if (e.key === 'Escape') { close() }
-    })
-
-    input.addEventListener('blur', function() {
-      setTimeout(function() { if (!field.contains(document.activeElement)) close() }, 150)
-    })
-  }
-
-  // Attach to initial field
-  document.querySelectorAll('.recipient-field').forEach(attachSearch)
-
-  // ── Add / remove recipients ───────────────────────────────────────────────
-
-  document.getElementById('add-recipient-btn').addEventListener('click', function() {
-    var container = document.getElementById('recipients-container')
-
-    var field = document.createElement('div')
-    field.className = 'recipient-field'
-    field.style.cssText = 'display:flex;align-items:flex-start;gap:8px;'
-    field.innerHTML = '<div style="flex:1;position:relative;">'
-      + '<input type="text" class="search-input" autocomplete="off" spellcheck="false" placeholder="Type at least 3 characters…" '
-      + 'style="width:100%;padding:10px 12px;border:1px solid var(--color-neutral-300);border-radius:var(--radius-md);font-family:var(--font-body);font-size:14px;box-sizing:border-box;"/>'
-      + '<input type="hidden" name="recipient_id" class="search-value" value=""/>'
-      + '<ul class="search-results" style="display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;background:white;border:1px solid var(--color-neutral-200);border-radius:var(--radius-md);margin:0;padding:4px;list-style:none;max-height:220px;overflow-y:auto;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.12);"></ul>'
-      + '</div>'
-      + '<button type="button" style="padding:9px 10px;background:var(--color-neutral-100);border:1px solid var(--color-neutral-200);border-radius:var(--radius-md);font-size:14px;cursor:pointer;color:var(--color-neutral-500);line-height:1;flex-shrink:0;" title="Remove">&times;</button>'
-
-    // Remove button
-    field.querySelector('button').addEventListener('click', function() { field.remove() })
-
-    container.appendChild(field)
-    attachSearch(field)
-    field.querySelector('.search-input').focus()
-  })
-
-  // ── Validate before submit ────────────────────────────────────────────────
-
-  document.getElementById('praise-form').addEventListener('submit', function(e) {
-    var values = Array.from(document.querySelectorAll('.search-value')).map(function(el) { return el.value.trim() })
-    var filled = values.filter(Boolean)
-    if (filled.length === 0) {
-      e.preventDefault()
-      alert('Please select at least one recipient.')
-    }
-  })
-</script>

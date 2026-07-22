@@ -44,8 +44,32 @@ if (Astro.request.method === 'POST') {
 }
 ---
 
+<style>
+  [x-cloak] { display: none !important; }
+</style>
+
 <DashboardLayout title={`Edit ${pillar.name}`}>
-  <div style="max-width: 600px;">
+  <div style="max-width: 600px;" x-data={`{
+    modal: { open: false, action: '' },
+    pillarId: ${JSON.stringify(id)},
+    async doAction() {
+      if (this.modal.action === 'archive') {
+        const res = await fetch('/api/pillars/' + this.pillarId, { method: 'DELETE' })
+        const b = await res.json()
+        if (res.ok) window.location.href = '/admin/pillars'
+        else { alert(b.error ?? 'Failed to archive pillar.'); this.modal.open = false }
+      } else if (this.modal.action === 'restore') {
+        const res = await fetch('/api/pillars/' + this.pillarId, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_active: true })
+        })
+        const b = await res.json()
+        if (res.ok) window.location.href = '/admin/pillars'
+        else { alert(b.error ?? 'Failed to restore pillar.'); this.modal.open = false }
+      }
+    }
+  }`}>
     <Breadcrumb crumbs={[{ label: 'Pillars', href: '/admin/pillars' }, { label: pillar.name as string, href: '/admin/pillars' }, { label: 'Edit' }]} />
 
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
@@ -83,7 +107,7 @@ if (Astro.request.method === 'POST') {
         <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); margin: 0 0 16px; line-height: 1.5;">
           Archiving removes this pillar from active lists. It cannot be archived while it has active teams assigned.
         </p>
-        <button id="btn-archive"
+        <button type="button" @click="modal.open = true; modal.action = 'archive'"
           style="padding: 8px 16px; background-color: white; color: var(--color-danger-600); border: 1px solid var(--color-danger-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
           Archive pillar
         </button>
@@ -96,44 +120,33 @@ if (Astro.request.method === 'POST') {
         <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); margin: 0 0 16px; line-height: 1.5;">
           This pillar is archived and hidden from active lists. Restore it to make it active again.
         </p>
-        <button id="btn-unarchive"
+        <button type="button" @click="modal.open = true; modal.action = 'restore'"
           style="padding: 8px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
           Restore pillar
         </button>
       </div>
     )}
+
+    <!-- Archive/restore confirm modal -->
+    <div x-show="modal.open" x-cloak @click="modal.open = false"
+      style="position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+      <div @click.stop style="background: white; border-radius: var(--radius-lg); padding: 28px 32px; max-width: 380px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.2);">
+        <p x-text="modal.action === 'archive' ? 'Archive this pillar?' : 'Restore this pillar?'"
+          style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-neutral-800); margin: 0 0 6px;"></p>
+        <p x-text="modal.action === 'archive' ? 'It will be hidden from active lists but can be restored at any time.' : 'It will become active and visible in the list again.'"
+          style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); margin: 0 0 20px; line-height: 1.5;"></p>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button @click="modal.open = false"
+            style="padding: 8px 16px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; color: var(--color-neutral-700);">
+            Cancel
+          </button>
+          <button @click="doAction()"
+            :style="modal.action === 'archive' ? 'background: var(--color-danger-600);' : 'background: var(--color-brand-navy);'"
+            style="padding: 8px 16px; color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </DashboardLayout>
-
-<script is:inline>
-  var btnArchive = document.getElementById('btn-archive')
-  var btnUnarchive = document.getElementById('btn-unarchive')
-  var pillarId = location.pathname.split('/')[3]
-
-  if (btnArchive) {
-    btnArchive.addEventListener('click', function () {
-      if (!confirm('Archive this pillar? It will be hidden from active lists but can be restored at any time.')) return
-      fetch('/api/pillars/' + pillarId, { method: 'DELETE' })
-        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b } }) })
-        .then(function (res) {
-          if (res.ok) window.location.href = '/admin/pillars'
-          else alert(res.body.error ?? 'Failed to archive pillar.')
-        })
-    })
-  }
-
-  if (btnUnarchive) {
-    btnUnarchive.addEventListener('click', function () {
-      fetch('/api/pillars/' + pillarId, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: true }),
-      })
-        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b } }) })
-        .then(function (res) {
-          if (res.ok) window.location.href = '/admin/pillars'
-          else alert(res.body.error ?? 'Failed to restore pillar.')
-        })
-    })
-  }
-</script>

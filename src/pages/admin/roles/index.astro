@@ -26,7 +26,37 @@ const archived = rows.filter(r => r.is_archived)
 ---
 
 <DashboardLayout title="Roles">
-  <div>
+  <div x-data="{
+    modalOpen: false,
+    itemId: '',
+    itemName: '',
+    message: '',
+    actionLabel: 'Delete',
+    loading: false,
+    error: '',
+    openModal(el) {
+      this.itemId = el.dataset.roleId;
+      this.itemName = el.dataset.roleName;
+      var mc = parseInt(el.dataset.memberCount || '0');
+      this.actionLabel = mc > 0 ? 'Archive' : 'Delete';
+      this.message = mc > 0
+        ? 'Archive \'' + this.itemName + '\'? This role has ' + mc + ' member(s) assigned and will be archived, not permanently deleted.'
+        : 'Delete \'' + this.itemName + '\'? This role has no members and will be permanently deleted. This cannot be undone.';
+      this.modalOpen = true;
+      this.error = '';
+    },
+    async doAction() {
+      this.loading = true;
+      var res = await fetch('/api/roles/' + this.itemId, { method: 'DELETE' });
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        var e = await res.json();
+        this.error = e.error || 'Failed to ' + this.actionLabel.toLowerCase() + ' role';
+        this.loading = false;
+      }
+    }
+  }">
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
       <div>
         <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Roles</h1>
@@ -79,10 +109,10 @@ const archived = rows.filter(r => r.is_archived)
                   </a>
                   {!role.is_system_protected && (
                     <button
-                      class="delete-role-btn"
                       data-role-id={role.id}
                       data-role-name={role.name}
                       data-member-count={String(role.user_roles?.[0]?.count ?? 0)}
+                      @click="openModal($el)"
                       style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-danger-600); background: none; border: none; cursor: pointer; padding: 4px 10px; border-radius: var(--radius-md);">
                       {(role.user_roles?.[0]?.count ?? 0) > 0 ? 'Archive' : 'Delete'}
                     </button>
@@ -120,29 +150,24 @@ const archived = rows.filter(r => r.is_archived)
         </div>
       </details>
     )}
+
+    <!-- Confirmation Modal -->
+    <div x-show="modalOpen" @click.self="modalOpen = false" @keydown.escape.window="modalOpen = false"
+      style="position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.45);">
+      <div style="background: white; border-radius: var(--radius-lg); padding: 28px 32px; max-width: 420px; width: 90%; box-shadow: 0 25px 50px rgba(0,0,0,0.2);">
+        <h3 style="font-family: var(--font-heading); font-size: 17px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 10px;" x-text="actionLabel + ' role'"></h3>
+        <p x-text="message" style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700); margin: 0 0 20px; line-height: 1.55;"></p>
+        <p x-show="error" x-text="error" style="font-family: var(--font-body); font-size: 13px; color: var(--color-danger-600); margin: 0 0 14px;"></p>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button @click="modalOpen = false" :disabled="loading"
+            style="padding: 8px 18px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer; color: var(--color-neutral-700);">
+            Cancel
+          </button>
+          <button @click="doAction()" :disabled="loading" x-text="loading ? 'Working...' : actionLabel"
+            style="padding: 8px 18px; background: var(--color-danger-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </DashboardLayout>
-
-<script>
-  document.querySelectorAll<HTMLButtonElement>('.delete-role-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.roleId as string
-      const name = btn.dataset.roleName as string
-      const memberCount = parseInt(btn.dataset.memberCount ?? '0', 10)
-      const action = memberCount > 0 ? 'archive' : 'delete'
-      const msg = memberCount > 0
-        ? `Archive "${name}"? This role has ${memberCount} member(s) assigned and will be archived, not deleted.`
-        : `Delete "${name}"? This role has no members and will be permanently deleted.`
-      if (!confirm(msg)) return
-      btn.disabled = true
-      const res = await fetch(`/api/roles/${id}`, { method: 'DELETE' })
-      if (res.ok) {
-        window.location.reload()
-      } else {
-        const e = await res.json() as { error?: string }
-        alert(e.error ?? `Failed to ${action} role`)
-        btn.disabled = false
-      }
-    })
-  })
-</script>

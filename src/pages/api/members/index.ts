@@ -8,6 +8,7 @@ const CreateMemberSchema = z.object({
   middle_name: z.string().max(100).optional(),
   last_name: z.string().min(1, 'Last name is required').max(100),
   email: z.string().email('Invalid email address'),
+  email_secondary: z.string().email('Invalid secondary email').optional().nullable(),
   phone: z.string().optional(),
   date_of_birth: z.string().optional(),
   gender: z.string().optional(),

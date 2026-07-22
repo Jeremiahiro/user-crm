@@ -2,6 +2,7 @@
 import DashboardLayout from '@/layouts/DashboardLayout.astro'
 import { supabaseAdmin } from '@/lib/supabase'
 import { isAdmin as checkIsAdmin, isMentor as checkIsMentor } from '@/lib/rbac'
+import { summariseDbs } from '@/lib/compliance'
 
 const user = Astro.locals.user
 if (!user) return Astro.redirect('/login')
@@ -37,8 +38,9 @@ function timeAgo(d: string): string {
 }
 
 // ── Admin dashboard data ──────────────────────────────────────────────────────
-let totalMembers = 0, activeMembers = 0, pendingMembers = 0, volunteersCount = 0
-let dbsExpiring = 0, dbsExpired = 0, duesCompliancePct = 0, membersPaidThisYear = 0, eligibleCount = 0
+let membersCount = 0, activeMembersCount = 0, inactiveMembersCount = 0
+let volunteersCount = 0, activeVolunteersCount = 0, inactiveVolunteersCount = 0, trusteesCount = 0
+let dbsActive = 0, dbsExpiring = 0, dbsExpired = 0, dbsMissing = 0, duesCompliancePct = 0, membersPaidThisYear = 0, eligibleCount = 0
 
 type Session = {
   id: string; title: string; session_date: string; session_time: string | null
@@ -72,24 +74,31 @@ const ACTION_LABELS: Record<string, string> = {
 
 if (userIsAdmin) {
   const [
-    { count: tm },
-    { count: am },
-    { count: pm },
+    { count: mc },
+    { count: amc },
+    { count: imc },
     { count: vc },
-    { count: de },
-    { count: dex },
+    { count: avc },
+    { count: ivc },
+    { count: tc },
+    { data: allPeopleForDbs },
+    { data: allDbsRecords },
     { data: upcomingSessions },
     { data: recentPraise },
     { data: recentActivity },
   ] = await Promise.all([
-    supabaseAdmin.from('people').select('*', { count: 'exact', head: true }).eq('is_archived', false),
-    supabaseAdmin.from('people').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('is_archived', false),
-    supabaseAdmin.from('people').select('*', { count: 'exact', head: true }).eq('status', 'pending_review').eq('is_archived', false),
+    // Members
+    supabaseAdmin.from('people').select('*', { count: 'exact', head: true }).contains('person_types', ['member']).eq('is_archived', false),
+    supabaseAdmin.from('people').select('*', { count: 'exact', head: true }).contains('person_types', ['member']).eq('status', 'active').eq('is_archived', false),
+    supabaseAdmin.from('people').select('*', { count: 'exact', head: true }).contains('person_types', ['member']).in('status', ['suspended', 'inactive']).eq('is_archived', false),
+    // Volunteers
     supabaseAdmin.from('people').select('*', { count: 'exact', head: true }).contains('person_types', ['volunteer']).eq('is_archived', false),
-    supabaseAdmin.from('dbs_records').select('*', { count: 'exact', head: true })
-      .lte('expiry_date', sixtyDaysStr).gte('expiry_date', todayStr),
-    supabaseAdmin.from('dbs_records').select('*', { count: 'exact', head: true })
-      .lt('expiry_date', todayStr),
+    supabaseAdmin.from('people').select('*', { count: 'exact', head: true }).contains('person_types', ['volunteer']).eq('status', 'active').eq('is_archived', false),
+    supabaseAdmin.from('people').select('*', { count: 'exact', head: true }).contains('person_types', ['volunteer']).in('status', ['suspended', 'inactive']).eq('is_archived', false),
+    supabaseAdmin.from('people').select('*', { count: 'exact', head: true }).contains('person_types', ['trustee']).eq('is_archived', false),
+    // DBS — fetch people + records to compute per-person latest, matching DBS page logic
+    supabaseAdmin.from('people').select('id').eq('is_archived', false),
+    supabaseAdmin.from('dbs_records').select('person_id, expiry_date'),
     supabaseAdmin.from('cmp_sessions')
       .select('id, title, session_date, session_time, location, cmp_programme_years(name)')
       .gte('session_date', todayStr)
@@ -107,12 +116,22 @@ if (userIsAdmin) {
       .limit(10),
   ])
 
-  totalMembers = tm ?? 0
-  activeMembers = am ?? 0
-  pendingMembers = pm ?? 0
+  membersCount = mc ?? 0
+  activeMembersCount = amc ?? 0
+  inactiveMembersCount = imc ?? 0
   volunteersCount = vc ?? 0
-  dbsExpiring = de ?? 0
-  dbsExpired = dex ?? 0
+  activeVolunteersCount = avc ?? 0
+  inactiveVolunteersCount = ivc ?? 0
+  trusteesCount = tc ?? 0
+
+  // DBS — use same per-person latest-record logic as the DBS page
+  const allIds = ((allPeopleForDbs ?? []) as { id: string }[]).map(p => p.id)
+  const dbsRecordsList = ((allDbsRecords ?? []) as { person_id: string; expiry_date: string | null }[])
+  const dbsSummary = summariseDbs(dbsRecordsList, allIds, today)
+  dbsActive   = dbsSummary.valid
+  dbsExpiring = dbsSummary.expiring_soon
+  dbsExpired  = dbsSummary.expired
+  dbsMissing  = dbsSummary.missing
   sessions = (upcomingSessions ?? []) as unknown as Session[]
   praiseRows = (recentPraise ?? []) as unknown as PraiseRow[]
   activityRows = (recentActivity ?? []) as unknown as ActivityRow[]
@@ -120,10 +139,14 @@ if (userIsAdmin) {
   // Dues compliance
   const { data: dueEligiblePeople } = await supabaseAdmin
     .from('people')
-    .select('id')
+    .select('id, person_types')
     .eq('is_archived', false)
     .or('gender.is.null,gender.neq.female')
-  const dueEligibleIds = new Set(((dueEligiblePeople ?? []) as { id: string }[]).map(p => p.id))
+  const dueEligibleIds = new Set(
+    ((dueEligiblePeople ?? []) as { id: string; person_types: string[] }[])
+      .filter(p => !(p.person_types ?? []).every(t => t === 'volunteer'))
+      .map(p => p.id)
+  )
   eligibleCount = dueEligibleIds.size
 
   const { data: duesPaidRows } = await supabaseAdmin
@@ -307,41 +330,73 @@ const AWARD_LABELS: Record<string, string> = {
 
   {userIsAdmin ? (
     <>
-      <!-- Admin: Stat cards row 1 — membership -->
+      <!-- Admin: Stat cards row 1 — members -->
       <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
         {[
-          { label: 'Total members', value: totalMembers, href: '/admin/members', colour: 'var(--color-brand-navy)' },
-          { label: 'Active', value: activeMembers, href: '/admin/members?status=active', colour: 'var(--color-success-600)' },
-          { label: 'Pending review', value: pendingMembers, href: '/admin/onboarding', colour: 'var(--color-warning-600)' },
-          { label: 'Volunteers', value: volunteersCount, href: '/admin/members', colour: 'var(--color-neutral-500)' },
+          { label: 'Members', value: membersCount, href: '/admin/members', colour: 'var(--color-brand-navy)' },
+          { label: 'Active members', value: activeMembersCount, href: '/admin/members?status=active', colour: 'var(--color-success-600)' },
+          { label: 'Suspended / Inactive', value: inactiveMembersCount, href: '/admin/members?status=inactive', colour: 'var(--color-warning-600)' },
         ].map(stat => (
-          <a href={stat.href} style="display: block; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; text-decoration: none;">
-            <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px;">{stat.label}</p>
-            <p style={`font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: ${stat.colour}; margin: 0; line-height: 1;`}>{stat.value}</p>
+          <a href={stat.href} style="display: flex; flex-direction: column; justify-content: space-between; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; text-decoration: none; min-height: 96px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">{stat.label}</p>
+              <span style="font-size: 14px; color: var(--color-neutral-400);">→</span>
+            </div>
+            <p style={`font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: ${stat.colour}; margin: 8px 0 0; line-height: 1;`}>{stat.value}</p>
+          </a>
+        ))}
+        <!-- Dues compliance card -->
+        <a href="/admin/dues" style="display: flex; flex-direction: column; justify-content: space-between; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; text-decoration: none; min-height: 96px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">Dues compliance {currentYear}</p>
+            <span style="font-size: 14px; color: var(--color-neutral-400);">→</span>
+          </div>
+          <div>
+            <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 8px;">
+              <p style="font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: var(--color-brand-navy); margin: 0; line-height: 1;">{duesCompliancePct}%</p>
+              <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">{membersPaidThisYear}/{eligibleCount}</p>
+            </div>
+            <div style="margin-top: 10px; height: 4px; background-color: var(--color-neutral-100); border-radius: 2px; overflow: hidden;">
+              <div style={`height: 100%; width: ${duesCompliancePct}%; background-color: var(--color-brand-navy); border-radius: 2px; transition: width 0.3s;`}></div>
+            </div>
+          </div>
+        </a>
+      </div>
+
+      <!-- Admin: Stat cards row 2 — volunteers -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
+        {[
+          { label: 'Volunteers', value: volunteersCount, href: '/admin/volunteers', colour: 'var(--color-brand-navy)' },
+          { label: 'Active volunteers', value: activeVolunteersCount, href: '/admin/volunteers?status=active', colour: 'var(--color-success-600)' },
+          { label: 'Suspended / Inactive', value: inactiveVolunteersCount, href: '/admin/volunteers?status=inactive', colour: 'var(--color-warning-600)' },
+          { label: 'Board / Trustees', value: trusteesCount, href: '/admin/members?person_type=trustee', colour: 'var(--color-brand-navy)' },
+        ].map(stat => (
+          <a href={stat.href} style="display: flex; flex-direction: column; justify-content: space-between; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; text-decoration: none; min-height: 96px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">{stat.label}</p>
+              <span style="font-size: 14px; color: var(--color-neutral-400);">→</span>
+            </div>
+            <p style={`font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: ${stat.colour}; margin: 8px 0 0; line-height: 1;`}>{stat.value}</p>
           </a>
         ))}
       </div>
 
-      <!-- Admin: Stat cards row 2 — compliance -->
-      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px;">
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
-          <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px;">DBS expiring (60d)</p>
-          <p style={`font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: ${dbsExpiring > 0 ? 'var(--color-warning-600)' : 'var(--color-success-600)'}; margin: 0; line-height: 1;`}>{dbsExpiring}</p>
-        </div>
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
-          <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px;">DBS expired</p>
-          <p style={`font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: ${dbsExpired > 0 ? 'var(--color-danger-600)' : 'var(--color-success-600)'}; margin: 0; line-height: 1;`}>{dbsExpired}</p>
-        </div>
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
-          <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px;">Dues compliance {currentYear}</p>
-          <div style="display: flex; align-items: baseline; gap: 8px;">
-            <p style="font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: var(--color-brand-navy); margin: 0; line-height: 1;">{duesCompliancePct}%</p>
-            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">{membersPaidThisYear}/{eligibleCount}</p>
-          </div>
-          <div style="margin-top: 10px; height: 4px; background-color: var(--color-neutral-100); border-radius: 2px; overflow: hidden;">
-            <div style={`height: 100%; width: ${duesCompliancePct}%; background-color: var(--color-brand-navy); border-radius: 2px; transition: width 0.3s;`}></div>
-          </div>
-        </div>
+      <!-- Admin: Stat cards row 3 — DBS -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px;">
+        {[
+          { label: 'Active DBS', value: dbsActive, href: '/admin/dbs?status=valid', colour: 'var(--color-success-600)' },
+          { label: 'DBS expiring (60d)', value: dbsExpiring, href: '/admin/dbs?status=expiring_soon', colour: dbsExpiring > 0 ? 'var(--color-warning-600)' : 'var(--color-success-600)' },
+          { label: 'DBS expired', value: dbsExpired, href: '/admin/dbs?status=expired', colour: dbsExpired > 0 ? 'var(--color-danger-600)' : 'var(--color-success-600)' },
+          { label: 'No DBS record', value: dbsMissing, href: '/admin/dbs?status=missing', colour: dbsMissing > 0 ? 'var(--color-warning-600)' : 'var(--color-success-600)' },
+        ].map(stat => (
+          <a href={stat.href} style="display: flex; flex-direction: column; justify-content: space-between; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; text-decoration: none; min-height: 96px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">{stat.label}</p>
+              <span style="font-size: 14px; color: var(--color-neutral-400);">→</span>
+            </div>
+            <p style={`font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: ${stat.colour}; margin: 8px 0 0; line-height: 1;`}>{stat.value}</p>
+          </a>
+        ))}
       </div>
 
       <!-- Admin: Main content — 3-col layout -->

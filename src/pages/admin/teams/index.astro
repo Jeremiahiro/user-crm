@@ -163,8 +163,10 @@ if (admin) {
                         </span>
                       ) : (
                         <button
-                          data-team-id={team.id}
-                          onclick={`requestJoin('${team.id}')`}
+                          x-data={`{ loading: false, async request() { this.loading = true; try { const r = await fetch('/api/teams/${team.id}/join-request', { method: 'POST' }); if (r.ok) { location.reload() } else { const b = await r.json(); alert(b.error || 'Failed to send request.'); this.loading = false } } catch { alert('Network error.'); this.loading = false } } }`}
+                          @click="request()"
+                          :disabled="loading"
+                          x-text="loading ? 'Sending…' : 'Request to join'"
                           style="padding: 6px 12px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
                           Request to join
                         </button>
@@ -190,17 +192,3 @@ if (admin) {
   </div>
 </DashboardLayout>
 
-<script is:inline>
-  async function requestJoin(teamId) {
-    var btn = document.querySelector('[data-team-id="' + teamId + '"]')
-    if (btn) btn.disabled = true
-    var res = await fetch('/api/teams/' + teamId + '/join-request', { method: 'POST' })
-    if (res.ok) {
-      location.reload()
-    } else {
-      var b = await res.json()
-      alert(b.error || 'Failed to send request.')
-      if (btn) btn.disabled = false
-    }
-  }
-</script>

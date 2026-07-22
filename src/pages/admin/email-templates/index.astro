@@ -61,7 +61,35 @@ function countInCategory(cat: string) {
 ---
 
 <DashboardLayout title="Email Templates">
-  <div id="templates-root">
+  <div id="templates-root" x-data="{
+    modalOpen: false,
+    itemId: '',
+    itemName: '',
+    message: '',
+    loading: false,
+    error: '',
+    openModal(el) {
+      this.itemId = el.dataset.templateId;
+      this.itemName = el.dataset.templateName;
+      this.message = 'Archive \'' + this.itemName + '\'? It will no longer appear in the active list.';
+      this.modalOpen = true;
+      this.error = '';
+    },
+    async doAction() {
+      this.loading = true;
+      var res = await fetch('/api/email-templates/' + this.itemId, { method: 'DELETE' });
+      if (res.ok) {
+        var row = document.querySelector('[data-template-id=\'' + this.itemId + '\']');
+        if (row) row.remove();
+        this.modalOpen = false;
+        this.loading = false;
+      } else {
+        var e = await res.json();
+        this.error = e.error || 'Failed to archive';
+        this.loading = false;
+      }
+    }
+  }">
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
       <div>
         <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Email Templates</h1>
@@ -120,7 +148,7 @@ function countInCategory(cat: string) {
           </thead>
           <tbody>
             {filtered.map((t, i) => (
-              <tr style={`${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''} ${!t.is_active ? 'opacity: 0.6;' : ''}`}>
+              <tr data-template-id={t.id} style={`${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''} ${!t.is_active ? 'opacity: 0.6;' : ''}`}>
                 <td style="padding: 14px 16px;">
                   <a href={`/admin/email-templates/${t.id}/edit`}
                     style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none; display: block;">
@@ -150,9 +178,10 @@ function countInCategory(cat: string) {
                       Edit
                     </a>
                     {admin && t.is_active && (
-                      <button class="archive-btn"
+                      <button
                         data-template-id={t.id}
                         data-template-name={t.name}
+                        @click="openModal($el)"
                         style="padding: 5px 12px; background: white; color: var(--color-danger-600); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; cursor: pointer;">
                         Archive
                       </button>
@@ -165,22 +194,24 @@ function countInCategory(cat: string) {
         </table>
       </div>
     )}
-  </div>
 
-  <script is:inline>
-    document.querySelectorAll('.archive-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var id = btn.dataset.templateId
-        var name = btn.dataset.templateName
-        if (!confirm('Archive "' + name + '"? It will no longer appear in the active list.')) return
-        btn.disabled = true
-        btn.textContent = 'Archiving…'
-        fetch('/api/email-templates/' + id, { method: 'DELETE' })
-          .then(function (r) {
-            if (r.ok) { window.location.reload() }
-            else { r.json().then(function (e) { alert(e.error || 'Failed to archive'); btn.disabled = false; btn.textContent = 'Archive' }) }
-          })
-      })
-    })
-  </script>
+    <!-- Confirmation Modal -->
+    <div x-show="modalOpen" @click.self="modalOpen = false" @keydown.escape.window="modalOpen = false"
+      style="position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.45);">
+      <div style="background: white; border-radius: var(--radius-lg); padding: 28px 32px; max-width: 420px; width: 90%; box-shadow: 0 25px 50px rgba(0,0,0,0.2);">
+        <h3 style="font-family: var(--font-heading); font-size: 17px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 10px;">Archive template</h3>
+        <p x-text="message" style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700); margin: 0 0 20px; line-height: 1.55;"></p>
+        <p x-show="error" x-text="error" style="font-family: var(--font-body); font-size: 13px; color: var(--color-danger-600); margin: 0 0 14px;"></p>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button @click="modalOpen = false" :disabled="loading"
+            style="padding: 8px 18px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer; color: var(--color-neutral-700);">
+            Cancel
+          </button>
+          <button @click="doAction()" :disabled="loading" x-text="loading ? 'Archiving...' : 'Archive'"
+            style="padding: 8px 18px; background: var(--color-danger-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </DashboardLayout>

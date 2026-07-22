@@ -30,8 +30,25 @@ type PillarRow = {
 const rows = (pillars ?? []) as PillarRow[]
 ---
 
+<style>
+  [x-cloak] { display: none !important; }
+</style>
+
 <DashboardLayout title="Pillars">
-  <div>
+  <div x-data="{
+    modal: { open: false, id: '', name: '' },
+    async doDelete() {
+      const res = await fetch('/api/pillars/' + this.modal.id, { method: 'DELETE' })
+      const data = await res.json()
+      if (res.ok) {
+        document.querySelector('[data-pillar-id=\'' + this.modal.id + '\']')?.remove()
+        this.modal.open = false
+      } else {
+        alert('Could not delete: ' + (data.error ?? 'Unknown error'))
+        this.modal.open = false
+      }
+    }
+  }">
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
       <div>
         <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">
@@ -76,7 +93,7 @@ const rows = (pillars ?? []) as PillarRow[]
           </thead>
           <tbody>
             {rows.map((pillar) => (
-              <tr style="border-top: 1px solid var(--color-neutral-100);" onmouseover="this.style.backgroundColor='var(--color-neutral-50)'" onmouseout="this.style.backgroundColor=''">
+              <tr data-pillar-id={pillar.id} style="border-top: 1px solid var(--color-neutral-100);" onmouseover="this.style.backgroundColor='var(--color-neutral-50)'" onmouseout="this.style.backgroundColor=''">
                 <td style="padding: 14px 16px;">
                   <span style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-brand-navy);">
                     {pillar.name}
@@ -99,7 +116,7 @@ const rows = (pillars ?? []) as PillarRow[]
                       </a>
                       {pillar.is_active && (
                         <button
-                          onclick={`deletePillar('${pillar.id}', '${pillar.name.replace(/'/g, "\\'")}')`}
+                          @click={`modal.open = true; modal.id = '${pillar.id}'; modal.name = ${JSON.stringify(pillar.name)}`}
                           style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-danger-600); background: none; border: none; padding: 4px 10px; border-radius: var(--radius-md); cursor: pointer;"
                           onmouseover="this.style.backgroundColor='var(--color-danger-50)'"
                           onmouseout="this.style.backgroundColor=''">
@@ -127,18 +144,25 @@ const rows = (pillars ?? []) as PillarRow[]
         )}
       </EmptyState>
     )}
+
+    <!-- Delete confirm modal -->
+    <div x-show="modal.open" x-cloak @click="modal.open = false"
+      style="position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+      <div @click.stop style="background: white; border-radius: var(--radius-lg); padding: 28px 32px; max-width: 380px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.2);">
+        <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-neutral-800); margin: 0 0 6px;">Archive pillar?</p>
+        <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); margin: 0 0 4px; line-height: 1.5;">Archive <span x-text="'&quot;' + modal.name + '&quot;'"></span>?</p>
+        <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0 0 20px; line-height: 1.5;">This will hide it from the list. It cannot be deleted if active teams are assigned to it.</p>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button @click="modal.open = false"
+            style="padding: 8px 16px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; color: var(--color-neutral-700);">
+            Cancel
+          </button>
+          <button @click="doDelete()"
+            style="padding: 8px 16px; background: var(--color-danger-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+            Archive
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </DashboardLayout>
-
-<script is:inline>
-  async function deletePillar(id, name) {
-    if (!confirm(`Archive "${name}"?\n\nThis will hide it from the list. It cannot be deleted if active teams are assigned to it.`)) return
-    const res = await fetch(`/api/pillars/${id}`, { method: 'DELETE' })
-    const data = await res.json()
-    if (res.ok) {
-      window.location.reload()
-    } else {
-      alert(`Could not delete: ${data.error ?? 'Unknown error'}`)
-    }
-  }
-</script>

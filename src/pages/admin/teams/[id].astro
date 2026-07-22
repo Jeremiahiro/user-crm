@@ -107,7 +107,7 @@ if (!admin && !isMember && currentPersonId) {
 
 <DashboardLayout title={team.name as string}>
   <Breadcrumb crumbs={[{ label: 'Teams', href: '/admin/teams' }, { label: team.name as string }]} />
-  <div>
+  <div x-data="teamPage()">
     <!-- Header -->
     <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--color-neutral-200);">
       <div>
@@ -187,36 +187,36 @@ if (!admin && !isMember && currentPersonId) {
                 </div>
                 <div style="display: flex; gap: 8px; flex-shrink: 0;">
                   <button
-                    onclick={`approveRequest('${req.id}')`}
+                    @click={`approveRequest('${req.id}')`}
                     style="padding: 6px 14px; background: var(--color-success-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
                     Approve
                   </button>
                   <button
-                    onclick={`showRejectForm('${req.id}')`}
+                    @click={`rejectOpen['${req.id}'] = !rejectOpen['${req.id}']`}
                     style="padding: 6px 14px; background: var(--color-neutral-100); color: var(--color-danger-600); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
                     Decline
                   </button>
                 </div>
               </div>
-              <!-- Rejection reason form (hidden by default) -->
-              <div id={`reject-form-${req.id}`} style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--color-neutral-200);">
+              <!-- Rejection reason form (hidden by default, controlled by Alpine) -->
+              <div x-show={`rejectOpen['${req.id}']`} style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--color-neutral-200);">
                 <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700); display: block; margin-bottom: 6px;">
                   Reason for declining *
                 </label>
                 <textarea
-                  id={`reject-reason-${req.id}`}
+                  x-model={`rejectReasons['${req.id}']`}
                   rows={2}
                   placeholder="Briefly explain why the request was declined. This will be shared with the member."
                   style="width: 100%; padding: 8px 10px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; resize: vertical; box-sizing: border-box;"
                 ></textarea>
                 <div style="display: flex; gap: 8px; margin-top: 8px;">
                   <button
-                    onclick={`confirmReject('${req.id}')`}
+                    @click={`confirmReject('${req.id}')`}
                     style="padding: 6px 14px; background: var(--color-danger-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
                     Confirm decline
                   </button>
                   <button
-                    onclick={`hideRejectForm('${req.id}')`}
+                    @click={`rejectOpen['${req.id}'] = false; rejectReasons['${req.id}'] = ''`}
                     style="padding: 6px 14px; background: var(--color-neutral-100); color: var(--color-neutral-600); border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; cursor: pointer;">
                     Cancel
                   </button>
@@ -236,15 +236,43 @@ if (!admin && !isMember && currentPersonId) {
             Members ({members.length})
           </h2>
           {canManageMembers && (
-            <div id="add-member-section" style="position: relative;">
+            <div style="position: relative;" @click.outside="hideSearch()">
               <input
-                id="member-search"
                 type="text"
+                x-model="searchQuery"
+                @input="onSearchInput()"
+                @keydown.escape="hideSearch(); searchQuery = ''"
                 placeholder="Add member by name…"
                 autocomplete="off"
                 style="padding: 7px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; width: 220px; outline: none;"
               />
-              <div id="member-search-dropdown" style="display: none; position: absolute; top: calc(100% + 4px); right: 0; min-width: 280px; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); box-shadow: 0 4px 16px rgba(0,0,0,0.10); z-index: 200; max-height: 260px; overflow-y: auto;"></div>
+              <div x-show="searchOpen" style="display: none; position: absolute; top: calc(100% + 4px); right: 0; min-width: 280px; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); box-shadow: 0 4px 16px rgba(0,0,0,0.10); z-index: 200; max-height: 260px; overflow-y: auto;">
+                <template x-if="searchResults.length === 1 && searchResults[0]._loading">
+                  <div style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500);">Searching…</div>
+                </template>
+                <template x-if="searchResults.length === 1 && searchResults[0]._empty">
+                  <div style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500);">No matching members found.</div>
+                </template>
+                <template x-if="searchResults.length === 1 && searchResults[0]._error">
+                  <div style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-danger-600);">Search failed. Try again.</div>
+                </template>
+                <template x-for="person in searchResults.filter(r => !r._loading && !r._empty && !r._error)" :key="person.id">
+                  <div
+                    @click="addMember(person.id)"
+                    style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--color-neutral-100);"
+                    @mouseenter="$el.style.backgroundColor='var(--color-neutral-50)'"
+                    @mouseleave="$el.style.backgroundColor=''">
+                    <div style="width:28px;height:28px;border-radius:50%;background:var(--color-brand-gold);color:var(--color-brand-navy);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;overflow:hidden;">
+                      <img x-show="person.profile_photo_url" :src="person.profile_photo_url" style="width:28px;height:28px;border-radius:50%;object-fit:cover;" />
+                      <span x-show="!person.profile_photo_url" x-text="person.full_name.split(' ').map(function(n){return n[0]||''}).slice(0,2).join('')"></span>
+                    </div>
+                    <div>
+                      <div style="font-family:var(--font-body);font-size:14px;font-weight:500;color:var(--color-brand-navy);" x-text="person.full_name"></div>
+                      <div style="font-family:var(--font-body);font-size:12px;color:var(--color-neutral-500);" x-text="person.email"></div>
+                    </div>
+                  </div>
+                </template>
+              </div>
             </div>
           )}
         </div>
@@ -292,13 +320,17 @@ if (!admin && !isMember && currentPersonId) {
                             Email
                           </a>
                           <button
-                            onclick={`toggleLead('${m.people.id}', '${m.people.full_name.replace(/'/g, "\\'")}', true)`}
+                            @click="toggleLead($el.dataset.personId, $el.dataset.personName, true)"
+                            data-person-id={m.people.id}
+                            data-person-name={m.people.full_name}
                             style="padding: 4px 10px; background: transparent; color: var(--color-brand-navy); border: 1px solid var(--color-brand-navy); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap;">
                             Make lead
                           </button>
                           {canRemoveMembers && (
                             <button
-                              onclick={`removeMember('${m.people.id}', '${m.people.full_name.replace(/'/g, "\\'")}') `}
+                              @click="removeMember($el.dataset.personId, $el.dataset.personName)"
+                              data-person-id={m.people.id}
+                              data-person-name={m.people.full_name}
                               style="padding: 4px 10px; background: transparent; color: var(--color-danger-600, #dc2626); border: 1px solid var(--color-danger-300, #fca5a5); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap;">
                               Remove
                             </button>
@@ -336,179 +368,199 @@ if (!admin && !isMember && currentPersonId) {
         ) : existingRequestStatus !== 'rejected' && (
           <button
             id="join-btn"
-            onclick="requestJoinFromDetail()"
+            @click="requestJoin()"
             style="padding: 10px 22px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
             Request to join
           </button>
         )}
       </div>
     )}
+
+    <!-- ─── Alpine: confirm modal ──────────────────────────────────── -->
+    <div
+      x-show="modal.open"
+      style="display:none; position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.45);"
+      @click.self="modal.pending || (modal.open = false)"
+    >
+      <div style="background: white; border-radius: var(--radius-lg); padding: 28px; max-width: 440px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.25);">
+        <h3 x-text="modal.title" style="font-family: var(--font-heading); font-size: 17px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 10px;"></h3>
+        <p x-text="modal.body" style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-600); margin: 0 0 24px; line-height: 1.5;"></p>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button
+            @click="modal.open = false"
+            :disabled="modal.pending"
+            style="padding: 8px 16px; background: var(--color-neutral-100); color: var(--color-neutral-700); border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; cursor: pointer;">
+            Cancel
+          </button>
+          <button
+            @click="doConfirm()"
+            :disabled="modal.pending"
+            :style="modal.danger ? 'background: var(--color-danger-600); color: white;' : 'background: var(--color-brand-navy); color: white;'"
+            style="padding: 8px 16px; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+            <span x-text="modal.pending ? 'Please wait…' : modal.confirmText"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </DashboardLayout>
 
 <script is:inline>
-  var TEAM_ID = window.location.pathname.split('/').filter(Boolean).pop()
+  window.teamPage = function () {
+    var teamId = window.location.pathname.split('/').filter(Boolean).pop()
+    return {
+      teamId: teamId,
 
-  function requestJoinFromDetail() {
-    var btn = document.getElementById('join-btn')
-    if (btn) { btn.disabled = true; btn.textContent = 'Sending…' }
-    fetch('/api/teams/' + TEAM_ID + '/join-request', { method: 'POST' })
-      .then(function(res) {
-        if (res.ok) { location.reload() }
-        else { res.json().then(function(j) { alert(j.error || 'Failed to send request.'); if (btn) { btn.disabled = false; btn.textContent = 'Request to join' } }) }
-      })
-  }
+      // ── Generic confirm modal ──────────────────────────────────────
+      modal: { open: false, title: '', body: '', confirmText: 'Confirm', danger: true, pending: false, onConfirm: null },
 
-  function approveRequest(requestId) {
-    if (!confirm('Approve this join request?')) return
-    fetch('/api/teams/' + TEAM_ID + '/join-request', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requestId: requestId, action: 'approve' }),
-    }).then(function(res) {
-      if (res.ok) {
-        var el = document.getElementById('req-' + requestId)
-        if (el) el.remove()
-      } else {
-        res.json().then(function(j) { alert(j.error || 'Failed to approve.') })
-      }
-    })
-  }
+      openConfirm: function (title, body, onConfirm, opts) {
+        this.modal = {
+          open: true, title: title, body: body,
+          confirmText: (opts && opts.confirmText) ? opts.confirmText : 'Confirm',
+          danger: opts ? opts.danger !== false : true,
+          pending: false, onConfirm: onConfirm,
+        }
+      },
 
-  function showRejectForm(requestId) {
-    var form = document.getElementById('reject-form-' + requestId)
-    if (form) form.style.display = 'block'
-  }
+      doConfirm: async function () {
+        this.modal.pending = true
+        try { await this.modal.onConfirm() } finally { this.modal.pending = false; this.modal.open = false }
+      },
 
-  function hideRejectForm(requestId) {
-    var form = document.getElementById('reject-form-' + requestId)
-    if (form) form.style.display = 'none'
-  }
+      // ── Per-request reject form state ──────────────────────────────
+      rejectOpen: {},
+      rejectReasons: {},
 
-  function confirmReject(requestId) {
-    var textarea = document.getElementById('reject-reason-' + requestId)
-    var reason = textarea ? textarea.value.trim() : ''
-    if (!reason) { alert('Please provide a reason for declining.'); return }
-
-    fetch('/api/teams/' + TEAM_ID + '/join-request', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requestId: requestId, action: 'reject', reason: reason }),
-    }).then(function(res) {
-      if (res.ok) {
-        var el = document.getElementById('req-' + requestId)
-        if (el) el.remove()
-      } else {
-        res.json().then(function(j) { alert(j.error || 'Failed to decline.') })
-      }
-    })
-  }
-
-  // ── Add Member search ────────────────────────────────────────────────────────
-  var _searchTimer = null
-
-  function initMemberSearch() {
-    var input = document.getElementById('member-search')
-    if (!input) return
-
-    input.addEventListener('input', function() {
-      clearTimeout(_searchTimer)
-      var q = input.value.trim()
-      if (q.length < 3) { hideMemberDropdown(); return }
-      _searchTimer = setTimeout(function() { searchMembers(q) }, 300)
-    })
-
-    input.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') { hideMemberDropdown(); input.value = '' }
-    })
-
-    document.addEventListener('click', function(e) {
-      var section = document.getElementById('add-member-section')
-      if (section && !section.contains(e.target)) hideMemberDropdown()
-    })
-  }
-
-  function hideMemberDropdown() {
-    var dd = document.getElementById('member-search-dropdown')
-    if (dd) { dd.style.display = 'none'; dd.innerHTML = '' }
-  }
-
-  async function searchMembers(q) {
-    var dd = document.getElementById('member-search-dropdown')
-    if (!dd) return
-    dd.innerHTML = '<div style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500);">Searching…</div>'
-    dd.style.display = 'block'
-
-    try {
-      var res = await fetch('/api/people/search?q=' + encodeURIComponent(q) + '&exclude_team=' + TEAM_ID)
-      var data = await res.json()
-      var people = data.data ?? []
-
-      if (people.length === 0) {
-        dd.innerHTML = '<div style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500);">No matching members found.</div>'
-        return
-      }
-
-      dd.innerHTML = people.map(function(p) {
-        var initials = p.full_name.split(' ').map(function(n) { return n[0] || '' }).slice(0, 2).join('')
-        var avatar = p.profile_photo_url
-          ? '<img src="' + p.profile_photo_url + '" style="width:28px;height:28px;border-radius:50%;object-fit:cover;" />'
-          : '<span>' + initials + '</span>'
-        return (
-          '<div onclick="addMember(\'' + p.id + '\', \'' + p.full_name.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')" ' +
-          'style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--color-neutral-100);" ' +
-          'onmouseover="this.style.backgroundColor=\'var(--color-neutral-50)\'" onmouseout="this.style.backgroundColor=\'\'">' +
-          '<div style="width:28px;height:28px;border-radius:50%;background:var(--color-brand-gold);color:var(--color-brand-navy);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;">' + avatar + '</div>' +
-          '<div>' +
-          '<div style="font-family:var(--font-body);font-size:14px;font-weight:500;color:var(--color-brand-navy);">' + p.full_name + '</div>' +
-          '<div style="font-family:var(--font-body);font-size:12px;color:var(--color-neutral-500);">' + p.email + '</div>' +
-          '</div></div>'
+      // ── Approve join request ───────────────────────────────────────
+      approveRequest: function (requestId) {
+        var self = this
+        this.openConfirm(
+          'Approve join request',
+          'Approve this join request?',
+          async function () {
+            var r = await fetch('/api/teams/' + self.teamId + '/join-request', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ requestId: requestId, action: 'approve' }),
+            })
+            if (r.ok) {
+              var el = document.getElementById('req-' + requestId)
+              if (el) el.remove()
+            } else {
+              var j = await r.json()
+              alert(j.error || 'Failed to approve.')
+            }
+          },
+          { confirmText: 'Approve', danger: false }
         )
-      }).join('')
-    } catch (e) {
-      dd.innerHTML = '<div style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-danger-600);">Search failed. Try again.</div>'
+      },
+
+      // ── Confirm reject ─────────────────────────────────────────────
+      confirmReject: async function (requestId) {
+        var reason = ((this.rejectReasons[requestId] || '')).trim()
+        if (!reason) { alert('Please provide a reason for declining.'); return }
+        var r = await fetch('/api/teams/' + this.teamId + '/join-request', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requestId: requestId, action: 'reject', reason: reason }),
+        })
+        if (r.ok) {
+          var el = document.getElementById('req-' + requestId)
+          if (el) el.remove()
+        } else {
+          var j = await r.json()
+          alert(j.error || 'Failed to decline.')
+        }
+      },
+
+      // ── Member search typeahead ────────────────────────────────────
+      searchQuery: '',
+      searchResults: [],
+      searchOpen: false,
+      _searchTimer: null,
+
+      onSearchInput: function () {
+        var self = this
+        clearTimeout(this._searchTimer)
+        if (this.searchQuery.trim().length < 3) { this.searchOpen = false; return }
+        this._searchTimer = setTimeout(function () { self.runSearch() }, 300)
+      },
+
+      runSearch: async function () {
+        this.searchResults = [{ _loading: true }]
+        this.searchOpen = true
+        try {
+          var res = await fetch('/api/people/search?q=' + encodeURIComponent(this.searchQuery.trim()) + '&exclude_team=' + this.teamId)
+          var data = await res.json()
+          var people = data.data || []
+          this.searchResults = people.length ? people : [{ _empty: true }]
+        } catch (e) {
+          this.searchResults = [{ _error: true }]
+        }
+      },
+
+      hideSearch: function () {
+        this.searchOpen = false
+        this.searchResults = []
+      },
+
+      // ── Add member ─────────────────────────────────────────────────
+      addMember: async function (personId) {
+        this.hideSearch()
+        this.searchQuery = ''
+        var r = await fetch('/api/teams/' + this.teamId + '/members', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ personId: personId }),
+        })
+        if (r.ok) { location.reload() }
+        else { var j = await r.json(); alert(j.error || 'Failed to add member.') }
+      },
+
+      // ── Remove member ──────────────────────────────────────────────
+      removeMember: function (personId, name) {
+        var self = this
+        this.openConfirm(
+          'Remove member',
+          'Remove ' + name + ' from this team?',
+          async function () {
+            var r = await fetch('/api/teams/' + self.teamId + '/members/' + personId, { method: 'DELETE' })
+            if (r.ok) { location.reload() }
+            else { var j = await r.json(); alert(j.error || 'Failed.') }
+          }
+        )
+      },
+
+      // ── Toggle team lead ───────────────────────────────────────────
+      toggleLead: function (personId, name, makeLead) {
+        var self = this
+        this.openConfirm(
+          makeLead ? 'Make team lead' : 'Remove lead status',
+          makeLead ? 'Make ' + name + ' a team lead?' : 'Remove lead status from ' + name + '?',
+          async function () {
+            var r = await fetch('/api/teams/' + self.teamId + '/members/' + personId, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ is_team_lead: makeLead }),
+            })
+            if (r.ok) { location.reload() }
+            else { var j = await r.json(); alert(j.error || 'Failed.') }
+          },
+          { confirmText: makeLead ? 'Make lead' : 'Remove lead', danger: !makeLead }
+        )
+      },
+
+      // ── Request to join ────────────────────────────────────────────
+      requestJoin: async function () {
+        var btn = document.getElementById('join-btn')
+        if (btn) { btn.disabled = true; btn.textContent = 'Sending…' }
+        var r = await fetch('/api/teams/' + this.teamId + '/join-request', { method: 'POST' })
+        if (r.ok) { location.reload() }
+        else { var j = await r.json(); alert(j.error || 'Failed to send request.'); if (btn) { btn.disabled = false; btn.textContent = 'Request to join' } }
+      },
     }
-  }
-
-  async function addMember(personId, name) {
-    hideMemberDropdown()
-    var input = document.getElementById('member-search')
-    if (input) { input.value = ''; input.disabled = true }
-
-    var res = await fetch('/api/teams/' + TEAM_ID + '/members', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ personId: personId }),
-    })
-
-    if (input) input.disabled = false
-
-    if (res.ok) {
-      location.reload()
-    } else {
-      var j = await res.json()
-      alert(j.error || 'Failed to add member.')
-    }
-  }
-
-  initMemberSearch()
-
-  // ── Member removal / lead toggle ─────────────────────────────────────────────
-  async function removeMember(personId, name) {
-    if (!confirm('Remove ' + name + ' from this team?')) return
-    var res = await fetch('/api/teams/' + TEAM_ID + '/members/' + personId, { method: 'DELETE' })
-    if (res.ok) location.reload()
-    else { var j = await res.json(); alert(j.error || 'Failed.') }
-  }
-
-  async function toggleLead(personId, name, makeLead) {
-    if (!confirm(makeLead ? 'Make ' + name + ' a team lead?' : 'Remove lead status from ' + name + '?')) return
-    var res = await fetch('/api/teams/' + TEAM_ID + '/members/' + personId, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ is_team_lead: makeLead }),
-    })
-    if (res.ok) location.reload()
-    else { var j = await res.json(); alert(j.error || 'Failed.') }
   }
 </script>
 

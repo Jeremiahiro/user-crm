@@ -73,8 +73,21 @@ function fmt(d: string | null) {
 const t = training as any
 ---
 
+<style>
+  [x-cloak] { display: none !important; }
+  .col-field { display: flex; flex-direction: column; gap: 4px; }
+</style>
+
 <DashboardLayout title={t.title}>
-  <div style="max-width: 860px;">
+  <div style="max-width: 860px;" x-data={`{
+    modal: { open: false, tid: '', aid: '', message: '' },
+    async doDelete() {
+      const res = await fetch('/api/trainings/' + this.modal.tid + '/assignments?assignment_id=' + this.modal.aid, { method: 'DELETE' })
+      if (res.ok) window.location.reload()
+      else alert('Failed to remove assignment.')
+      this.modal.open = false
+    }
+  }`}>
     <Breadcrumb crumbs={[{ label: 'Trainings', href: '/admin/trainings' }, { label: t.title }]} />
 
     <!-- Header -->
@@ -169,7 +182,8 @@ const t = training as any
                   </span>
                   {a.deadline && <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin-left: 10px;">Deadline: {fmt(a.deadline)}</span>}
                 </div>
-                <button onclick={`deleteAssignment('${trainingId}', '${a.id}')`}
+                <button
+                  @click={`modal.open = true; modal.tid = '${trainingId}'; modal.aid = '${a.id}'; modal.message = 'Remove this assignment?'`}
                   style="padding: 4px 10px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); cursor: pointer;">
                   Remove
                 </button>
@@ -179,19 +193,19 @@ const t = training as any
         )}
 
         <!-- Add assignment form -->
-        <form method="POST" style="display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--color-neutral-100); padding-top: 16px;">
+        <form method="POST" x-data={`{ scope: '${admin ? 'all' : 'team'}' }`} style="display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--color-neutral-100); padding-top: 16px;">
           <input type="hidden" name="_action" value="assign" />
           <h3 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-700); margin: 0;">Add assignment</h3>
           <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; flex-wrap: wrap;">
-            <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div class="col-field">
               <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-600);">Scope</label>
-              <select name="scope" id="scopeSelect" onchange="updateScopeFields()"
+              <select name="scope" x-model="scope"
                 style="padding: 8px 10px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; background: white;">
                 {admin && <option value="all">All members</option>}
                 <option value="team">Team</option>
               </select>
             </div>
-            <div id="teamSelectWrap" style="display: flex; flex-direction: column; gap: 4px;">
+            <div class="col-field" x-show="scope === 'team'" style={admin ? 'display: none;' : ''}>
               <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-600);">Team</label>
               <select name="team_id"
                 style="padding: 8px 10px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; background: white;">
@@ -199,7 +213,7 @@ const t = training as any
                 {teams.map((team: any) => <option value={team.id}>{team.name}</option>)}
               </select>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div class="col-field">
               <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-600);">Deadline (optional)</label>
               <input name="deadline" type="date"
                 style="padding: 8px 10px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px;" />
@@ -214,21 +228,24 @@ const t = training as any
         </form>
       </div>
     )}
+
+    <!-- Delete assignment confirm modal -->
+    <div x-show="modal.open" x-cloak @click="modal.open = false"
+      style="position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+      <div @click.stop style="background: white; border-radius: var(--radius-lg); padding: 28px 32px; max-width: 380px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.2);">
+        <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-neutral-800); margin: 0 0 6px;">Remove assignment</p>
+        <p x-text="modal.message" style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); margin: 0 0 20px; line-height: 1.5;"></p>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button @click="modal.open = false"
+            style="padding: 8px 16px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; color: var(--color-neutral-700);">
+            Cancel
+          </button>
+          <button @click="doDelete()"
+            style="padding: 8px 16px; background: var(--color-danger-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+            Remove
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </DashboardLayout>
-
-<script is:inline>
-  function updateScopeFields() {
-    var scope = document.getElementById('scopeSelect').value
-    var teamWrap = document.getElementById('teamSelectWrap')
-    if (teamWrap) teamWrap.style.display = scope === 'team' ? 'flex' : 'none'
-  }
-  updateScopeFields()
-
-  async function deleteAssignment(trainingId, assignmentId) {
-    if (!confirm('Remove this assignment?')) return
-    var res = await fetch('/api/trainings/' + trainingId + '/assignments?assignment_id=' + assignmentId, { method: 'DELETE' })
-    if (res.ok) window.location.reload()
-    else alert('Failed to remove assignment.')
-  }
-</script>

@@ -45,6 +45,11 @@ if (Astro.request.method === 'POST') {
 const safeDocTypes = docTypes ?? []
 ---
 
+<style>
+  [x-cloak] { display: none !important; }
+  .col-field { display: flex; flex-direction: column; gap: 4px; }
+</style>
+
 <DashboardLayout title="New Training">
   <div style="max-width: 600px;">
     <Breadcrumb crumbs={[{ label: 'Trainings', href: '/admin/trainings' }, { label: 'New Training' }]} />
@@ -56,7 +61,7 @@ const safeDocTypes = docTypes ?? []
       </div>
     )}
 
-    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+    <form method="POST" x-data={`{ requiresDoc: ${values.requires_document === 'on'} }`} style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
 
       <!-- Title -->
       <div style="display: flex; flex-direction: column; gap: 4px;">
@@ -75,14 +80,14 @@ const safeDocTypes = docTypes ?? []
 
       <!-- Requires document checkbox -->
       <div style="display: flex; align-items: center; gap: 10px;">
-        <input id="requiresDocCheck" name="requires_document" type="checkbox"
+        <input id="requiresDocCheck" name="requires_document" type="checkbox" x-model="requiresDoc"
           checked={values.requires_document === 'on'}
           style="width: 16px; height: 16px; cursor: pointer;" />
         <label for="requiresDocCheck" style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700); cursor: pointer;">Requires document upload</label>
       </div>
 
       <!-- Expected document type (conditional) -->
-      <div id="docTypeRow" style="display: none; flex-direction: column; gap: 4px;">
+      <div class="col-field" x-show="requiresDoc" style={values.requires_document === 'on' ? '' : 'display: none;'}>
         <label for="docTypeSelect" style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Expected document type</label>
         <select id="docTypeSelect" name="expected_document_type_id"
           style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white; color: var(--color-neutral-800);">
@@ -109,12 +114,6 @@ const safeDocTypes = docTypes ?? []
 </DashboardLayout>
 
 <script is:inline>
-  // Requires-document toggle
-  var cb = document.getElementById('requiresDocCheck')
-  var row = document.getElementById('docTypeRow')
-  cb.addEventListener('change', function() { row.style.display = cb.checked ? 'flex' : 'none' })
-  row.style.display = cb.checked ? 'flex' : 'none'
-
   // CKEditor
   var ckScript = document.createElement('script')
   ckScript.src = 'https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js'

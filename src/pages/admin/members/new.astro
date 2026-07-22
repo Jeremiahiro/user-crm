@@ -22,7 +22,9 @@ const STATUS_OPTIONS = [
 
 let errors: Record<string, string> = {}
 let globalError = ''
-let values: Record<string, string | string[]> = { status: 'applicant', person_types: ['member'] }
+const preselectedType = Astro.url.searchParams.get('type')
+const defaultTypes = preselectedType && PERSON_TYPES.includes(preselectedType) ? [preselectedType] : ['member']
+let values: Record<string, string | string[]> = { status: 'applicant', person_types: defaultTypes }
 
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData()
@@ -37,6 +39,7 @@ if (Astro.request.method === 'POST') {
       middle_name: (values.middle_name as string) || undefined,
       last_name: values.last_name,
       email: values.email,
+      email_secondary: (values.email_secondary as string) || undefined,
       phone: (values.phone as string) || undefined,
       date_of_birth: (values.date_of_birth as string) || undefined,
       gender: (values.gender as string) || undefined,
@@ -83,6 +86,7 @@ if (Astro.request.method === 'POST') {
             <Input label="Middle name" name="middle_name" value={values.middle_name as string} placeholder="Optional" />
           </div>
           <Input label="Email *" name="email" type="email" value={values.email as string} error={errors.email} required placeholder="john@example.com" />
+          <Input label="Secondary email" name="email_secondary" type="email" value={values.email_secondary as string} placeholder="Optional" />
           <Input label="Phone" name="phone" type="tel" value={values.phone as string} error={errors.phone} placeholder="+44 7700 000000" />
           <Input label="Date of birth" name="date_of_birth" type="date" value={values.date_of_birth as string} />
           <div style="display: flex; flex-direction: column; gap: 4px;">

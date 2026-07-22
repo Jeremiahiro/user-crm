@@ -1,33 +1,70 @@
 @import "tailwindcss";
 
 @theme {
+  /* Brand */
   --color-brand-navy: #1A1A2E;
   --color-brand-navy-light: #2D2D4E;
   --color-brand-gold: #C9A84C;
   --color-brand-gold-light: #E8C97A;
+
+  /* Neutral */
   --color-neutral-950: #0A0A0F;
   --color-neutral-900: #111118;
+  --color-neutral-800: #252535;
   --color-neutral-700: #3D3D50;
+  --color-neutral-600: #55556A;
   --color-neutral-500: #6B6B80;
+  --color-neutral-400: #8E8EA0;
   --color-neutral-300: #B0B0C0;
+  --color-neutral-200: #E0E0E8;
   --color-neutral-100: #F0F0F5;
   --color-neutral-50: #F8F8FC;
+
+  /* Success */
+  --color-success-800: #166534;
+  --color-success-700: #15803D;
   --color-success-600: #16A34A;
+  --color-success-500: #22C55E;
+  --color-success-400: #4ADE80;
+  --color-success-200: #BBF7D0;
+  --color-success-100: #DCFCE7;
   --color-success-50: #F0FDF4;
+
+  /* Warning */
+  --color-warning-700: #B45309;
   --color-warning-600: #D97706;
+  --color-warning-500: #F59E0B;
+  --color-warning-200: #FDE68A;
   --color-warning-50: #FFFBEB;
+
+  /* Danger */
+  --color-danger-800: #991B1B;
+  --color-danger-700: #B91C1C;
   --color-danger-600: #DC2626;
+  --color-danger-400: #F87171;
+  --color-danger-200: #FECACA;
   --color-danger-50: #FFF1F2;
+
+  /* Info */
+  --color-info-700: #0369A1;
   --color-info-600: #0284C7;
+  --color-info-500: #0EA5E9;
+  --color-info-200: #BAE6FD;
   --color-info-50: #F0F9FF;
+
+  /* Typography */
   --font-heading: 'Plus Jakarta Sans', sans-serif;
   --font-body: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+
+  /* Radius */
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
   --radius-full: 9999px;
+
+  /* Shadows */
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
   --shadow-md: 0 4px 12px rgba(0,0,0,0.10);
   --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);

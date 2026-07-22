@@ -1,14 +1,18 @@
 /**
- * POST   /api/onboarding/notes  — add a note to an applicant
- * DELETE /api/onboarding/notes  — remove a note by id
+ * POST   /api/onboarding/notes  — add a note to an applicant's timeline
+ * DELETE /api/onboarding/notes  — remove a timeline note by id
  */
 import type { APIRoute } from 'astro'
 import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin } from '@/lib/rbac'
 import { writeAuditLog } from '@/lib/audit'
 
 export const POST: APIRoute = async ({ request, locals }) => {
   if (!locals.user) {
     return new Response(JSON.stringify({ error: 'Unauthorised' }), { status: 401 })
+  }
+  if (!isAdmin(locals.user)) {
+    return new Response(JSON.stringify({ error: 'Admins only' }), { status: 403 })
   }
 
   let body: { person_id?: string; note?: string } = {}
@@ -18,21 +22,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return new Response(JSON.stringify({ error: 'person_id and note are required' }), { status: 422 })
   }
 
-  // Resolve author from session email
-  let authorId: string | null = null
-  if (locals.user.email) {
-    const { data: author } = await supabaseAdmin
-      .from('people')
-      .select('id')
-      .eq('email', locals.user.email)
-      .maybeSingle()
-    authorId = author?.id ?? null
-  }
+  const authorId = locals.user.person_id
 
-  const { data: note, error } = await supabaseAdmin
-    .from('onboarding_notes')
-    .insert({ person_id: body.person_id, author_id: authorId, note: body.note.trim() })
-    .select('id, note, created_at, author_id')
+  const { data: entry, error } = await supabaseAdmin
+    .from('onboarding_timeline')
+    .insert({
+      person_id:  body.person_id,
+      event_type: 'note',
+      note:       body.note.trim(),
+      author_id:  authorId,
+    })
+    .select('id, note, author_id, created_at')
     .single()
 
   if (error) {
@@ -41,19 +41,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 
   await writeAuditLog({
-    actorId: locals.user.person_id,
-    action: 'create',
-    targetTable: 'onboarding_notes',
-    targetId: note.id as string,
-    afterValue: { person_id: body.person_id, note: body.note },
+    actorId:     authorId,
+    action:      'create',
+    targetTable: 'onboarding_timeline',
+    targetId:    entry.id as string,
+    afterValue:  { person_id: body.person_id, note: body.note },
   })
 
-  return new Response(JSON.stringify({ data: note }), { status: 201 })
+  return new Response(JSON.stringify({ data: entry }), { status: 201 })
 }
 
 export const DELETE: APIRoute = async ({ request, locals }) => {
   if (!locals.user) {
     return new Response(JSON.stringify({ error: 'Unauthorised' }), { status: 401 })
+  }
+  if (!isAdmin(locals.user)) {
+    return new Response(JSON.stringify({ error: 'Admins only' }), { status: 403 })
   }
 
   let body: { id?: string } = {}
@@ -63,21 +66,34 @@ export const DELETE: APIRoute = async ({ request, locals }) => {
     return new Response(JSON.stringify({ error: 'id is required' }), { status: 422 })
   }
 
+  // Only allow deleting note-type events (not system stage_change or checklist events)
+  const { data: entry } = await supabaseAdmin
+    .from('onboarding_timeline')
+    .select('id, event_type, author_id')
+    .eq('id', body.id)
+    .single()
+
+  if (!entry) {
+    return new Response(JSON.stringify({ error: 'Note not found' }), { status: 404 })
+  }
+  if (entry.event_type !== 'note') {
+    return new Response(JSON.stringify({ error: 'Cannot delete system events' }), { status: 422 })
+  }
+
   const { error } = await supabaseAdmin
-    .from('onboarding_notes')
+    .from('onboarding_timeline')
     .delete()
     .eq('id', body.id)
 
   if (error) {
-    console.error('[DELETE /api/onboarding/notes] DB error:', error)
     return new Response(JSON.stringify({ error: 'Failed to delete note' }), { status: 500 })
   }
 
   await writeAuditLog({
-    actorId: locals.user.person_id,
-    action: 'delete',
-    targetTable: 'onboarding_notes',
-    targetId: body.id,
+    actorId:     locals.user.person_id,
+    action:      'delete',
+    targetTable: 'onboarding_timeline',
+    targetId:    body.id,
   })
 
   return new Response(JSON.stringify({ success: true }), { status: 200 })

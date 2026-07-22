@@ -7,9 +7,10 @@ import type { SessionUser } from '../types/domain'
 interface Props {
   title?: string
   user?: SessionUser
+  activeHref?: string
 }
 
-const { title = 'Dashboard', user = Astro.locals.user } = Astro.props
+const { title = 'Dashboard', user = Astro.locals.user, activeHref } = Astro.props
 
 const { data: logoSetting } = await supabaseAdmin
   .from('org_settings').select('value').eq('key', 'logo_url').single()
@@ -75,40 +76,44 @@ interface NavSection {
 }
 
 const navItems = {
-  dashboard: { label: 'Dashboard', href: '/dashboard', icon: 'grid' },
-  members: { label: 'Members', href: '/admin/members', icon: 'users' },
-  teams: { label: 'Teams', href: '/admin/teams', icon: 'layers' },
-  pillars: { label: 'Pillars', href: '/admin/pillars', icon: 'flag' },
-  cmp: { label: 'CMP', href: '/admin/cmp', icon: 'calendar' },
-  awards: { label: 'Awards', href: '/admin/awards', icon: 'award' },
-  praise: { label: 'Praise', href: '/admin/praise', icon: 'star' },
-  dues: { label: 'Dues', href: '/admin/dues', icon: 'receipt' },
-  dbs: { label: 'DBS Status', href: '/admin/dbs', icon: 'check-circle' },
-  onboarding: { label: 'Onboarding', href: '/admin/onboarding', icon: 'user-check' },
-  documents: { label: 'Documents', href: '/admin/documents', icon: 'file-text' },
-  trainings: { label: 'Trainings', href: '/admin/trainings', icon: 'book-open' },
-  email: { label: 'Email', href: '/admin/email', icon: 'mail' },
-  roles: { label: 'Roles', href: '/admin/roles', icon: 'shield' },
-  positions: { label: 'Positions', href: '/admin/positions', icon: 'user-cog' },
-  audit: { label: 'Audit Log', href: '/admin/audit', icon: 'file-text' },
-  settings: { label: 'Settings', href: '/admin/settings', icon: 'settings' },
+  dashboard:  { label: 'Dashboard',  href: '/dashboard',         icon: 'grid' },
+  members:    { label: 'Members',    href: '/admin/members',     icon: 'users' },
+  volunteers: { label: 'Volunteers', href: '/admin/volunteers',  icon: 'user-check' },
+  onboarding: { label: 'Onboarding', href: '/admin/onboarding', icon: 'user-cog' },
+  teams:      { label: 'Teams',      href: '/admin/teams',       icon: 'layers' },
+  pillars:    { label: 'Pillars',    href: '/admin/pillars',     icon: 'flag' },
+  cmp:        { label: 'CMP',        href: '/admin/cmp',         icon: 'calendar' },
+  trainings:  { label: 'Trainings',  href: '/admin/trainings',   icon: 'book-open' },
+  awards:     { label: 'Awards',     href: '/admin/awards',      icon: 'award' },
+  praise:     { label: 'Praise',     href: '/admin/praise',      icon: 'star' },
+  dues:       { label: 'Dues',       href: '/admin/dues',        icon: 'receipt' },
+  dbs:        { label: 'DBS',        href: '/admin/dbs',         icon: 'check-circle' },
+  documents:  { label: 'Documents',  href: '/admin/documents',   icon: 'file-text' },
+  email:      { label: 'Email',      href: '/admin/email',       icon: 'mail' },
+  roles:      { label: 'Roles',      href: '/admin/roles',       icon: 'shield' },
+  positions:  { label: 'Positions',  href: '/admin/positions',   icon: 'user-cog' },
+  audit:      { label: 'Audit Log',  href: '/admin/audit',       icon: 'file-text' },
+  settings:   { label: 'Settings',   href: '/admin/settings',    icon: 'settings' },
 }
 
 const navSections: NavSection[] = isAdmin ? [
-  { label: 'Main', items: [navItems.dashboard, navItems.members, navItems.teams, navItems.pillars] },
-  { label: 'Programmes', items: [navItems.cmp, navItems.awards, navItems.praise, navItems.trainings] },
-  { label: 'Compliance', items: [navItems.dues, navItems.dbs, navItems.onboarding, navItems.documents] },
-  { label: 'Communications', items: [navItems.email] },
-  { label: 'Admin', items: [navItems.roles, navItems.positions, navItems.audit, navItems.settings] },
+  { label: 'Overview',      items: [navItems.dashboard] },
+  { label: 'People',        items: [navItems.members, navItems.volunteers, navItems.onboarding, navItems.teams, navItems.pillars] },
+  { label: 'Programmes',    items: [navItems.cmp, navItems.trainings, navItems.awards, navItems.praise] },
+  { label: 'Compliance',    items: [navItems.dues, navItems.dbs, navItems.documents] },
+  { label: 'Admin',         items: [navItems.email, navItems.roles, navItems.positions, navItems.audit, navItems.settings] },
 ] : isMentor ? [
-  { label: 'Main', items: [navItems.dashboard, navItems.teams, navItems.pillars] },
-  { label: 'Programmes', items: [navItems.cmp, navItems.awards, navItems.praise, navItems.trainings] },
+  { label: 'Overview',   items: [navItems.dashboard] },
+  { label: 'People',     items: [navItems.teams, navItems.pillars] },
+  { label: 'Programmes', items: [navItems.cmp, navItems.trainings, navItems.awards, navItems.praise] },
 ] : [
-  { label: 'Main', items: [navItems.dashboard, navItems.teams, navItems.pillars] },
-  { label: 'Programmes', items: [navItems.awards, navItems.praise, navItems.trainings] },
+  { label: 'Overview',   items: [navItems.dashboard] },
+  { label: 'People',     items: [navItems.teams, navItems.pillars] },
+  { label: 'Programmes', items: [navItems.trainings, navItems.awards, navItems.praise] },
 ]
 
 function isActive(href: string): boolean {
+  if (activeHref) return href === activeHref
   if (href === '/dashboard') return currentPath === '/dashboard'
   return currentPath.startsWith(href)
 }
@@ -218,6 +223,12 @@ function isActive(href: string): boolean {
         pointer-events: none;
       }
     </style>
+    <style>
+      [x-cloak] { display: none !important; }
+      .modal-btn-danger { background: var(--color-danger-600) !important; }
+      .modal-btn-primary { background: var(--color-brand-navy) !important; }
+    </style>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
   </head>
   <body style="margin:0; font-family: var(--font-body); background-color: var(--color-neutral-50);">
 
@@ -353,68 +364,99 @@ function isActive(href: string): boolean {
         </div>
 
         {
-          navSections.map((section) => (
-            <div style="margin-bottom: 4px;">
-              <p
-                class="nav-label"
-                style="
-                  font-size: 10px;
-                  font-weight: 600;
-                  color: var(--color-neutral-400);
-                  text-transform: uppercase;
-                  letter-spacing: 0.1em;
-                  padding: 8px 16px 4px;
-                  margin: 0;
-                  font-family: var(--font-body);
-                "
-              >
-                {section.label}
-              </p>
-              {section.items.map((item) => {
-                const active = isActive(item.href)
-                const svgPath = icons[item.icon] ?? ''
-                return (
-                  <a
-                    href={item.href}
-                    data-label={item.label}
-                    class="nav-item"
-                    style={`
+          navSections.map((section) => {
+            const sectionActive = section.items.some(item => isActive(item.href))
+            const sectionId = 'nav-section-' + section.label.toLowerCase().replace(/\s+/g, '-')
+            return (
+              <div class="nav-section" style="margin-bottom: 2px;" data-section-id={sectionId}>
+                {/* Section header — clickable to expand/collapse. Single item sections (Overview) skip the toggle. */}
+                {section.items.length > 1 ? (
+                  <button
+                    class="nav-section-toggle nav-label"
+                    data-section={sectionId}
+                    style="
                       display: flex;
                       align-items: center;
-                      gap: 10px;
-                      padding: 0 8px;
-                      margin: 1px 8px;
-                      height: 38px;
-                      border-radius: var(--radius-md);
-                      text-decoration: none;
-                      font-size: 14px;
-                      font-weight: 500;
+                      justify-content: space-between;
+                      width: 100%;
+                      background: none;
+                      border: none;
+                      cursor: pointer;
+                      padding: 8px 14px 4px;
+                      font-size: 10px;
+                      font-weight: 600;
+                      color: var(--color-neutral-400);
+                      text-transform: uppercase;
+                      letter-spacing: 0.1em;
                       font-family: var(--font-body);
-                      transition: background-color 0.15s;
-                      ${active
-                        ? 'background-color: var(--color-neutral-100); color: var(--color-brand-navy); border-left: 3px solid var(--color-brand-gold); padding-left: 5px;'
-                        : 'color: var(--color-neutral-600);'
-                      }
-                    `}
+                      box-sizing: border-box;
+                    "
                   >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      style="flex-shrink: 0; opacity: 0.75;"
-                      set:html={svgPath}
-                    />
-                    <span class="nav-text">{item.label}</span>
-                  </a>
-                )
-              })}
-            </div>
-          ))
+                    <span>{section.label}</span>
+                    <svg class="nav-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.2s; flex-shrink: 0;">
+                      <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                  </button>
+                ) : (
+                  <p class="nav-label" style="font-size: 10px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.1em; padding: 8px 16px 4px; margin: 0; font-family: var(--font-body);">
+                    {section.label}
+                  </p>
+                )}
+
+                {/* Section items — collapsible only when there's a toggle */}
+                <div
+                  class="nav-section-items"
+                  data-section-items={section.items.length > 1 ? sectionId : undefined}
+                  data-active={sectionActive ? 'true' : 'false'}
+                  style={section.items.length === 1 ? '' : (sectionActive ? '' : 'display: none;')}
+                >
+                  {section.items.map((item) => {
+                    const active = isActive(item.href)
+                    const svgPath = icons[item.icon] ?? ''
+                    return (
+                      <a
+                        href={item.href}
+                        data-label={item.label}
+                        class="nav-item"
+                        style={`
+                          display: flex;
+                          align-items: center;
+                          gap: 10px;
+                          padding: 0 8px;
+                          margin: 1px 8px;
+                          height: 36px;
+                          border-radius: var(--radius-md);
+                          text-decoration: none;
+                          font-size: 13px;
+                          font-weight: 500;
+                          font-family: var(--font-body);
+                          transition: background-color 0.15s;
+                          ${active
+                            ? 'background-color: var(--color-neutral-100); color: var(--color-brand-navy); border-left: 3px solid var(--color-brand-gold); padding-left: 5px;'
+                            : 'color: var(--color-neutral-600);'
+                          }
+                        `}
+                      >
+                        <svg
+                          width="15"
+                          height="15"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          style="flex-shrink: 0; opacity: 0.7;"
+                          set:html={svgPath}
+                        />
+                        <span class="nav-text">{item.label}</span>
+                      </a>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })
         }
       </nav>
 
@@ -423,6 +465,8 @@ function isActive(href: string): boolean {
         id="main-content"
         style="
           flex: 1;
+          min-width: 0;
+          overflow-x: hidden;
           padding: 32px;
           min-height: calc(100vh - 60px);
           background-color: var(--color-neutral-50);
@@ -468,6 +512,63 @@ function isActive(href: string): boolean {
 
         btnToggle.addEventListener('click', function () {
           setCollapsed(!sidebar.classList.contains('collapsed'))
+        })
+
+        // ── Accordion sections ──────────────────────────────────────────────
+        var ACC_KEY = '100bmol_nav_open'
+
+        function getSavedOpen() {
+          try { return JSON.parse(localStorage.getItem(ACC_KEY) || 'null') } catch { return null }
+        }
+        function saveOpen(openSet) {
+          try { localStorage.setItem(ACC_KEY, JSON.stringify([...openSet])) } catch {}
+        }
+
+        // Collect toggleable sections
+        var toggleBtns = document.querySelectorAll('.nav-section-toggle')
+        var openSections = new Set(getSavedOpen() || [])
+
+        // On first load: if nothing saved, open sections that have an active link
+        if (!getSavedOpen()) {
+          document.querySelectorAll('.nav-section-items[data-active="true"]').forEach(function(el) {
+            openSections.add(el.getAttribute('data-section-items'))
+          })
+        }
+
+        function applyAccordionState() {
+          document.querySelectorAll('.nav-section-items[data-section-items]').forEach(function(el) {
+            var sid = el.getAttribute('data-section-items')
+            var isOpen = openSections.has(sid)
+            el.style.display = isOpen ? '' : 'none'
+          })
+          toggleBtns.forEach(function(btn) {
+            var sid = btn.getAttribute('data-section')
+            var chevron = btn.querySelector('.nav-chevron')
+            if (chevron) chevron.style.transform = openSections.has(sid) ? 'rotate(180deg)' : ''
+          })
+        }
+
+        // Always keep sections with active links visible (even when sidebar is collapsed)
+        document.querySelectorAll('.nav-section-items[data-active="true"]').forEach(function(el) {
+          openSections.add(el.getAttribute('data-section-items'))
+        })
+
+        applyAccordionState()
+
+        toggleBtns.forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var sid = btn.getAttribute('data-section')
+            if (openSections.has(sid)) {
+              // Don't close if it has the active link
+              var items = document.querySelector('[data-section-items="' + sid + '"]')
+              if (items && items.getAttribute('data-active') === 'true') return
+              openSections.delete(sid)
+            } else {
+              openSections.add(sid)
+            }
+            saveOpen(openSections)
+            applyAccordionState()
+          })
         })
       })()
     </script>

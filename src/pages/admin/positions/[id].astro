@@ -101,7 +101,34 @@ const saved = Astro.url.searchParams.get('saved') === '1'
 ---
 
 <DashboardLayout title={position.title as string}>
-  <div id="pos-root" data-pos-id={id} data-pos-title={position.title as string} style="max-width: 720px;">
+  <div id="pos-root" data-pos-id={id} data-pos-title={position.title as string}
+    x-data="{
+      modalOpen: false,
+      posId: '',
+      posTitle: '',
+      loading: false,
+      error: '',
+      init() {
+        this.posId = this.$el.dataset.posId;
+        this.posTitle = this.$el.dataset.posTitle;
+      },
+      openModal() {
+        this.modalOpen = true;
+        this.error = '';
+      },
+      async doAction() {
+        this.loading = true;
+        var res = await fetch('/api/positions/' + this.posId, { method: 'DELETE' });
+        if (res.ok) {
+          window.location.href = '/admin/positions';
+        } else {
+          var e = await res.json();
+          this.error = e.error || 'Failed to delete';
+          this.loading = false;
+        }
+      }
+    }"
+    style="max-width: 720px;">
     <Breadcrumb crumbs={[{ label: 'Positions', href: '/admin/positions' }, { label: position.title as string }]} />
 
     <!-- Header -->
@@ -276,7 +303,9 @@ const saved = Astro.url.searchParams.get('saved') === '1'
                 : `Has ${totalTenures} tenure record${(totalTenures ?? 0) !== 1 ? 's' : ''} — cannot delete.`}
             </p>
           </div>
-          <button id="delete-pos-btn" disabled={!canDelete}
+          <button
+            disabled={!canDelete}
+            @click="openModal()"
             style={`flex-shrink: 0; padding: 8px 16px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; border: none; cursor: ${canDelete ? 'pointer' : 'not-allowed'};
               background: ${canDelete ? 'var(--color-danger-600)' : 'var(--color-neutral-100)'};
               color: ${canDelete ? 'white' : 'var(--color-neutral-400)'};`}>
@@ -285,27 +314,26 @@ const saved = Astro.url.searchParams.get('saved') === '1'
         </div>
       </div>
     )}
+
+    <!-- Confirmation Modal -->
+    <div x-show="modalOpen" @click.self="modalOpen = false" @keydown.escape.window="modalOpen = false"
+      style="position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.45);">
+      <div style="background: white; border-radius: var(--radius-lg); padding: 28px 32px; max-width: 420px; width: 90%; box-shadow: 0 25px 50px rgba(0,0,0,0.2);">
+        <h3 style="font-family: var(--font-heading); font-size: 17px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 10px;">Delete position</h3>
+        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700); margin: 0 0 20px; line-height: 1.55;">
+          Permanently removes this position. This cannot be undone.
+        </p>
+        <p x-show="error" x-text="error" style="font-family: var(--font-body); font-size: 13px; color: var(--color-danger-600); margin: 0 0 14px;"></p>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button @click="modalOpen = false" :disabled="loading"
+            style="padding: 8px 18px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer; color: var(--color-neutral-700);">
+            Cancel
+          </button>
+          <button @click="doAction()" :disabled="loading" x-text="loading ? 'Deleting...' : 'Delete'"
+            style="padding: 8px 18px; background: var(--color-danger-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
-
-  <script is:inline>
-    (function () {
-      var root = document.getElementById('pos-root')
-      var posId = root ? root.dataset.posId : ''
-      var posTitle = root ? root.dataset.posTitle : ''
-
-      var deleteBtn = document.getElementById('delete-pos-btn')
-      if (deleteBtn && !deleteBtn.disabled) {
-        deleteBtn.addEventListener('click', function () {
-          if (!confirm('Delete "' + posTitle + '"? This cannot be undone.')) return
-          deleteBtn.disabled = true
-          deleteBtn.textContent = 'Deleting…'
-          fetch('/api/positions/' + posId, { method: 'DELETE' })
-            .then(function (r) {
-              if (r.ok) { window.location.href = '/admin/positions' }
-              else { r.json().then(function (e) { alert(e.error || 'Failed to delete'); deleteBtn.disabled = false; deleteBtn.textContent = 'Delete' }) }
-            })
-        })
-      }
-    })()
-  </script>
 </DashboardLayout>

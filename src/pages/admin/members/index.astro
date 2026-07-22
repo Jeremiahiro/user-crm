@@ -8,10 +8,15 @@ import { createHash } from 'node:crypto'
 
 if (!Astro.locals.user) return Astro.redirect('/login')
 
+const VALID_TYPES = ['member', 'mentor', 'volunteer', 'alumni', 'parent', 'trustee']
+
 const PAGE_SIZE = 25
-const statusFilter = Astro.url.searchParams.get('status') ?? ''
-const teamFilter = Astro.url.searchParams.get('team_id') ?? ''
-const searchQ = Astro.url.searchParams.get('q') ?? ''
+const statusFilter  = Astro.url.searchParams.get('status') ?? ''
+const teamFilter    = Astro.url.searchParams.get('team_id') ?? ''
+const searchQ       = Astro.url.searchParams.get('q') ?? ''
+const typeParam     = Astro.url.searchParams.get('type') ?? ''
+// Default to 'member' — this page is the members directory
+const typeFilter    = VALID_TYPES.includes(typeParam) ? typeParam : 'member'
 const page = Math.max(1, parseInt(Astro.url.searchParams.get('page') ?? '1'))
 const offset = (page - 1) * PAGE_SIZE
 
@@ -28,6 +33,7 @@ if (teamFilter) {
 let query = supabaseAdmin
   .from('people')
   .select('id, full_name, email, status, person_types, profile_photo_url, date_joined, person_teams(is_team_lead, teams(id, name))', { count: 'exact' })
+  .contains('person_types', [typeFilter])
   .eq('is_archived', false)
   .order('full_name')
 
@@ -56,9 +62,11 @@ const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE)
 
 // Build base URL for pagination (preserve filters, strip page)
 const filterParams = new URLSearchParams()
-if (searchQ) filterParams.set('q', searchQ)
+if (searchQ)     filterParams.set('q', searchQ)
 if (statusFilter) filterParams.set('status', statusFilter)
-if (teamFilter) filterParams.set('team_id', teamFilter)
+if (teamFilter)  filterParams.set('team_id', teamFilter)
+// Only include type param if not the default
+if (typeFilter !== 'member') filterParams.set('type', typeFilter)
 const paginationBase = `/admin/members${filterParams.toString() ? `?${filterParams}` : ''}`
 
 const statusOptions = [
@@ -130,6 +138,10 @@ function gravatarUrl(email: string): string {
         placeholder="Search by name…"
         style="padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); min-width: 200px;"
       />
+      <select name="type"
+        style="padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+        {VALID_TYPES.map(t => <option value={t} selected={typeFilter === t}>{titleCase(t)}</option>)}
+      </select>
       <select name="status"
         style="padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
         {statusOptions.map(o => <option value={o.value} selected={statusFilter === o.value}>{o.label}</option>)}
@@ -143,7 +155,7 @@ function gravatarUrl(email: string): string {
         style="padding: 9px 16px; background-color: var(--color-neutral-800); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer;">
         Filter
       </button>
-      {(statusFilter || teamFilter || searchQ) && (
+      {(statusFilter || teamFilter || searchQ || typeFilter !== 'member') && (
         <a href="/admin/members" style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); text-decoration: none;">
           Clear filters
         </a>
