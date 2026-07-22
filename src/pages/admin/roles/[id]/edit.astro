@@ -88,72 +88,71 @@ if (Astro.request.method === 'POST') {
 ---
 
 <DashboardLayout title={`Edit ${role.name}`}>
-  <div style="max-width: 900px;">
+  <div class="max-w-225">
     <Breadcrumb crumbs={[{ label: 'Roles', href: '/admin/roles' }, { label: role.name as string, href: `/admin/roles` }, { label: 'Edit' }]} />
-    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
-      <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">
+    <div class="flex items-center gap-3 mb-6">
+      <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0">
         Edit Role
       </h1>
       {(role.is_system_protected as boolean) && (
-        <span style="padding: 3px 10px; background-color: var(--color-info-100); color: var(--color-info-700); border-radius: var(--radius-full); font-family: var(--font-body); font-size: 12px; font-weight: 500;">
+        <span class="px-2.5 py-0.75 bg-info-100 text-info-700 rounded-full font-body text-xs font-medium">
           System role
         </span>
       )}
     </div>
 
     {globalError && (
-      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+      <div class="bg-danger-50 border border-danger-200 rounded-md px-4 py-3 mb-5 font-body text-sm text-danger-700">
         {globalError}
       </div>
     )}
 
-    <form method="POST" style="display: flex; flex-direction: column; gap: 24px;">
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+    <form method="POST" class="flex flex-col gap-6">
+      <div class="bg-white border border-neutral-200 rounded-lg p-8 flex flex-col gap-5">
         <Input label="Role name *" name="name" value={values.name} error={errors.name} required />
         <Input label="Description" name="description" value={values.description} />
       </div>
 
       <!-- Permission grid -->
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-          <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">Permissions</h2>
-          <div style="display: flex; gap: 8px;">
+      <div class="bg-white border border-neutral-200 rounded-lg p-8">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="font-heading text-sm font-semibold text-neutral-500 uppercase tracking-[0.08em] m-0">Permissions</h2>
+          <div class="flex gap-2">
             <button type="button" id="grant-all-btn"
-              style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); background: none; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); padding: 4px 10px; cursor: pointer;">
+              class="font-body text-xs text-neutral-500 bg-transparent border border-neutral-300 rounded-md px-2.5 py-1 cursor-pointer">
               Grant all
             </button>
             <button type="button" id="revoke-all-btn"
-              style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); background: none; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); padding: 4px 10px; cursor: pointer;">
+              class="font-body text-xs text-neutral-500 bg-transparent border border-neutral-300 rounded-md px-2.5 py-1 cursor-pointer">
               Revoke all
             </button>
           </div>
         </div>
 
-        <div style="overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse min-w-150">
             <thead>
               <tr>
-                <th style="padding: 8px 12px; text-align: left; font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; width: 220px;">Module</th>
+                <th class="px-3 py-2 text-left font-body text-xs font-semibold text-neutral-500 uppercase tracking-[0.08em] w-55">Module</th>
                 {OPS.map(op => (
-                  <th style="padding: 8px 12px; text-align: center; font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; width: 80px;">{op}</th>
+                  <th class="px-3 py-2 text-center font-body text-xs font-semibold text-neutral-500 uppercase tracking-[0.08em] w-20">{op}</th>
                 ))}
-                <th style="padding: 8px 12px; text-align: center; font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400);">All</th>
+                <th class="px-3 py-2 text-center font-body text-[11px] text-neutral-400">All</th>
               </tr>
             </thead>
             <tbody>
               {MODULES.map((mod, i) => (
-                <tr style={`border-top: 1px solid var(--color-neutral-100); ${i % 2 === 0 ? '' : 'background-color: var(--color-neutral-50);'}`}>
-                  <td style="padding: 10px 12px; font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">{mod.label}</td>
+                <tr class={`border-t border-neutral-100 ${i % 2 === 0 ? '' : 'bg-neutral-50'}`}>
+                  <td class="px-3 py-2.5 font-body text-[13px] font-medium text-neutral-700">{mod.label}</td>
                   {OPS.map(op => (
-                    <td style="padding: 10px 12px; text-align: center;">
+                    <td class="px-3 py-2.5 text-center">
                       <input type="checkbox" name={`perm_${mod.key}_${op}`} value="1"
                         checked={hasPerm(mod.key, op)}
-                        style="width: 16px; height: 16px; cursor: pointer; accent-color: var(--color-brand-navy);" />
+                        class="w-4 h-4 cursor-pointer accent-brand-navy" />
                     </td>
                   ))}
-                  <td style="padding: 10px 12px; text-align: center;">
-                    <button type="button" class="toggle-row-btn" data-module={mod.key}
-                      style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); background: none; border: none; cursor: pointer; padding: 2px 6px; border-radius: var(--radius-sm);">
+                  <td class="px-3 py-2.5 text-center">
+                    <button type="button" class="toggle-row-btn font-body text-[11px] text-neutral-400 bg-transparent border-none cursor-pointer px-1.5 py-0.5 rounded-sm" data-module={mod.key}>
                       All
                     </button>
                   </td>
@@ -164,11 +163,11 @@ if (Astro.request.method === 'POST') {
         </div>
       </div>
 
-      <div style="display: flex; gap: 12px;">
-        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+      <div class="flex gap-3">
+        <button type="submit" class="px-5 py-2.5 bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">
           Save changes
         </button>
-        <a href="/admin/roles" style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">Cancel</a>
+        <a href="/admin/roles" class="px-5 py-2.5 bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">Cancel</a>
       </div>
     </form>
   </div>

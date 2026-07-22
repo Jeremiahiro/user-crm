@@ -244,7 +244,7 @@ const peopleJson = JSON.stringify(filtered.map(p => {
 
     <!-- ── KANBAN VIEW ── -->
     <div x-show="view === 'kanban'" class="overflow-x-auto">
-      <div class="grid gap-4 items-start min-w-[1280px]" style="grid-template-columns: repeat(6, minmax(240px, 1fr));">
+      <div class="grid gap-4 items-start min-w-[1280px] [grid-template-columns:repeat(6,minmax(240px,1fr))]">
 
         {STAGES.map(stage => (
           <div>

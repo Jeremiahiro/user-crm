@@ -21,6 +21,7 @@ const { data: member, error: memberError } = await supabaseAdmin
   .select(`
     *,
     person_teams(is_team_lead, joined_at, teams(id, name, pillars(name))),
+    person_committees(is_chair, joined_at, committees(id, name)),
     user_roles!user_roles_person_id_fkey(assigned_at, roles(id, name)),
     elected_position_tenures!elected_position_tenures_person_id_fkey(id, term_start, term_end, elected_by, notes, elected_positions(title)),
     dbs_records!dbs_records_person_id_fkey(id, certificate_reference, clearance_date, expiry_date, drive_url, created_at),
@@ -79,12 +80,14 @@ const [
 ])
 
 type TeamAssignment = { is_team_lead: boolean; joined_at: string; teams: { id: string; name: string; pillars: { name: string } | null } | null }
+type CommitteeAssignment = { is_chair: boolean; joined_at: string; committees: { id: string; name: string } | null }
 type UserRole = { assigned_at: string; roles: { id: string; name: string } | null }
 type Tenure = { id: string; term_start: string; term_end: string | null; elected_by: string | null; notes: string | null; elected_positions: { title: string } | null }
 type DbsRecord = { id: string; certificate_reference: string | null; clearance_date: string | null; expiry_date: string | null; drive_url: string | null; created_at: string }
 type Due = { id: string; year: number; month: number; paid_at: string | null }
 
 const teamAssignments = (member.person_teams as TeamAssignment[]) ?? []
+const committeeAssignments = (member.person_committees as CommitteeAssignment[]) ?? []
 const userRoles = (member.user_roles as UserRole[]) ?? []
 const tenures = (member.elected_position_tenures as Tenure[]) ?? []
 const dbsRecords = ((member.dbs_records as DbsRecord[]) ?? [])
@@ -216,6 +219,7 @@ const tabs = [
   ...(canSeeAdminTabs && !member.person_types?.includes('volunteer') ? [{ id: 'dues', label: 'Dues' }] : []),
   ...(canSeeAdminTabs ? [{ id: 'dbs', label: 'DBS' }] : []),
   ...(canSeeAdminTabs ? [{ id: 'roles', label: 'Teams & Roles' }] : []),
+  ...(committeeAssignments.length > 0 || canSeeAdminTabs ? [{ id: 'committees', label: `Committees${committeeAssignments.length > 0 ? ` (${committeeAssignments.length})` : ''}` }] : []),
   { id: 'recognition', label: `Recognition${allAwards.length + allPraise.length > 0 ? ` (${allAwards.length + allPraise.length})` : ''}` },
   ...(canSeeDocumentsTab ? [{ id: 'documents', label: `Documents${memberDocs.length > 0 ? ` (${memberDocs.length})` : ''}` }] : []),
   ...(canSeeAdminTabs ? [{ id: 'activity', label: `Activity${auditEntries.length > 0 ? ` (${auditEntries.length})` : ''}` }] : []),
@@ -723,6 +727,42 @@ const hasApplicationData = !!(
             </div>
           )}
         </div>
+      </div>
+    )}
+
+    <!-- ─── Tab: Committees ──────────────────────────────────────── -->
+    {tab === 'committees' && (
+      <div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+          <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">Committees</h2>
+          {canSeeAdminTabs && (
+            <a href="/admin/committees" style="font-family: var(--font-body); font-size: 13px; color: var(--color-brand-navy); text-decoration: none;">Manage →</a>
+          )}
+        </div>
+        {committeeAssignments.length === 0 ? (
+          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 40px; text-align: center;">
+            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">Not a member of any committees.</p>
+          </div>
+        ) : (
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            {committeeAssignments.map((ca) => ca.committees && (
+              <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                <div>
+                  <a href={`/admin/committees/${ca.committees.id}`}
+                    style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none;">
+                    {ca.committees.name}
+                  </a>
+                  {ca.is_chair && (
+                    <span style="margin-left: 8px; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-warning-700); background: var(--color-warning-50); border: 1px solid var(--color-warning-200); border-radius: 100px; padding: 1px 8px;">Chair</span>
+                  )}
+                </div>
+                <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400);">
+                  Joined {fmtDay(ca.joined_at)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     )}
 

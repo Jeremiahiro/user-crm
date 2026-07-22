@@ -23,7 +23,6 @@ const personId = Astro.url.searchParams.get('person_id') ?? ''
 const returnTo = personId ? `/admin/members/${personId}?tab=recognition` : '/admin/praise'
 
 let globalError = ''
-let successCount = 0
 
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData()
@@ -63,13 +62,13 @@ const initialName = memberName
 ---
 
 <DashboardLayout title="Give Praise">
-  <div style="max-width: 560px;">
+  <div class="max-w-140">
     <Breadcrumb crumbs={crumbs} />
-    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Give Praise ⭐</h1>
-    <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0 0 24px;">Recognise one or more members for their contribution.</p>
+    <h1 class="font-heading text-[22px] font-bold text-brand-navy mb-1">Give Praise ⭐</h1>
+    <p class="font-body text-sm text-neutral-500 mb-6">Recognise one or more members for their contribution.</p>
 
     {globalError && (
-      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+      <div class="bg-danger-50 border border-danger-200 rounded-md px-4 py-3 mb-5 font-body text-sm text-danger-700">
         {globalError}
       </div>
     )}
@@ -110,29 +109,29 @@ const initialName = memberName
         }
       }`}
       @submit.prevent="if (recipients.length === 0) { showError = true } else { $el.submit() }"
-      style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;"
+      class="bg-white border border-neutral-200 rounded-lg p-8 flex flex-col gap-5"
     >
       <input type="hidden" name="return_to" value={returnTo} />
 
       <!-- Recipients -->
       <div>
-        <label style="display: block; font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700); margin-bottom: 8px;">
-          Recognising <span style="color: var(--color-danger-600);">*</span>
+        <label class="block font-body text-[13px] font-medium text-neutral-700 mb-2">
+          Recognising <span class="text-danger-600">*</span>
         </label>
 
         <!-- Selected recipient chips -->
-        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
+        <div class="flex flex-wrap gap-1.5 mb-2">
           <template x-for="r in recipients" :key="r.id">
-            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--color-brand-navy); color: white; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 13px; font-weight: 500;">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-brand-navy text-white rounded-full font-body text-[13px] font-medium">
               <span x-text="r.full_name"></span>
-              <button type="button" @click="remove(r.id)" style="background: none; border: none; color: white; cursor: pointer; padding: 0; line-height: 1; font-size: 14px; opacity: 0.8;">&times;</button>
+              <button type="button" @click="remove(r.id)" class="bg-transparent border-0 text-white cursor-pointer p-0 leading-none text-sm opacity-80">&times;</button>
               <input type="hidden" name="recipient_ids[]" :value="r.id" />
             </span>
           </template>
         </div>
 
         <!-- Search input -->
-        <div style="position: relative;">
+        <div class="relative">
           <input
             type="text"
             x-model="search"
@@ -142,17 +141,17 @@ const initialName = memberName
             autocomplete="off"
             spellcheck="false"
             placeholder="Type at least 3 characters to search…"
-            style="width: 100%; padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; box-sizing: border-box;"
+            class="w-full px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm box-border"
           />
           <!-- Dropdown results -->
           <ul
             x-show="open && results.length"
-            style="position: absolute; top: calc(100% + 2px); left: 0; right: 0; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); margin: 0; padding: 4px; list-style: none; max-height: 220px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 16px rgba(0,0,0,0.12);"
+            class="absolute top-[calc(100%+2px)] left-0 right-0 bg-white border border-neutral-200 rounded-md m-0 p-1 list-none max-h-55 overflow-y-auto z-100 shadow-[0_4px_16px_rgba(0,0,0,0.12)]"
           >
             <template x-for="r in results" :key="r.id">
               <li
                 @mousedown.prevent="select(r)"
-                style="padding: 10px 12px; cursor: pointer; border-radius: 6px; font-size: 14px; font-family: var(--font-body); color: var(--color-neutral-800);"
+                class="px-3 py-2.5 cursor-pointer rounded-[6px] text-sm font-body text-neutral-800"
                 @mouseenter="$el.style.background='var(--color-neutral-100)'"
                 @mouseleave="$el.style.background=''"
                 x-text="r.full_name"
@@ -161,26 +160,26 @@ const initialName = memberName
           </ul>
         </div>
 
-        <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 4px 0 0;">Type at least 3 characters to search for a member</p>
-        <p x-show="showError" style="font-family: var(--font-body); font-size: 13px; color: var(--color-danger-600); margin: 6px 0 0;">Please select at least one recipient.</p>
+        <p class="font-body text-xs text-neutral-400 mt-1">Type at least 3 characters to search for a member</p>
+        <p x-show="showError" class="font-body text-[13px] text-danger-600 mt-1.5">Please select at least one recipient.</p>
       </div>
 
       <!-- Message -->
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Message <span style="color: var(--color-danger-600);">*</span></label>
+      <div class="flex flex-col gap-1">
+        <label class="font-body text-[13px] font-medium text-neutral-700">Message <span class="text-danger-600">*</span></label>
         <textarea name="message" rows={5} required placeholder="What did they do that deserves recognition?"
-          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; resize: vertical;"></textarea>
+          class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm resize-y"></textarea>
       </div>
 
-      <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0;">
+      <p class="font-body text-[13px] text-neutral-500 m-0">
         Each recipient will be notified by email. All members will see this in their notifications.
       </p>
 
-      <div style="display: flex; gap: 12px; padding-top: 4px;">
-        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+      <div class="flex gap-3 pt-1">
+        <button type="submit" class="px-5 py-2.5 bg-brand-navy text-white border-0 rounded-md font-body text-sm font-semibold cursor-pointer">
           Give praise
         </button>
-        <a href={returnTo} style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+        <a href={returnTo} class="px-5 py-2.5 bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">
           Cancel
         </a>
       </div>

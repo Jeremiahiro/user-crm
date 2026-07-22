@@ -1,0 +1,76 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import EmptyState from '@/components/ui/EmptyState.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin } from '@/lib/rbac'
+
+const user = Astro.locals.user
+if (!user) return Astro.redirect('/login')
+
+const admin = isAdmin(user)
+
+const { data: committees, error } = await supabaseAdmin
+  .from('committees')
+  .select('*, person_committees(person_id)')
+  .order('name')
+
+if (error) console.error('[committees/index] query error:', error)
+
+type CommitteeRow = {
+  id: string
+  name: string
+  description: string | null
+  is_active: boolean
+  person_committees: { person_id: string }[]
+}
+
+const rows = (committees ?? []) as CommitteeRow[]
+---
+
+<DashboardLayout title="Committees">
+  <div>
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="font-heading text-2xl font-bold text-brand-navy m-0 mb-1">Committees</h1>
+        <p class="font-body text-sm text-neutral-500 m-0">Chapter committees and working groups.</p>
+      </div>
+      {admin && (
+        <a href="/admin/committees/new"
+          class="inline-flex items-center gap-2 py-2.5 px-4 bg-brand-navy text-white rounded-lg font-body text-sm font-semibold no-underline">
+          + New Committee
+        </a>
+      )}
+    </div>
+
+    {error && (
+      <div class="bg-danger-50 border border-danger-200 text-danger-700 rounded-lg px-4 py-3 mb-4 font-body text-sm">
+        Failed to load committees. Please refresh.
+      </div>
+    )}
+
+    {rows.length === 0 && !error ? (
+      <EmptyState
+        title="No committees yet"
+        description={admin ? 'Create your first committee to get started.' : 'No committees have been created yet.'}
+        action={admin ? { label: 'New Committee', href: '/admin/committees/new' } : undefined}
+      />
+    ) : (
+      <div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+        {rows.map((c) => (
+          <a href={`/admin/committees/${c.id}`}
+            class="block bg-white border border-neutral-200 rounded-xl p-5 no-underline hover:border-neutral-300 hover:shadow-sm transition-all">
+            <div class="flex items-start justify-between gap-3 mb-2">
+              <h2 class="font-heading text-base font-semibold text-brand-navy m-0">{c.name}</h2>
+              <span class="shrink-0 font-body text-xs text-neutral-500 bg-neutral-100 rounded-full px-2.5 py-0.5">
+                {c.person_committees.length} {c.person_committees.length === 1 ? 'member' : 'members'}
+              </span>
+            </div>
+            {c.description && (
+              <p class="font-body text-sm text-neutral-500 m-0 line-clamp-2">{c.description}</p>
+            )}
+          </a>
+        ))}
+      </div>
+    )}
+  </div>
+</DashboardLayout>

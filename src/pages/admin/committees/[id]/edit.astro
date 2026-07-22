@@ -1,0 +1,71 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import Input from '@/components/ui/Input.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin } from '@/lib/rbac'
+
+const user = Astro.locals.user
+if (!user) return Astro.redirect('/login')
+if (!isAdmin(user)) return Astro.redirect('/dashboard')
+
+const { id } = Astro.params
+const { data: committee, error } = await supabaseAdmin
+  .from('committees')
+  .select('id, name, description')
+  .eq('id', id ?? '')
+  .single()
+
+if (error || !committee) return Astro.redirect('/admin/committees')
+
+let errors: Record<string, string> = {}
+let values = { name: committee.name, description: committee.description ?? '' }
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  values = Object.fromEntries(form.entries()) as Record<string, string>
+
+  const res = await fetch(`${Astro.url.origin}/api/committees/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+    body: JSON.stringify({
+      name:        values.name,
+      description: values.description || undefined,
+    }),
+  })
+
+  if (res.ok) {
+    return Astro.redirect(`/admin/committees/${id}`)
+  } else {
+    const body = await res.json() as { issues?: { fieldErrors?: Record<string, string[]> } }
+    errors = Object.fromEntries(Object.entries(body.issues?.fieldErrors ?? {}).map(([k, v]) => [k, v[0] ?? '']))
+  }
+}
+---
+
+<DashboardLayout title={`Edit ${committee.name}`}>
+  <div class="max-w-xl">
+    <Breadcrumb crumbs={[
+      { label: 'Committees', href: '/admin/committees' },
+      { label: committee.name, href: `/admin/committees/${id}` },
+      { label: 'Edit' },
+    ]} />
+    <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0 mb-6">Edit Committee</h1>
+
+    <form method="POST" class="bg-white border border-neutral-200 rounded-xl p-8 flex flex-col gap-5">
+      <Input label="Name *" name="name" value={values.name} error={errors.name} required />
+      <Input label="Description" name="description" value={values.description} />
+
+      <div class="flex gap-3 pt-2">
+        <button type="submit"
+          class="py-2.5 px-5 bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">
+          Save changes
+        </button>
+        <a href={`/admin/committees/${id}`}
+          class="py-2.5 px-5 bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</DashboardLayout>

@@ -56,20 +56,20 @@ if (Astro.request.method === 'POST') {
 ---
 
 <DashboardLayout title="Log Participation Event">
-  <div style="max-width: 560px;">
-    <div style="margin-bottom: 24px;">
-      <a href="/admin/participation" style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); text-decoration: none;">← Back to events</a>
+  <div class="max-w-140">
+    <div class="mb-6">
+      <a href="/admin/participation" class="font-body text-[13px] text-neutral-500 no-underline">← Back to events</a>
     </div>
-    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Log Participation Event</h1>
-    <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0 0 24px;">Record a member's participation in a chapter event or external activity.</p>
+    <h1 class="font-heading text-[22px] font-bold text-brand-navy mb-1">Log Participation Event</h1>
+    <p class="font-body text-sm text-neutral-500 mb-6">Record a member's participation in a chapter event or external activity.</p>
 
     {globalError && (
-      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+      <div class="bg-danger-50 border border-danger-200 rounded-md px-4 py-3 mb-5 font-body text-sm text-danger-700">
         {globalError}
       </div>
     )}
 
-    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+    <form method="POST" class="bg-white border border-neutral-200 rounded-lg p-8 flex flex-col gap-5">
 
       <MemberSearch
         name="person_id"
@@ -80,26 +80,26 @@ if (Astro.request.method === 'POST') {
         error={errors.person_id}
       />
 
-      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+      <div class="grid grid-cols-[2fr_1fr] gap-4">
         <Input label="Event name *" name="event_name" value={values.event_name} error={errors.event_name} required placeholder="e.g. Black History Month Panel" />
         <Input label="Date" name="event_date" type="date" value={values.event_date} error={errors.event_date} />
       </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-          <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Team (optional)</label>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="flex flex-col gap-1">
+          <label class="font-body text-[13px] font-medium text-neutral-700">Team (optional)</label>
           <select name="team_id"
-            style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
+            class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm bg-white">
             <option value="">— None —</option>
             {teams.map(t => (
               <option value={t.id} selected={values.team_id === t.id}>{t.name as string}</option>
             ))}
           </select>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-          <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Pillar (optional)</label>
+        <div class="flex flex-col gap-1">
+          <label class="font-body text-[13px] font-medium text-neutral-700">Pillar (optional)</label>
           <select name="pillar_id"
-            style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
+            class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm bg-white">
             <option value="">— None —</option>
             {pillars.map(p => (
               <option value={p.id} selected={values.pillar_id === p.id}>{p.name as string}</option>
@@ -108,17 +108,17 @@ if (Astro.request.method === 'POST') {
         </div>
       </div>
 
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Notes (optional)</label>
+      <div class="flex flex-col gap-1">
+        <label class="font-body text-[13px] font-medium text-neutral-700">Notes (optional)</label>
         <textarea name="notes" rows={3} placeholder="Any additional context…"
-          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; resize: vertical;">{values.notes ?? ''}</textarea>
+          class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm resize-y">{values.notes ?? ''}</textarea>
       </div>
 
-      <div style="display: flex; gap: 12px; padding-top: 8px;">
-        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="px-5 py-2.5 bg-brand-navy text-white border-0 rounded-md font-body text-sm font-semibold cursor-pointer">
           Log event
         </button>
-        <a href="/admin/participation" style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+        <a href="/admin/participation" class="px-5 py-2.5 bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">
           Cancel
         </a>
       </div>

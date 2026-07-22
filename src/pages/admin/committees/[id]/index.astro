@@ -1,0 +1,327 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin } from '@/lib/rbac'
+
+const user = Astro.locals.user
+if (!user) return Astro.redirect('/login')
+
+const admin = isAdmin(user)
+const { id } = Astro.params
+
+const { data: committee, error } = await supabaseAdmin
+  .from('committees')
+  .select('*, person_committees(person_id, is_chair, joined_at, people(id, full_name, email, status, profile_photo_url))')
+  .eq('id', id ?? '')
+  .single()
+
+if (error || !committee) return Astro.redirect('/admin/committees')
+
+type Member = {
+  person_id: string
+  is_chair: boolean
+  joined_at: string
+  people: {
+    id: string
+    full_name: string
+    email: string
+    status: string
+    profile_photo_url: string | null
+  }
+}
+
+const members = (committee.person_committees ?? []) as Member[]
+const memberIds = new Set(members.map(m => m.person_id))
+
+function getInitials(name: string) {
+  const parts = name.trim().split(' ')
+  return ((parts[0]?.[0] ?? '') + (parts[parts.length - 1]?.[0] ?? '')).toUpperCase()
+}
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+---
+
+<DashboardLayout title={committee.name}>
+  <div x-data={`committeeDetail(${JSON.stringify({ id, memberIds: [...memberIds] })})`}>
+    <Breadcrumb crumbs={[{ label: 'Committees', href: '/admin/committees' }, { label: committee.name }]} />
+
+    <!-- Header -->
+    <div class="flex items-start justify-between mb-6 gap-4">
+      <div>
+        <h1 class="font-heading text-2xl font-bold text-brand-navy m-0 mb-1">{committee.name}</h1>
+        {committee.description && (
+          <p class="font-body text-sm text-neutral-500 m-0">{committee.description}</p>
+        )}
+      </div>
+      {admin && (
+        <div class="flex gap-2 shrink-0">
+          <a href={`/admin/committees/${id}/edit`}
+            class="py-2 px-4 bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">
+            Edit
+          </a>
+          <button @click="openDelete = true"
+            class="py-2 px-4 bg-danger-50 text-danger-700 border border-danger-200 rounded-md font-body text-sm font-medium cursor-pointer">
+            Archive
+          </button>
+        </div>
+      )}
+    </div>
+
+    <!-- Members card -->
+    <div class="bg-white border border-neutral-200 rounded-xl p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="font-heading text-base font-semibold text-brand-navy m-0">
+          Members
+          <span class="font-body text-sm font-normal text-neutral-400 ml-1.5">({members.length})</span>
+        </h2>
+        {admin && (
+          <button @click="openAdd = true"
+            class="py-1.5 px-3 bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">
+            + Add member
+          </button>
+        )}
+      </div>
+
+      {members.length === 0 ? (
+        <p class="font-body text-sm text-neutral-400 text-center py-8 m-0">No members yet.</p>
+      ) : (
+        <div class="divide-y divide-neutral-100">
+          {members.map((m) => (
+            <div class="flex items-center justify-between py-3 gap-3">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-brand-navy/10 text-brand-navy flex items-center justify-center text-xs font-semibold font-body shrink-0 overflow-hidden">
+                  {m.people.profile_photo_url
+                    ? <img src={m.people.profile_photo_url} alt={m.people.full_name} class="w-full h-full object-cover" />
+                    : getInitials(m.people.full_name)
+                  }
+                </div>
+                <div>
+                  <a href={`/admin/members/${m.people.id}`}
+                    class="font-body text-sm font-medium text-brand-navy no-underline hover:underline">
+                    {m.people.full_name}
+                  </a>
+                  <div class="flex items-center gap-2 mt-0.5">
+                    <span class="font-body text-xs text-neutral-400">{m.people.email}</span>
+                    {m.is_chair && (
+                      <span class="font-body text-[11px] font-semibold text-warning-700 bg-warning-50 border border-warning-200 rounded-full px-2 py-px">Chair</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 shrink-0">
+                <span class="font-body text-xs text-neutral-400">Joined {fmtDate(m.joined_at)}</span>
+                {admin && (
+                  <button
+                    @click={`removeMember('${m.person_id}', '${m.people.full_name.replace(/'/g, "\\'")}')`}
+                    class="py-1 px-2.5 bg-neutral-100 text-neutral-500 border-none rounded font-body text-xs cursor-pointer hover:bg-danger-50 hover:text-danger-700 transition-colors">
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+
+    <!-- Add member modal -->
+    {admin && (
+      <>
+        <!-- Backdrop -->
+        <div x-show="openAdd" style="display:none"
+          class="fixed inset-0 z-50 bg-black/45 flex items-center justify-center">
+          <div class="bg-white rounded-xl p-7 max-w-[440px] w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]" @click.stop>
+            <h3 class="font-heading text-lg font-bold text-brand-navy m-0 mb-4">Add member</h3>
+
+            <div class="flex flex-col gap-4">
+              <!-- Search -->
+              <div>
+                <label class="font-body text-xs font-medium text-neutral-600 uppercase tracking-wide block mb-1.5">Search member</label>
+                <input type="text" x-model="searchQuery" @input.debounce.300ms="searchPeople"
+                  placeholder="Name or email…"
+                  class="w-full px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 outline-none focus:border-brand-navy box-border" />
+              </div>
+
+              <!-- Results -->
+              <div x-show="searchResults.length > 0" style="display:none" class="border border-neutral-200 rounded-lg divide-y divide-neutral-100 max-h-48 overflow-y-auto">
+                <template x-for="person in searchResults" :key="person.id">
+                  <button @click="selectPerson(person)"
+                    class="flex items-center gap-3 w-full px-3 py-2.5 text-left bg-transparent border-none cursor-pointer hover:bg-neutral-50 transition-colors"
+                    :class="selectedPerson?.id === person.id ? 'bg-brand-navy/5' : ''">
+                    <div class="w-8 h-8 rounded-full bg-brand-navy/10 text-brand-navy flex items-center justify-center text-xs font-semibold font-body shrink-0"
+                      x-text="initials(person.full_name)"></div>
+                    <div class="min-w-0">
+                      <p class="font-body text-sm font-medium text-neutral-800 m-0 truncate" x-text="person.full_name"></p>
+                      <p class="font-body text-xs text-neutral-400 m-0 truncate" x-text="person.email"></p>
+                    </div>
+                    <div x-show="selectedPerson?.id === person.id" class="ml-auto text-brand-navy">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                  </button>
+                </template>
+              </div>
+
+              <!-- Selected person -->
+              <div x-show="selectedPerson" style="display:none" class="bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2.5 flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-brand-navy text-white flex items-center justify-center text-xs font-semibold font-body shrink-0"
+                  x-text="initials(selectedPerson?.full_name ?? '')"></div>
+                <div class="min-w-0 flex-1">
+                  <p class="font-body text-sm font-medium text-neutral-800 m-0 truncate" x-text="selectedPerson?.full_name"></p>
+                  <p class="font-body text-xs text-neutral-400 m-0 truncate" x-text="selectedPerson?.email"></p>
+                </div>
+                <button @click="selectedPerson = null" class="text-neutral-400 bg-transparent border-none cursor-pointer p-0 hover:text-neutral-600">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+
+              <!-- Chair toggle -->
+              <label class="flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" x-model="isChair" class="rounded" />
+                <span class="font-body text-sm text-neutral-700">Assign as committee chair</span>
+              </label>
+
+              <div x-show="addError" style="display:none" class="font-body text-xs text-danger-600 bg-danger-50 rounded-md px-3 py-2" x-text="addError"></div>
+            </div>
+
+            <div class="flex gap-3 mt-6">
+              <button @click="addMember" :disabled="!selectedPerson || addLoading"
+                :class="selectedPerson && !addLoading ? 'bg-brand-navy cursor-pointer' : 'bg-neutral-300 cursor-not-allowed'"
+                class="py-2.5 px-5 text-white border-none rounded-md font-body text-sm font-semibold transition-colors">
+                <span x-show="!addLoading">Add to committee</span>
+                <span x-show="addLoading" style="display:none">Adding…</span>
+              </button>
+              <button @click="closeAdd" class="py-2.5 px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Remove confirm modal -->
+        <div x-show="removeTarget" style="display:none"
+          class="fixed inset-0 z-50 bg-black/45 flex items-center justify-center">
+          <div class="bg-white rounded-xl p-7 max-w-[400px] w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]" @click.stop>
+            <h3 class="font-heading text-lg font-bold text-brand-navy m-0 mb-2">Remove member?</h3>
+            <p class="font-body text-sm text-neutral-600 m-0 mb-6">
+              Remove <strong x-text="removeTarget?.name"></strong> from this committee?
+            </p>
+            <div class="flex gap-3">
+              <button @click="confirmRemove" :disabled="removeLoading"
+                class="py-2.5 px-5 bg-danger-600 text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">
+                <span x-show="!removeLoading">Remove</span>
+                <span x-show="removeLoading" style="display:none">Removing…</span>
+              </button>
+              <button @click="removeTarget = null" class="py-2.5 px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Archive confirm modal -->
+        <div x-show="openDelete" style="display:none"
+          class="fixed inset-0 z-50 bg-black/45 flex items-center justify-center">
+          <div class="bg-white rounded-xl p-7 max-w-[400px] w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]" @click.stop>
+            <h3 class="font-heading text-lg font-bold text-brand-navy m-0 mb-2">Archive committee?</h3>
+            <p class="font-body text-sm text-neutral-600 m-0 mb-6">
+              This committee will be hidden from all views. Members won't be removed.
+            </p>
+            <div class="flex gap-3">
+              <button @click="archiveCommittee"
+                class="py-2.5 px-5 bg-danger-600 text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">Archive</button>
+              <button @click="openDelete = false" class="py-2.5 px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </>
+    )}
+  </div>
+</DashboardLayout>
+
+<script is:inline>
+function committeeDetail({ id, memberIds }) {
+  return {
+    openAdd: false,
+    openDelete: false,
+    searchQuery: '',
+    searchResults: [],
+    selectedPerson: null,
+    isChair: false,
+    addLoading: false,
+    addError: '',
+    removeTarget: null,
+    removeLoading: false,
+    existingIds: new Set(memberIds),
+
+    initials(name) {
+      if (!name) return '??'
+      const parts = name.trim().split(' ')
+      return ((parts[0]?.[0] ?? '') + (parts[parts.length - 1]?.[0] ?? '')).toUpperCase()
+    },
+
+    async searchPeople() {
+      const q = this.searchQuery.trim()
+      if (!q) { this.searchResults = []; return }
+      const res = await fetch(`/api/people/search?q=${encodeURIComponent(q)}&status=active`)
+      if (!res.ok) return
+      const { data } = await res.json()
+      this.searchResults = (data ?? []).filter(p => !this.existingIds.has(p.id))
+    },
+
+    selectPerson(person) {
+      this.selectedPerson = person
+      this.searchResults = []
+      this.searchQuery = ''
+    },
+
+    closeAdd() {
+      this.openAdd = false
+      this.selectedPerson = null
+      this.searchQuery = ''
+      this.searchResults = []
+      this.isChair = false
+      this.addError = ''
+    },
+
+    async addMember() {
+      if (!this.selectedPerson) return
+      this.addLoading = true
+      this.addError = ''
+      const res = await fetch(`/api/committees/${id}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personId: this.selectedPerson.id, isChair: this.isChair }),
+      })
+      this.addLoading = false
+      if (res.ok) {
+        window.location.reload()
+      } else {
+        const body = await res.json()
+        this.addError = body.error ?? 'Failed to add member.'
+      }
+    },
+
+    removeMember(personId, name) {
+      this.removeTarget = { personId, name }
+    },
+
+    async confirmRemove() {
+      if (!this.removeTarget) return
+      this.removeLoading = true
+      const res = await fetch(`/api/committees/${id}/members`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personId: this.removeTarget.personId }),
+      })
+      this.removeLoading = false
+      if (res.ok) {
+        window.location.reload()
+      }
+    },
+
+    async archiveCommittee() {
+      const res = await fetch(`/api/committees/${id}`, { method: 'DELETE' })
+      if (res.ok) window.location.href = '/admin/committees'
+    },
+  }
+}
+</script>

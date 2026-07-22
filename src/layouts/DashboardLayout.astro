@@ -1,118 +1,187 @@
 ---
-import '../styles/global.css'
-import { supabaseAdmin } from '@/lib/supabase'
-import { isAdmin as checkIsAdmin, isMentor as checkIsMentor } from '@/lib/rbac'
-import type { SessionUser } from '../types/domain'
+import "../styles/global.css";
+import { supabaseAdmin } from "@/lib/supabase";
+import { isAdmin as checkIsAdmin, isMentor as checkIsMentor } from "@/lib/rbac";
+import type { SessionUser } from "../types/domain";
 
 interface Props {
-  title?: string
-  user?: SessionUser
-  activeHref?: string
+  title?: string;
+  user?: SessionUser;
+  activeHref?: string;
 }
 
-const { title = 'Dashboard', user = Astro.locals.user, activeHref } = Astro.props
+const {
+  title = "Dashboard",
+  user = Astro.locals.user,
+  activeHref,
+} = Astro.props;
 
 const { data: logoSetting } = await supabaseAdmin
-  .from('org_settings').select('value').eq('key', 'logo_url').single()
-const orgLogoUrl = logoSetting?.value ?? ''
+  .from("org_settings")
+  .select("value")
+  .eq("key", "logo_url")
+  .single();
+const orgLogoUrl = logoSetting?.value ?? "";
 
-const currentPath = Astro.url.pathname
+const currentPath = Astro.url.pathname;
 
 function getInitials(name: string): string {
-  const parts = name.trim().split(' ')
-  const first = parts[0]?.[0] ?? ''
-  const last = parts[parts.length - 1]?.[0] ?? ''
-  return (first + last).toUpperCase()
+  const parts = name.trim().split(" ");
+  const first = parts[0]?.[0] ?? "";
+  const last = parts[parts.length - 1]?.[0] ?? "";
+  return (first + last).toUpperCase();
 }
 
-const initials = user ? getInitials(user.name) : '??'
+const initials = user ? getInitials(user.name) : "??";
 
-const isAdmin = checkIsAdmin(user)
-const isMentor = checkIsMentor(user)
+const isAdmin = checkIsAdmin(user);
+const isMentor = checkIsMentor(user);
 
-let unreadCount = 0
+let unreadCount = 0;
 if (user?.person_id) {
   const { count } = await supabaseAdmin
-    .from('notifications')
-    .select('*', { count: 'exact', head: true })
-    .eq('recipient_id', user.person_id)
-    .eq('is_read', false)
-  unreadCount = count ?? 0
+    .from("notifications")
+    .select("*", { count: "exact", head: true })
+    .eq("recipient_id", user.person_id)
+    .eq("is_read", false);
+  unreadCount = count ?? 0;
 }
 
 const icons: Record<string, string> = {
-  grid:          `<rect x="3" y="3" width="4" height="4"/><rect x="9" y="3" width="4" height="4"/><rect x="3" y="9" width="4" height="4"/><rect x="9" y="9" width="4" height="4"/>`,
-  users:         `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>`,
-  layers:        `<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>`,
-  flag:          `<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>`,
-  calendar:      `<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>`,
-  award:         `<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>`,
-  'check-circle':`<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>`,
-  'user-check':  `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/>`,
-  shield:        `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>`,
-  'user-cog':    `<circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4"/><circle cx="19" cy="19" r="2"/><path d="M19 15v2m0 4v2m-3-4h2m4 0h2m-5.5-2.5 1.5 1.5m3-3 1.5 1.5M15.5 21.5l1.5-1.5m3 3 1.5-1.5"/>`,
-  'file-text':   `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>`,
-  settings:      `<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>`,
-  mail:          `<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>`,
-  receipt:       `<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8H8"/><path d="M16 12H8"/><path d="M12 16H8"/>`,
-  'chevrons-left': `<polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>`,
-  'chevrons-right':`<polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/>`,
-  'book-open':   `<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>`,
-  star:          `<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>`,
-}
+  grid: `<rect x="3" y="3" width="4" height="4"/><rect x="9" y="3" width="4" height="4"/><rect x="3" y="9" width="4" height="4"/><rect x="9" y="9" width="4" height="4"/>`,
+  users: `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>`,
+  layers: `<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>`,
+  flag: `<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>`,
+  calendar: `<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>`,
+  award: `<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>`,
+  "check-circle": `<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>`,
+  "user-check": `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/>`,
+  shield: `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>`,
+  "user-cog": `<circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4"/><circle cx="19" cy="19" r="2"/><path d="M19 15v2m0 4v2m-3-4h2m4 0h2m-5.5-2.5 1.5 1.5m3-3 1.5 1.5M15.5 21.5l1.5-1.5m3 3 1.5-1.5"/>`,
+  "file-text": `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>`,
+  settings: `<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>`,
+  mail: `<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>`,
+  receipt: `<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8H8"/><path d="M16 12H8"/><path d="M12 16H8"/>`,
+  "chevrons-left": `<polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>`,
+  "chevrons-right": `<polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/>`,
+  "book-open": `<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>`,
+  star: `<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>`,
+};
 
 interface NavItem {
-  label: string
-  href: string
-  icon: string
+  label: string;
+  href: string;
+  icon: string;
 }
 
 interface NavSection {
-  label: string
-  items: NavItem[]
+  label: string;
+  items: NavItem[];
 }
 
 const navItems = {
-  dashboard:  { label: 'Dashboard',  href: '/dashboard',         icon: 'grid' },
-  members:    { label: 'Members',    href: '/admin/members',     icon: 'users' },
-  volunteers: { label: 'Volunteers', href: '/admin/volunteers',  icon: 'user-check' },
-  onboarding: { label: 'Onboarding', href: '/admin/onboarding', icon: 'user-cog' },
-  teams:      { label: 'Teams',      href: '/admin/teams',       icon: 'layers' },
-  pillars:    { label: 'Pillars',    href: '/admin/pillars',     icon: 'flag' },
-  cmp:        { label: 'CMP',        href: '/admin/cmp',         icon: 'calendar' },
-  trainings:  { label: 'Trainings',  href: '/admin/trainings',   icon: 'book-open' },
-  awards:     { label: 'Awards',     href: '/admin/awards',      icon: 'award' },
-  praise:     { label: 'Praise',     href: '/admin/praise',      icon: 'star' },
-  dues:       { label: 'Dues',       href: '/admin/dues',        icon: 'receipt' },
-  dbs:        { label: 'DBS',        href: '/admin/dbs',         icon: 'check-circle' },
-  documents:  { label: 'Documents',  href: '/admin/documents',   icon: 'file-text' },
-  email:      { label: 'Email',      href: '/admin/email',       icon: 'mail' },
-  roles:      { label: 'Roles',      href: '/admin/roles',       icon: 'shield' },
-  positions:  { label: 'Positions',  href: '/admin/positions',   icon: 'user-cog' },
-  audit:      { label: 'Audit Log',  href: '/admin/audit',       icon: 'file-text' },
-  settings:   { label: 'Settings',   href: '/admin/settings',    icon: 'settings' },
-}
+  dashboard: { label: "Dashboard", href: "/dashboard", icon: "grid" },
+  members: { label: "Members", href: "/admin/members", icon: "users" },
+  volunteers: {
+    label: "Volunteers",
+    href: "/admin/volunteers",
+    icon: "user-check",
+  },
+  onboarding: {
+    label: "Onboarding",
+    href: "/admin/onboarding",
+    icon: "user-cog",
+  },
+  teams: { label: "Teams", href: "/admin/teams", icon: "layers" },
+  pillars: { label: "Pillars", href: "/admin/pillars", icon: "flag" },
+  committees: { label: "Committees", href: "/admin/committees", icon: "users" },
+  cmp: { label: "CMP", href: "/admin/cmp", icon: "calendar" },
+  trainings: {
+    label: "Trainings",
+    href: "/admin/trainings",
+    icon: "book-open",
+  },
+  awards: { label: "Awards", href: "/admin/awards", icon: "award" },
+  praise: { label: "Praise", href: "/admin/praise", icon: "star" },
+  dues: { label: "Dues", href: "/admin/dues", icon: "receipt" },
+  dbs: { label: "DBS", href: "/admin/dbs", icon: "check-circle" },
+  documents: {
+    label: "Documents",
+    href: "/admin/documents",
+    icon: "file-text",
+  },
+  email: { label: "Email", href: "/admin/email", icon: "mail" },
+  roles: { label: "Roles", href: "/admin/roles", icon: "shield" },
+  positions: { label: "Positions", href: "/admin/positions", icon: "user-cog" },
+  audit: { label: "Audit Log", href: "/admin/audit", icon: "file-text" },
+  settings: { label: "Settings", href: "/admin/settings", icon: "settings" },
+};
 
-const navSections: NavSection[] = isAdmin ? [
-  { label: 'Overview',   items: [navItems.dashboard] },
-  { label: 'People',     items: [navItems.members, navItems.volunteers, navItems.onboarding, navItems.teams, navItems.pillars] },
-  { label: 'Programmes', items: [navItems.cmp, navItems.trainings, navItems.awards, navItems.praise] },
-  { label: 'Compliance', items: [navItems.dues, navItems.dbs, navItems.documents] },
-  { label: 'Admin',      items: [navItems.email, navItems.roles, navItems.positions, navItems.audit, navItems.settings] },
-] : isMentor ? [
-  { label: 'Overview',   items: [navItems.dashboard] },
-  { label: 'People',     items: [navItems.teams, navItems.pillars] },
-  { label: 'Programmes', items: [navItems.cmp, navItems.trainings, navItems.awards, navItems.praise] },
-] : [
-  { label: 'Overview',   items: [navItems.dashboard] },
-  { label: 'People',     items: [navItems.teams, navItems.pillars] },
-  { label: 'Programmes', items: [navItems.trainings, navItems.awards, navItems.praise] },
-]
+const navSections: NavSection[] = isAdmin
+  ? [
+      { label: "Overview", items: [navItems.dashboard] },
+      {
+        label: "People",
+        items: [
+          navItems.members,
+          navItems.volunteers,
+          navItems.onboarding,
+          navItems.teams,
+          navItems.pillars,
+          navItems.committees,
+        ],
+      },
+      {
+        label: "Programmes",
+        items: [
+          navItems.cmp,
+          navItems.trainings,
+          navItems.awards,
+          navItems.praise,
+        ],
+      },
+      {
+        label: "Compliance",
+        items: [navItems.dues, navItems.dbs, navItems.documents],
+      },
+      {
+        label: "Admin",
+        items: [
+          navItems.email,
+          navItems.roles,
+          navItems.positions,
+          navItems.audit,
+          navItems.settings,
+        ],
+      },
+    ]
+  : isMentor
+    ? [
+        { label: "Overview", items: [navItems.dashboard] },
+        { label: "People", items: [navItems.teams, navItems.pillars, navItems.committees] },
+        {
+          label: "Programmes",
+          items: [
+            navItems.cmp,
+            navItems.trainings,
+            navItems.awards,
+            navItems.praise,
+          ],
+        },
+      ]
+    : [
+        { label: "Overview", items: [navItems.dashboard] },
+        { label: "People", items: [navItems.teams, navItems.pillars, navItems.committees] },
+        {
+          label: "Programmes",
+          items: [navItems.trainings, navItems.awards, navItems.praise],
+        },
+      ];
 
 function isActive(href: string): boolean {
-  if (activeHref) return href === activeHref
-  if (href === '/dashboard') return currentPath === '/dashboard'
-  return currentPath.startsWith(href)
+  if (activeHref) return href === activeHref;
+  if (href === "/dashboard") return currentPath === "/dashboard";
+  return currentPath.startsWith(href);
 }
 ---
 
@@ -135,10 +204,14 @@ function isActive(href: string): boolean {
         width: 240px;
         transition: width 0.2s ease;
       }
-      #sidebar.collapsed { width: 56px; }
+      #sidebar.collapsed {
+        width: 56px;
+      }
       #sidebar .nav-label,
       #sidebar .nav-text {
-        transition: opacity 0.15s ease, width 0.2s ease;
+        transition:
+          opacity 0.15s ease,
+          width 0.2s ease;
         overflow: hidden;
         white-space: nowrap;
       }
@@ -148,7 +221,9 @@ function isActive(href: string): boolean {
         width: 0;
         pointer-events: none;
       }
-      #sidebar .nav-item { justify-content: flex-start; }
+      #sidebar .nav-item {
+        justify-content: flex-start;
+      }
       #sidebar.collapsed .nav-item {
         justify-content: center;
         padding-left: 0 !important;
@@ -160,10 +235,17 @@ function isActive(href: string): boolean {
         margin-left: 240px;
         transition: margin-left 0.2s ease;
       }
-      #main-content.sidebar-collapsed { margin-left: 56px; }
-      #sidebar.collapsed:hover { width: 240px; }
+      #main-content.sidebar-collapsed {
+        margin-left: 56px;
+      }
+      #sidebar.collapsed:hover {
+        width: 240px;
+      }
       #sidebar.collapsed:hover .nav-label,
-      #sidebar.collapsed:hover .nav-text { opacity: 1; width: auto; }
+      #sidebar.collapsed:hover .nav-text {
+        opacity: 1;
+        width: auto;
+      }
       #sidebar.collapsed:hover .nav-item {
         justify-content: flex-start;
         padding-left: 8px !important;
@@ -171,7 +253,9 @@ function isActive(href: string): boolean {
         margin-left: 8px !important;
         margin-right: 8px !important;
       }
-      #sidebar.collapsed a[data-label] { position: relative; }
+      #sidebar.collapsed a[data-label] {
+        position: relative;
+      }
       #sidebar.collapsed:not(:hover) a[data-label]:hover::after {
         content: attr(data-label);
         position: absolute;
@@ -191,48 +275,89 @@ function isActive(href: string): boolean {
       }
     </style>
     <style>
-      [x-cloak] { display: none !important; }
-      .modal-btn-danger { background: var(--color-danger-600) !important; }
-      .modal-btn-primary { background: var(--color-brand-navy) !important; }
+      [x-cloak] {
+        display: none !important;
+      }
+      .modal-btn-danger {
+        background: var(--color-danger-600) !important;
+      }
+      .modal-btn-primary {
+        background: var(--color-brand-navy) !important;
+      }
     </style>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"
+    ></script>
   </head>
   <body class="m-0 font-body bg-neutral-50">
-
     <!-- Top Nav -->
-    <header class="fixed top-0 left-0 right-0 h-[60px] bg-brand-navy flex items-center justify-between px-6 z-[100] box-border">
+    <header
+      class="fixed top-0 left-0 right-0 h-[60px] bg-brand-navy flex items-center justify-between px-6 z-[100] box-border"
+    >
       <a href="/dashboard" class="flex items-center gap-2.5 no-underline">
-        {orgLogoUrl
-          ? <img src={orgLogoUrl} alt="Organisation logo" class="h-9 max-w-[120px] object-contain" />
-          : <span class="font-heading text-xl font-bold text-white tracking-[-0.3px]">
+        {
+          orgLogoUrl ? (
+            <img
+              src={orgLogoUrl}
+              alt="Organisation logo"
+              class="h-9 max-w-[120px] object-contain"
+            />
+          ) : (
+            <span class="font-heading text-xl font-bold text-white tracking-[-0.3px]">
               100BM<span class="text-brand-gold">OL</span>
             </span>
+          )
         }
       </a>
 
       <div class="flex items-center gap-3">
-        {user && (
-          <>
-            <div class="w-8 h-8 rounded-full bg-brand-gold text-brand-navy flex items-center justify-center text-xs font-semibold font-body shrink-0">
-              {user.image ? (
-                <img src={user.image} alt={user.name} width={32} height={32} class="rounded-full object-cover" />
-              ) : (
-                initials
-              )}
-            </div>
-            <span class="text-neutral-300 text-sm font-medium">{user.name}</span>
-          </>
-        )}
-        <a href="/notifications" class="relative text-white/70 no-underline flex items-center px-2 py-1">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        {
+          user && (
+            <>
+              <div class="w-8 h-8 rounded-full bg-brand-gold text-brand-navy flex items-center justify-center text-xs font-semibold font-body shrink-0">
+                {user.image ? (
+                  <img
+                    src={user.image}
+                    alt={user.name}
+                    width={32}
+                    height={32}
+                    class="rounded-full object-cover"
+                  />
+                ) : (
+                  initials
+                )}
+              </div>
+              <span class="text-neutral-300 text-sm font-medium">
+                {user.name}
+              </span>
+            </>
+          )
+        }
+        <a
+          href="/notifications"
+          class="relative text-white/70 no-underline flex items-center px-2 py-1"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
           </svg>
-          {unreadCount > 0 && (
-            <span class="absolute top-0 right-0 bg-[#ef4444] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center leading-none">
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </span>
-          )}
+          {
+            unreadCount > 0 && (
+              <span class="absolute top-0 right-0 bg-[#ef4444] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center leading-none">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )
+          }
         </a>
         <form method="POST" action="/api/auth/signout" class="m-0">
           <button
@@ -246,81 +371,132 @@ function isActive(href: string): boolean {
     </header>
 
     <div class="flex pt-[60px] min-h-screen">
-
       <!-- Sidebar -->
       <nav
         id="sidebar"
         class="bg-white border-r border-neutral-200 fixed top-[60px] left-0 bottom-0 overflow-y-auto overflow-x-hidden py-3 pb-4 box-border z-50"
       >
         <!-- Collapse toggle -->
-        <div class="flex justify-end px-2 pb-2 border-b border-neutral-100 mb-2">
-          <button id="toggle-sidebar" title="Collapse sidebar" class="cursor-pointer bg-transparent border-none text-neutral-400 flex items-center justify-center p-1.5 rounded-[6px] transition-[background-color,color] duration-150 hover:bg-neutral-100 hover:text-neutral-600">
-            <svg id="icon-collapse" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" set:html={icons['chevrons-left']} />
-            <svg id="icon-expand" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden" set:html={icons['chevrons-right']} />
+        <div
+          class="flex justify-end px-2 pb-2 border-b border-neutral-100 mb-2"
+        >
+          <button
+            id="toggle-sidebar"
+            title="Collapse sidebar"
+            class="cursor-pointer bg-transparent border-none text-neutral-400 flex items-center justify-center p-1.5 rounded-[6px] transition-[background-color,color] duration-150 hover:bg-neutral-100 hover:text-neutral-600"
+          >
+            <svg
+              id="icon-collapse"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              set:html={icons["chevrons-left"]}
+            />
+            <svg
+              id="icon-expand"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="hidden"
+              set:html={icons["chevrons-right"]}
+            />
           </button>
         </div>
 
-        {navSections.map((section) => {
-          const sectionActive = section.items.some(item => isActive(item.href))
-          const sectionId = 'nav-section-' + section.label.toLowerCase().replace(/\s+/g, '-')
-          return (
-            <div class="nav-section mb-0.5" data-section-id={sectionId}>
-              {section.items.length > 1 ? (
-                <button
-                  class="nav-section-toggle nav-label flex items-center justify-between w-full bg-transparent border-none cursor-pointer pt-2 pb-1 px-3.5 text-[10px] font-semibold text-neutral-400 uppercase tracking-[0.1em] font-body box-border"
-                  data-section={sectionId}
-                >
-                  <span>{section.label}</span>
-                  <svg class="nav-chevron shrink-0 transition-transform duration-200" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="6 9 12 15 18 9"/>
-                  </svg>
-                </button>
-              ) : (
-                <p class="nav-label text-[10px] font-semibold text-neutral-400 uppercase tracking-[0.1em] pt-2 pb-1 px-4 m-0 font-body">
-                  {section.label}
-                </p>
-              )}
-
-              <div
-                class="nav-section-items"
-                data-section-items={section.items.length > 1 ? sectionId : undefined}
-                data-active={sectionActive ? 'true' : 'false'}
-                style={section.items.length === 1 ? '' : (sectionActive ? '' : 'display: none;')}
-              >
-                {section.items.map((item) => {
-                  const active = isActive(item.href)
-                  const svgPath = icons[item.icon] ?? ''
-                  return (
-                    <a
-                      href={item.href}
-                      data-label={item.label}
-                      class={[
-                        'nav-item flex items-center gap-2.5 px-2 mx-2 h-9 rounded-md no-underline text-[13px] font-medium font-body transition-colors duration-150',
-                        active
-                          ? 'bg-neutral-100 text-brand-navy border-l-[3px] border-brand-gold pl-[5px]'
-                          : 'text-neutral-600',
-                      ].join(' ')}
+        {
+          navSections.map((section) => {
+            const sectionActive = section.items.some((item) =>
+              isActive(item.href),
+            );
+            const sectionId =
+              "nav-section-" + section.label.toLowerCase().replace(/\s+/g, "-");
+            return (
+              <div class="nav-section mb-0.5" data-section-id={sectionId}>
+                {section.items.length > 1 ? (
+                  <button
+                    class="nav-section-toggle nav-label flex items-center justify-between w-full bg-transparent border-none cursor-pointer pt-2 pb-1 px-3.5 text-[10px] font-semibold text-neutral-400 uppercase tracking-[0.1em] font-body box-border"
+                    data-section={sectionId}
+                  >
+                    <span>{section.label}</span>
+                    <svg
+                      class="nav-chevron shrink-0 transition-transform duration-200"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
                     >
-                      <svg
-                        width="15"
-                        height="15"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        class="shrink-0 opacity-70"
-                        set:html={svgPath}
-                      />
-                      <span class="nav-text">{item.label}</span>
-                    </a>
-                  )
-                })}
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
+                ) : (
+                  <p class="nav-label text-[10px] font-semibold text-neutral-400 uppercase tracking-[0.1em] pt-2 pb-1 px-4 m-0 font-body">
+                    {section.label}
+                  </p>
+                )}
+
+                <div
+                  class="nav-section-items"
+                  data-section-items={
+                    section.items.length > 1 ? sectionId : undefined
+                  }
+                  data-active={sectionActive ? "true" : "false"}
+                  style={
+                    section.items.length === 1
+                      ? ""
+                      : sectionActive
+                        ? ""
+                        : "display: none;"
+                  }
+                >
+                  {section.items.map((item) => {
+                    const active = isActive(item.href);
+                    const svgPath = icons[item.icon] ?? "";
+                    return (
+                      <a
+                        href={item.href}
+                        data-label={item.label}
+                        class={[
+                          "nav-item flex items-center gap-2.5 px-2 mx-2 h-9 rounded-md no-underline text-[13px] font-medium font-body transition-colors duration-150",
+                          active
+                            ? "bg-neutral-100 text-brand-navy border-l-[3px] border-brand-gold pl-[5px]"
+                            : "text-neutral-600",
+                        ].join(" ")}
+                      >
+                        <svg
+                          width="15"
+                          height="15"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          class="shrink-0 opacity-70"
+                          set:html={svgPath}
+                        />
+                        <span class="nav-text">{item.label}</span>
+                      </a>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )
-        })}
+            );
+          })
+        }
       </nav>
 
       <!-- Main Content -->
@@ -334,92 +510,109 @@ function isActive(href: string): boolean {
 
     <script is:inline>
       (function () {
-        var sidebar = document.getElementById('sidebar')
-        var main = document.getElementById('main-content')
-        var btnToggle = document.getElementById('toggle-sidebar')
-        var iconCollapse = document.getElementById('icon-collapse')
-        var iconExpand = document.getElementById('icon-expand')
+        var sidebar = document.getElementById("sidebar");
+        var main = document.getElementById("main-content");
+        var btnToggle = document.getElementById("toggle-sidebar");
+        var iconCollapse = document.getElementById("icon-collapse");
+        var iconExpand = document.getElementById("icon-expand");
 
-        var STORAGE_KEY = '100bmol_sidebar_collapsed'
+        var STORAGE_KEY = "100bmol_sidebar_collapsed";
 
         function setCollapsed(collapsed) {
           if (collapsed) {
-            sidebar.classList.add('collapsed')
-            main.classList.add('sidebar-collapsed')
-            iconCollapse.style.display = 'none'
-            iconExpand.style.display = 'block'
-            localStorage.setItem(STORAGE_KEY, '1')
+            sidebar.classList.add("collapsed");
+            main.classList.add("sidebar-collapsed");
+            iconCollapse.style.display = "none";
+            iconExpand.style.display = "block";
+            localStorage.setItem(STORAGE_KEY, "1");
           } else {
-            sidebar.classList.remove('collapsed')
-            main.classList.remove('sidebar-collapsed')
-            iconCollapse.style.display = 'block'
-            iconExpand.style.display = 'none'
-            localStorage.setItem(STORAGE_KEY, '0')
+            sidebar.classList.remove("collapsed");
+            main.classList.remove("sidebar-collapsed");
+            iconCollapse.style.display = "block";
+            iconExpand.style.display = "none";
+            localStorage.setItem(STORAGE_KEY, "0");
           }
         }
 
         try {
-          if (localStorage.getItem(STORAGE_KEY) === '1') {
-            setCollapsed(true)
+          if (localStorage.getItem(STORAGE_KEY) === "1") {
+            setCollapsed(true);
           }
         } catch (e) {}
 
-        btnToggle.addEventListener('click', function () {
-          setCollapsed(!sidebar.classList.contains('collapsed'))
-        })
+        btnToggle.addEventListener("click", function () {
+          setCollapsed(!sidebar.classList.contains("collapsed"));
+        });
 
-        var ACC_KEY = '100bmol_nav_open'
+        var ACC_KEY = "100bmol_nav_open";
 
         function getSavedOpen() {
-          try { return JSON.parse(localStorage.getItem(ACC_KEY) || 'null') } catch { return null }
+          try {
+            return JSON.parse(localStorage.getItem(ACC_KEY) || "null");
+          } catch {
+            return null;
+          }
         }
         function saveOpen(openSet) {
-          try { localStorage.setItem(ACC_KEY, JSON.stringify([...openSet])) } catch {}
+          try {
+            localStorage.setItem(ACC_KEY, JSON.stringify([...openSet]));
+          } catch {}
         }
 
-        var toggleBtns = document.querySelectorAll('.nav-section-toggle')
-        var openSections = new Set(getSavedOpen() || [])
+        var toggleBtns = document.querySelectorAll(".nav-section-toggle");
+        var openSections = new Set(getSavedOpen() || []);
 
         if (!getSavedOpen()) {
-          document.querySelectorAll('.nav-section-items[data-active="true"]').forEach(function(el) {
-            openSections.add(el.getAttribute('data-section-items'))
-          })
+          document
+            .querySelectorAll('.nav-section-items[data-active="true"]')
+            .forEach(function (el) {
+              openSections.add(el.getAttribute("data-section-items"));
+            });
         }
 
         function applyAccordionState() {
-          document.querySelectorAll('.nav-section-items[data-section-items]').forEach(function(el) {
-            var sid = el.getAttribute('data-section-items')
-            var isOpen = openSections.has(sid)
-            el.style.display = isOpen ? '' : 'none'
-          })
-          toggleBtns.forEach(function(btn) {
-            var sid = btn.getAttribute('data-section')
-            var chevron = btn.querySelector('.nav-chevron')
-            if (chevron) chevron.style.transform = openSections.has(sid) ? 'rotate(180deg)' : ''
-          })
+          document
+            .querySelectorAll(".nav-section-items[data-section-items]")
+            .forEach(function (el) {
+              var sid = el.getAttribute("data-section-items");
+              var isOpen = openSections.has(sid);
+              el.style.display = isOpen ? "" : "none";
+            });
+          toggleBtns.forEach(function (btn) {
+            var sid = btn.getAttribute("data-section");
+            var chevron = btn.querySelector(".nav-chevron");
+            if (chevron)
+              chevron.style.transform = openSections.has(sid)
+                ? "rotate(180deg)"
+                : "";
+          });
         }
 
-        document.querySelectorAll('.nav-section-items[data-active="true"]').forEach(function(el) {
-          openSections.add(el.getAttribute('data-section-items'))
-        })
+        document
+          .querySelectorAll('.nav-section-items[data-active="true"]')
+          .forEach(function (el) {
+            openSections.add(el.getAttribute("data-section-items"));
+          });
 
-        applyAccordionState()
+        applyAccordionState();
 
-        toggleBtns.forEach(function(btn) {
-          btn.addEventListener('click', function() {
-            var sid = btn.getAttribute('data-section')
+        toggleBtns.forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var sid = btn.getAttribute("data-section");
             if (openSections.has(sid)) {
-              var items = document.querySelector('[data-section-items="' + sid + '"]')
-              if (items && items.getAttribute('data-active') === 'true') return
-              openSections.delete(sid)
+              var items = document.querySelector(
+                '[data-section-items="' + sid + '"]',
+              );
+              if (items && items.getAttribute("data-active") === "true") return;
+              openSections.delete(sid);
             } else {
-              openSections.add(sid)
+              openSections.add(sid);
             }
-            saveOpen(openSections)
-            applyAccordionState()
-          })
-        })
-      })()
+            saveOpen(openSections);
+            applyAccordionState();
+          });
+        });
+      })();
     </script>
   </body>
 </html>
