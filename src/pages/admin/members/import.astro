@@ -6,72 +6,72 @@ if (!Astro.locals.user) return Astro.redirect('/login')
 ---
 
 <DashboardLayout title="Import Members">
-  <div style="max-width: 900px;">
+  <div class="max-w-[900px]">
     <Breadcrumb crumbs={[{ label: 'Members', href: '/admin/members' }, { label: 'Import CSV' }]} />
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-      <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">Import Members</h1>
+    <div class="flex items-center justify-between mb-2">
+      <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0">Import Members</h1>
     </div>
-    <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0 0 28px;">
-      Upload a CSV file to bulk-import members. Required columns: <code style="background: var(--color-neutral-100); padding: 2px 6px; border-radius: 4px; font-size: 12px;">first_name</code>, <code style="background: var(--color-neutral-100); padding: 2px 6px; border-radius: 4px; font-size: 12px;">last_name</code>, <code style="background: var(--color-neutral-100); padding: 2px 6px; border-radius: 4px; font-size: 12px;">email</code>.
+    <p class="font-body text-sm text-neutral-500 m-0 mb-7">
+      Upload a CSV file to bulk-import members. Required columns: <code class="bg-neutral-100 px-1.5 py-0.5 rounded text-xs">first_name</code>, <code class="bg-neutral-100 px-1.5 py-0.5 rounded text-xs">last_name</code>, <code class="bg-neutral-100 px-1.5 py-0.5 rounded text-xs">email</code>.
     </p>
 
     <!-- Download template -->
-    <div style="background: var(--color-neutral-50); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: gap;">
+    <div class="bg-neutral-50 border border-neutral-200 rounded-lg px-5 py-4 mb-6 flex items-center justify-between flex-wrap">
       <div>
-        <p style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-800); margin: 0 0 2px;">Download template</p>
-        <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0;">Pre-filled with all supported columns and example rows</p>
+        <p class="font-body text-sm font-medium text-neutral-800 m-0 mb-0.5">Download template</p>
+        <p class="font-body text-xs text-neutral-500 m-0">Pre-filled with all supported columns and example rows</p>
       </div>
       <button id="download-template-btn"
-        style="padding: 8px 16px; background: white; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700); cursor: pointer;">
+        class="px-4 py-2 bg-white border border-neutral-300 rounded-md font-body text-[13px] font-medium text-neutral-700 cursor-pointer">
         ↓ Download CSV template
       </button>
     </div>
 
     <!-- Step 1: Upload -->
-    <div id="step-upload" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; margin-bottom: 20px;">
-      <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--color-neutral-700); margin: 0 0 20px;">1. Select CSV file</h2>
+    <div id="step-upload" class="bg-white border border-neutral-200 rounded-lg p-8 mb-5">
+      <h2 class="font-heading text-sm font-semibold text-neutral-700 m-0 mb-5">1. Select CSV file</h2>
 
       <label id="drop-zone"
-        style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 2px dashed var(--color-neutral-300); border-radius: var(--radius-lg); padding: 40px 24px; cursor: pointer; transition: border-color 0.15s, background 0.15s; text-align: center;"
+        class="flex flex-col items-center justify-center gap-2.5 border-2 border-dashed border-neutral-300 rounded-lg px-6 py-10 cursor-pointer transition-colors duration-150 text-center"
         ondragover="event.preventDefault(); this.style.borderColor='var(--color-brand-navy)'; this.style.background='var(--color-neutral-50)'"
         ondragleave="this.style.borderColor='var(--color-neutral-300)'; this.style.background=''"
         ondrop="event.preventDefault(); this.style.borderColor='var(--color-neutral-300)'; this.style.background=''; handleFile(event.dataTransfer.files[0])">
-        <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="color: var(--color-neutral-400);">
+        <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="text-neutral-400">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 13.5l3-3m0 0l3 3m-3-3v7.5M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.338-2.32 5.75 5.75 0 011.687 10.522" />
         </svg>
         <div>
-          <p style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-700); margin: 0;">Drag & drop your CSV here</p>
-          <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 4px 0 0;">or click to browse files</p>
+          <p class="font-body text-sm font-medium text-neutral-700 m-0">Drag & drop your CSV here</p>
+          <p class="font-body text-[13px] text-neutral-400 m-0 mt-1">or click to browse files</p>
         </div>
-        <input type="file" id="csv-input" accept=".csv,text/csv" style="display: none;" onchange="handleFile(this.files[0])" />
+        <input type="file" id="csv-input" accept=".csv,text/csv" class="hidden" onchange="handleFile(this.files[0])" />
       </label>
 
-      <p id="file-name" style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 12px 0 0; display: none;"></p>
+      <p id="file-name" class="font-body text-[13px] text-neutral-500 mt-3" style="display: none;"></p>
     </div>
 
     <!-- Step 2: Column mapping & preview -->
     <div id="step-preview" style="display: none;">
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
-          <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--color-neutral-700); margin: 0;">2. Column mapping</h2>
-          <p id="col-summary" style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0;"></p>
+      <div class="bg-white border border-neutral-200 rounded-lg p-6 mb-5">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+          <h2 class="font-heading text-sm font-semibold text-neutral-700 m-0">2. Column mapping</h2>
+          <p id="col-summary" class="font-body text-[13px] text-neutral-500 m-0"></p>
         </div>
-        <div id="col-map-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px;"></div>
+        <div id="col-map-grid" class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));"></div>
       </div>
 
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
-          <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--color-neutral-700); margin: 0;">3. Preview</h2>
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <p id="row-summary" style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0;"></p>
+      <div class="bg-white border border-neutral-200 rounded-lg p-6 mb-5">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+          <h2 class="font-heading text-sm font-semibold text-neutral-700 m-0">3. Preview</h2>
+          <div class="flex items-center gap-3">
+            <p id="row-summary" class="font-body text-[13px] text-neutral-500 m-0"></p>
             <button id="re-parse-btn"
-              style="padding: 6px 12px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-600); cursor: pointer;">
+              class="px-3 py-1.5 bg-neutral-100 border border-neutral-200 rounded-md font-body text-xs font-medium text-neutral-600 cursor-pointer">
               Refresh preview
             </button>
           </div>
         </div>
-        <div id="preview-wrap" style="overflow-x: auto;">
-          <table id="preview-table" style="width: 100%; border-collapse: collapse; font-size: 13px; font-family: var(--font-body);">
+        <div id="preview-wrap" class="overflow-x-auto">
+          <table id="preview-table" class="w-full border-collapse text-[13px] font-body">
             <thead id="preview-head"></thead>
             <tbody id="preview-body"></tbody>
           </table>
@@ -79,30 +79,30 @@ if (!Astro.locals.user) return Astro.redirect('/login')
       </div>
 
       <!-- Actions -->
-      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <div class="flex items-center gap-3 flex-wrap">
         <button id="import-btn"
-          style="padding: 10px 24px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          class="px-6 py-2.5 bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">
           Import members
         </button>
         <button id="back-btn"
-          style="padding: 10px 16px; background: var(--color-neutral-100); border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-600); cursor: pointer;">
+          class="px-4 py-2.5 bg-neutral-100 border-none rounded-md font-body text-[13px] font-medium text-neutral-600 cursor-pointer">
           ← Pick a different file
         </button>
-        <p id="import-note" style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">
+        <p id="import-note" class="font-body text-xs text-neutral-400 m-0">
           Duplicate emails are skipped automatically.
         </p>
       </div>
     </div>
 
     <!-- Step 3: Results -->
-    <div id="step-results" style="display: none; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px;">
-      <h2 style="font-family: var(--font-heading); font-size: 16px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 20px;">Import complete</h2>
-      <div id="results-summary" style="margin-bottom: 20px;"></div>
-      <div id="results-table-wrap" style="overflow-x: auto;"></div>
-      <div style="margin-top: 24px; display: flex; gap: 12px;">
-        <a href="/admin/members" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">View members</a>
+    <div id="step-results" class="bg-white border border-neutral-200 rounded-lg p-8" style="display: none;">
+      <h2 class="font-heading text-base font-bold text-brand-navy m-0 mb-5">Import complete</h2>
+      <div id="results-summary" class="mb-5"></div>
+      <div id="results-table-wrap" class="overflow-x-auto"></div>
+      <div class="mt-6 flex gap-3">
+        <a href="/admin/members" class="px-5 py-2.5 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">View members</a>
         <button id="import-again-btn"
-          style="padding: 10px 16px; background: var(--color-neutral-100); border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-600); cursor: pointer;">
+          class="px-4 py-2.5 bg-neutral-100 border-none rounded-md font-body text-[13px] font-medium text-neutral-600 cursor-pointer">
           Import another file
         </button>
       </div>

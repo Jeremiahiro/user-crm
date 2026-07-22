@@ -38,14 +38,14 @@ if (Astro.request.method === 'POST') {
 ---
 
 <DashboardLayout title="Add Pillar">
-  <div style="max-width: 600px;">
+  <div class="max-w-150">
     <Breadcrumb crumbs={[{ label: 'Pillars', href: '/admin/pillars' }, { label: 'New Pillar' }]} />
 
-    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">
+    <h1 class="font-heading text-[22px] font-bold text-brand-navy mb-6">
       Add Pillar
     </h1>
 
-    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+    <form method="POST" class="bg-white border border-neutral-200 rounded-lg p-8 flex flex-col gap-5">
       <Input
         label="Name *"
         name="name"
@@ -70,13 +70,13 @@ if (Astro.request.method === 'POST') {
         placeholder="1"
       />
 
-      <div style="display: flex; gap: 12px; padding-top: 8px;">
+      <div class="flex gap-3 pt-2">
         <button type="submit"
-          style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          class="px-5 py-2.5 bg-brand-navy text-white border-0 rounded-md font-body text-sm font-semibold cursor-pointer">
           Save pillar
         </button>
         <a href="/admin/pillars"
-          style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+          class="px-5 py-2.5 bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">
           Cancel
         </a>
       </div>

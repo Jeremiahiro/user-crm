@@ -75,11 +75,10 @@ const t = training as any
 
 <style>
   [x-cloak] { display: none !important; }
-  .col-field { display: flex; flex-direction: column; gap: 4px; }
 </style>
 
 <DashboardLayout title={t.title}>
-  <div style="max-width: 860px;" x-data={`{
+  <div class="max-w-[860px]" x-data={`{
     modal: { open: false, tid: '', aid: '', message: '' },
     async doDelete() {
       const res = await fetch('/api/trainings/' + this.modal.tid + '/assignments?assignment_id=' + this.modal.aid, { method: 'DELETE' })
@@ -91,31 +90,31 @@ const t = training as any
     <Breadcrumb crumbs={[{ label: 'Trainings', href: '/admin/trainings' }, { label: t.title }]} />
 
     <!-- Header -->
-    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;">
+    <div class="flex items-start justify-between gap-4 mb-6 flex-wrap">
       <div>
-        <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 6px;">{t.title}</h1>
+        <h1 class="font-heading text-[22px] font-bold text-brand-navy mb-1.5">{t.title}</h1>
         {t.requires_document && (
-          <span style="display: inline-block; padding: 2px 10px; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 12px; font-weight: 500; background-color: var(--color-warning-50); color: var(--color-warning-800); border: 1px solid var(--color-warning-300);">
+          <span class="inline-block py-0.5 px-2.5 rounded-full font-body text-xs font-medium bg-warning-50 text-warning-800 border border-warning-300">
             Requires document
           </span>
         )}
       </div>
-      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+      <div class="flex gap-2.5 flex-wrap">
         {t.external_url && (
           <a href={t.external_url} target="_blank" rel="noopener noreferrer"
-            style="padding: 8px 16px; background: white; border: 1px solid var(--color-brand-navy); color: var(--color-brand-navy); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; text-decoration: none;">
+            class="px-4 py-2 bg-white border border-brand-navy text-brand-navy rounded-md font-body text-[13px] font-semibold no-underline">
             Open resource &#8599;
           </a>
         )}
         {isLead && (
           <a href={`/admin/trainings/${trainingId}/edit`}
-            style="padding: 8px 16px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; text-decoration: none;">
+            class="px-4 py-2 bg-neutral-100 border border-neutral-200 text-neutral-700 rounded-md font-body text-[13px] font-medium no-underline">
             Edit
           </a>
         )}
         {isLead && (
           <a href={`/admin/trainings/${trainingId}/completions`}
-            style="padding: 8px 16px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; text-decoration: none;">
+            class="px-4 py-2 bg-neutral-100 border border-neutral-200 text-neutral-700 rounded-md font-body text-[13px] font-medium no-underline">
             View completions
           </a>
         )}
@@ -124,41 +123,41 @@ const t = training as any
 
     <!-- Description -->
     {t.description && (
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px;">
-        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700); margin: 0; white-space: pre-wrap; line-height: 1.7;">{t.description}</p>
+      <div class="bg-white border border-neutral-200 rounded-lg p-6 mb-6">
+        <p class="font-body text-sm text-neutral-700 m-0 whitespace-pre-wrap leading-[1.7]">{t.description}</p>
       </div>
     )}
 
     <!-- My Progress -->
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px;">
-      <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 16px;">My Progress</h2>
+    <div class="bg-white border border-neutral-200 rounded-lg p-6 mb-6">
+      <h2 class="font-heading text-[15px] font-bold text-neutral-800 mb-4">My Progress</h2>
 
       {myCompletion ? (
-        <div style="background-color: var(--color-success-50); border: 1px solid var(--color-success-100); border-radius: var(--radius-md); padding: 14px 16px;">
-          <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-success-700); margin: 0 0 4px;">Completed &#10003;</p>
-          <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-success-700); margin: 0 0 2px; text-transform: capitalize;">Method: {(myCompletion as any).method?.replace('_', ' ')}</p>
-          <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-success-700); margin: 0;">{fmt((myCompletion as any).completed_at)}</p>
+        <div class="bg-success-50 border border-success-100 rounded-md py-3.5 px-4">
+          <p class="font-body text-sm font-semibold text-success-700 mb-1">Completed &#10003;</p>
+          <p class="font-body text-xs text-success-700 mb-0.5 capitalize">Method: {(myCompletion as any).method?.replace('_', ' ')}</p>
+          <p class="font-body text-xs text-success-700 m-0">{fmt((myCompletion as any).completed_at)}</p>
         </div>
       ) : !t.requires_document ? (
         <div>
           {completeError && (
-            <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 10px 14px; margin-bottom: 12px; font-family: var(--font-body); font-size: 13px; color: var(--color-danger-700);">
+            <div class="bg-danger-50 border border-danger-200 rounded-md py-2.5 px-[14px] mb-3 font-body text-[13px] text-danger-700">
               {completeError}
             </div>
           )}
           <form method="POST">
             <input type="hidden" name="_action" value="complete" />
             <button type="submit"
-              style="padding: 10px 20px; background-color: var(--color-success-700); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+              class="py-2.5 px-5 bg-success-700 text-white border-0 rounded-md font-body text-sm font-semibold cursor-pointer">
               Mark as completed
             </button>
           </form>
         </div>
       ) : (
-        <div style="background-color: var(--color-neutral-50); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
-          <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); margin: 0;">Upload a document to complete this training.</p>
+        <div class="bg-neutral-50 border border-neutral-200 rounded-md py-3.5 px-4 flex items-center justify-between gap-3 flex-wrap">
+          <p class="font-body text-[13px] text-neutral-600 m-0">Upload a document to complete this training.</p>
           <a href={`/admin/documents/upload?training_id=${trainingId}`}
-            style="padding: 8px 16px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap;">
+            class="px-4 py-2 bg-brand-navy text-white rounded-md font-body text-[13px] font-semibold no-underline whitespace-nowrap">
             Upload document
           </a>
         </div>
@@ -167,24 +166,24 @@ const t = training as any
 
     <!-- Assignments (admin/lead only) -->
     {isLead && (
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
-        <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 16px;">Assignments</h2>
+      <div class="bg-white border border-neutral-200 rounded-lg p-6">
+        <h2 class="font-heading text-[15px] font-bold text-neutral-800 mb-4">Assignments</h2>
 
         {assignments.length === 0 ? (
-          <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0 0 20px;">No assignments yet.</p>
+          <p class="font-body text-[13px] text-neutral-400 mb-5">No assignments yet.</p>
         ) : (
-          <div style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px;">
+          <div class="mb-5 flex flex-col gap-2">
             {assignments.map((a: any) => (
-              <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background-color: var(--color-neutral-50); border-radius: var(--radius-md); border: 1px solid var(--color-neutral-200);">
+              <div class="flex items-center justify-between py-2.5 px-3.5 bg-neutral-50 rounded-md border border-neutral-200">
                 <div>
-                  <span style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-800); text-transform: capitalize;">
+                  <span class="font-body text-[13px] font-medium text-neutral-800 capitalize">
                     {a.scope === 'team' ? `Team: ${(a.team as any)?.name ?? a.team_id}` : a.scope === 'person' ? `Person: ${(a.assignee as any)?.full_name ?? a.person_id}` : 'All members'}
                   </span>
-                  {a.deadline && <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin-left: 10px;">Deadline: {fmt(a.deadline)}</span>}
+                  {a.deadline && <span class="font-body text-xs text-neutral-500 ml-2.5">Deadline: {fmt(a.deadline)}</span>}
                 </div>
                 <button
                   @click={`modal.open = true; modal.tid = '${trainingId}'; modal.aid = '${a.id}'; modal.message = 'Remove this assignment?'`}
-                  style="padding: 4px 10px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); cursor: pointer;">
+                  class="py-1 px-2.5 bg-neutral-100 border border-neutral-200 rounded-md font-body text-xs text-neutral-600 cursor-pointer">
                   Remove
                 </button>
               </div>
@@ -193,35 +192,35 @@ const t = training as any
         )}
 
         <!-- Add assignment form -->
-        <form method="POST" x-data={`{ scope: '${admin ? 'all' : 'team'}' }`} style="display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--color-neutral-100); padding-top: 16px;">
+        <form method="POST" x-data={`{ scope: '${admin ? 'all' : 'team'}' }`} class="flex flex-col gap-3 border-t border-neutral-100 pt-4">
           <input type="hidden" name="_action" value="assign" />
-          <h3 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-700); margin: 0;">Add assignment</h3>
-          <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; flex-wrap: wrap;">
-            <div class="col-field">
-              <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-600);">Scope</label>
+          <h3 class="font-heading text-[13px] font-semibold text-neutral-700 m-0">Add assignment</h3>
+          <div class="grid grid-cols-[1fr_1fr_auto] gap-2.5 items-end">
+            <div class="flex flex-col gap-1">
+              <label class="font-body text-xs font-medium text-neutral-600">Scope</label>
               <select name="scope" x-model="scope"
-                style="padding: 8px 10px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; background: white;">
+                class="py-2 px-2.5 border border-neutral-300 rounded-md font-body text-[13px] bg-white">
                 {admin && <option value="all">All members</option>}
                 <option value="team">Team</option>
               </select>
             </div>
-            <div class="col-field" x-show="scope === 'team'" style={admin ? 'display: none;' : ''}>
-              <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-600);">Team</label>
+            <div class={`flex flex-col gap-1${admin ? ' hidden' : ''}`} x-show="scope === 'team'">
+              <label class="font-body text-xs font-medium text-neutral-600">Team</label>
               <select name="team_id"
-                style="padding: 8px 10px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; background: white;">
+                class="py-2 px-2.5 border border-neutral-300 rounded-md font-body text-[13px] bg-white">
                 <option value="">Select team</option>
                 {teams.map((team: any) => <option value={team.id}>{team.name}</option>)}
               </select>
             </div>
-            <div class="col-field">
-              <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-600);">Deadline (optional)</label>
+            <div class="flex flex-col gap-1">
+              <label class="font-body text-xs font-medium text-neutral-600">Deadline (optional)</label>
               <input name="deadline" type="date"
-                style="padding: 8px 10px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px;" />
+                class="py-2 px-2.5 border border-neutral-300 rounded-md font-body text-[13px]" />
             </div>
           </div>
           <div>
             <button type="submit"
-              style="padding: 8px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+              class="px-4 py-2 bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
               Assign
             </button>
           </div>
@@ -231,17 +230,17 @@ const t = training as any
 
     <!-- Delete assignment confirm modal -->
     <div x-show="modal.open" x-cloak @click="modal.open = false"
-      style="position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; display: flex; align-items: center; justify-content: center;">
-      <div @click.stop style="background: white; border-radius: var(--radius-lg); padding: 28px 32px; max-width: 380px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.2);">
-        <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-neutral-800); margin: 0 0 6px;">Remove assignment</p>
-        <p x-text="modal.message" style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); margin: 0 0 20px; line-height: 1.5;"></p>
-        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+      class="fixed inset-0 bg-black/45 z-[1000] flex items-center justify-center">
+      <div @click.stop class="bg-white rounded-lg py-7 px-8 max-w-[380px] w-[90%] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
+        <p class="font-body text-sm font-semibold text-neutral-800 mb-1.5">Remove assignment</p>
+        <p x-text="modal.message" class="font-body text-[13px] text-neutral-600 mb-5 leading-normal"></p>
+        <div class="flex gap-2.5 justify-end">
           <button @click="modal.open = false"
-            style="padding: 8px 16px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; color: var(--color-neutral-700);">
+            class="px-4 py-2 bg-neutral-100 border border-neutral-200 rounded-md font-body text-[13px] font-medium cursor-pointer text-neutral-700">
             Cancel
           </button>
           <button @click="doDelete()"
-            style="padding: 8px 16px; background: var(--color-danger-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+            class="px-4 py-2 bg-danger-600 text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
             Remove
           </button>
         </div>

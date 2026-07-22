@@ -178,68 +178,68 @@ if (Astro.request.method === 'POST') {
 ---
 
 <DashboardLayout title={`Edit ${member.full_name}`}>
-  <div style="max-width: 1060px;">
+  <div class="max-w-[1060px]">
     <Breadcrumb crumbs={[{ label: 'Members', href: '/admin/members' }, { label: member.full_name as string, href: `/admin/members/${id}` }, { label: 'Edit' }]} />
 
     <!-- Page header -->
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 16px; flex-wrap: wrap;">
-      <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">Edit Member</h1>
-      <div style="display: flex; gap: 10px;">
-        <button form="member-form" type="submit" style="padding: 9px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">Save changes</button>
-        <a href={`/admin/members/${id}`} style="padding: 9px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">Cancel</a>
+    <div class="flex items-center justify-between mb-5 gap-4 flex-wrap">
+      <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0">Edit Member</h1>
+      <div class="flex gap-2.5">
+        <button form="member-form" type="submit" class="px-5 py-[9px] bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">Save changes</button>
+        <a href={`/admin/members/${id}`} class="px-5 py-[9px] bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">Cancel</a>
       </div>
     </div>
 
     {globalError && (
-      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 16px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+      <div class="bg-danger-50 border border-danger-200 rounded-md px-4 py-3 mb-4 font-body text-sm text-danger-700">
         {globalError}
       </div>
     )}
 
     <!-- Two-column layout -->
-    <div style="display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start;">
+    <div class="grid gap-5 items-start" style="grid-template-columns: 1fr 300px;">
 
       <!-- ── LEFT: Photo + Form ─────────────────────────────────────────── -->
-      <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="flex flex-col gap-4">
 
         <!-- Profile photo -->
-        <div id="photo-card" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; display: flex; align-items: center; gap: 20px;">
-          <div id="photo-preview" style="width: 80px; height: 80px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: var(--color-brand-navy);">
-            <img id="photo-img" src={currentPhotoUrl} alt={member.full_name as string} width={80} height={80} style="width:100%;height:100%;object-fit:cover;" />
+        <div id="photo-card" class="bg-white border border-neutral-200 rounded-lg px-6 py-5 flex items-center gap-5">
+          <div id="photo-preview" class="w-20 h-20 rounded-full overflow-hidden shrink-0 bg-brand-navy">
+            <img id="photo-img" src={currentPhotoUrl} alt={member.full_name as string} width={80} height={80} class="w-full h-full object-cover" />
           </div>
-          <div style="flex: 1;">
-            <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-neutral-800); margin: 0 0 3px;">Profile photo</p>
-            <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0 0 10px;">JPEG, PNG or WebP · max 5 MB</p>
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-              <label style="padding: 6px 14px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
-                <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" style="display:none;" />
+          <div class="flex-1">
+            <p class="font-body text-sm font-semibold text-neutral-800 m-0 mb-[3px]">Profile photo</p>
+            <p class="font-body text-xs text-neutral-400 m-0 mb-2.5">JPEG, PNG or WebP · max 5 MB</p>
+            <div class="flex items-center gap-2.5 flex-wrap">
+              <label class="px-[14px] py-1.5 bg-brand-navy text-white rounded-md font-body text-[13px] font-medium cursor-pointer">
+                <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" />
                 Choose photo
               </label>
-              <span id="photo-filename" style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500);">No file selected</span>
-              <button id="photo-upload-btn" type="button" style="display:none; padding: 6px 14px; background-color: var(--color-brand-gold); color: var(--color-brand-navy); border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">Upload</button>
+              <span id="photo-filename" class="font-body text-xs text-neutral-500">No file selected</span>
+              <button id="photo-upload-btn" type="button" style="display:none;" class="px-[14px] py-1.5 bg-brand-gold text-brand-navy border-none rounded-md font-body text-[13px] font-semibold cursor-pointer">Upload</button>
             </div>
-            <p id="photo-status" style="font-family: var(--font-body); font-size: 12px; margin: 6px 0 0; display: none;"></p>
+            <p id="photo-status" class="font-body text-xs mt-1.5" style="display: none;"></p>
           </div>
         </div>
 
         <!-- Personal info form -->
-        <form id="member-form" method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 28px 32px; display: flex; flex-direction: column; gap: 28px;">
+        <form id="member-form" method="POST" class="bg-white border border-neutral-200 rounded-lg px-8 py-7 flex flex-col gap-7">
 
           <section>
-            <h2 style="font-family: var(--font-heading); font-size: 12px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--color-neutral-100);">Personal details</h2>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <h2 class="font-heading text-xs font-semibold text-neutral-400 uppercase tracking-[0.08em] m-0 mb-4 pb-2 border-b border-neutral-100">Personal details</h2>
+            <div class="grid grid-cols-2 gap-4">
               <Input label="First name *" name="first_name" value={values.first_name as string} error={errors.first_name} required />
               <Input label="Last name *" name="last_name" value={values.last_name as string} error={errors.last_name} required />
-              <div style="grid-column: 1 / -1;">
+              <div class="col-span-full">
                 <Input label="Middle name" name="middle_name" value={values.middle_name as string} placeholder="Optional" />
               </div>
               <Input label="Email *" name="email" type="email" value={values.email as string} error={errors.email} required />
               <Input label="Secondary email" name="email_secondary" type="email" value={values.email_secondary as string} placeholder="Optional" />
               <Input label="Phone" name="phone" type="tel" value={values.phone as string} />
               <Input label="Date of birth" name="date_of_birth" type="date" value={values.date_of_birth as string} />
-              <div style="display: flex; flex-direction: column; gap: 4px;">
-                <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Gender</label>
-                <select name="gender" style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+              <div class="flex flex-col gap-1">
+                <label class="font-body text-[13px] font-medium text-neutral-700">Gender</label>
+                <select name="gender" class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 bg-white">
                   <option value="">— Select —</option>
                   <option value="male" selected={values.gender === 'male'}>Male</option>
                   <option value="female" selected={values.gender === 'female'}>Female</option>
@@ -248,27 +248,27 @@ if (Astro.request.method === 'POST') {
                 </select>
               </div>
             </div>
-            <div style="margin-top: 16px;">
+            <div class="mt-4">
               <Input label="Address" name="address" value={values.address as string} />
             </div>
           </section>
 
           <section>
-            <h2 style="font-family: var(--font-heading); font-size: 12px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--color-neutral-100);">Organisation</h2>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-              <div style="display: flex; flex-direction: column; gap: 4px;">
-                <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Status</label>
-                <select name="status" style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+            <h2 class="font-heading text-xs font-semibold text-neutral-400 uppercase tracking-[0.08em] m-0 mb-4 pb-2 border-b border-neutral-100">Organisation</h2>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+              <div class="flex flex-col gap-1">
+                <label class="font-body text-[13px] font-medium text-neutral-700">Status</label>
+                <select name="status" class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 bg-white">
                   {STATUS_OPTIONS.map(s => <option value={s.value} selected={values.status === s.value}>{s.label}</option>)}
                 </select>
               </div>
               <Input label="Date joined" name="date_joined" type="date" value={values.date_joined as string} />
             </div>
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-              <span style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Person types *</span>
-              <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <div class="flex flex-col gap-2">
+              <span class="font-body text-[13px] font-medium text-neutral-700">Person types *</span>
+              <div class="flex flex-wrap gap-2">
                 {PERSON_TYPES.map(type => (
-                  <label style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-full); cursor: pointer; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+                  <label class="flex items-center gap-1.5 px-3 py-1.5 border border-neutral-300 rounded-full cursor-pointer font-body text-[13px] text-neutral-700">
                     <input type="checkbox" name="person_types" value={type}
                       checked={(values.person_types as string[])?.includes(type)} />
                     {type}
@@ -279,62 +279,62 @@ if (Astro.request.method === 'POST') {
           </section>
 
           <section>
-            <h2 style="font-family: var(--font-heading); font-size: 12px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--color-neutral-100);">Notes</h2>
+            <h2 class="font-heading text-xs font-semibold text-neutral-400 uppercase tracking-[0.08em] m-0 mb-3 pb-2 border-b border-neutral-100">Notes</h2>
             <textarea name="notes" rows={4}
-              style="width: 100%; padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); resize: vertical; box-sizing: border-box;">{values.notes as string}</textarea>
+              class="w-full px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 resize-y box-border">{values.notes as string}</textarea>
           </section>
 
           <!-- Inline save at bottom too -->
-          <div style="display: flex; gap: 12px; border-top: 1px solid var(--color-neutral-100); padding-top: 20px;">
-            <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">Save changes</button>
-            <a href={`/admin/members/${id}`} style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">Cancel</a>
+          <div class="flex gap-3 border-t border-neutral-100 pt-5">
+            <button type="submit" class="px-5 py-2.5 bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">Save changes</button>
+            <a href={`/admin/members/${id}`} class="px-5 py-2.5 bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">Cancel</a>
           </div>
         </form>
 
       </div>
 
       <!-- ── RIGHT: Teams · DBS · Buddy ────────────────────────────────── -->
-      <div style="display: flex; flex-direction: column; gap: 14px; position: sticky; top: 16px;">
+      <div class="flex flex-col gap-3.5 sticky top-4">
 
         <!-- Teams card -->
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 16px 20px;">
-          <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 10px;">Teams</p>
+        <div class="bg-white border border-neutral-200 rounded-lg px-5 py-4">
+          <p class="font-body text-[11px] font-semibold text-neutral-400 uppercase tracking-[0.08em] m-0 mb-2.5">Teams</p>
           {teamAssignments.length > 0 ? (
-            <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div class="flex flex-col gap-2.5">
               {teamAssignments.map(ta => (
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                <div class="flex items-center justify-between gap-2">
                   <div>
                     <a href={`/admin/teams/${ta.teams?.id}`}
-                      style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none;">
+                      class="font-body text-[13px] font-semibold text-brand-navy no-underline">
                       {ta.teams?.name ?? '—'}
                     </a>
-                    <p style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); margin: 2px 0 0;">Since {fmtDate(ta.joined_at)}</p>
+                    <p class="font-body text-[11px] text-neutral-400 m-0 mt-0.5">Since {fmtDate(ta.joined_at)}</p>
                   </div>
                   {ta.is_team_lead && (
-                    <span style="padding: 2px 8px; background-color: var(--color-brand-gold); color: var(--color-brand-navy); border-radius: var(--radius-full); font-family: var(--font-body); font-size: 11px; font-weight: 600; white-space: nowrap; flex-shrink: 0;">Lead</span>
+                    <span class="px-2 py-0.5 bg-brand-gold text-brand-navy rounded-full font-body text-[11px] font-semibold whitespace-nowrap shrink-0">Lead</span>
                   )}
                 </div>
               ))}
             </div>
           ) : (
-            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No team assigned</p>
+            <p class="font-body text-[13px] text-neutral-400 m-0">No team assigned</p>
           )}
           <a href={`/admin/members/${id}?tab=teams`}
-            style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); text-decoration: underline; display: inline-block; margin-top: 10px;">
+            class="font-body text-xs text-neutral-400 underline inline-block mt-2.5">
             Manage teams →
           </a>
         </div>
 
         <!-- DBS card -->
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 16px 20px;">
-          <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 10px;">DBS</p>
+        <div class="bg-white border border-neutral-200 rounded-lg px-5 py-4">
+          <p class="font-body text-[11px] font-semibold text-neutral-400 uppercase tracking-[0.08em] m-0 mb-2.5">DBS</p>
           {latestDbs?.clearance_date
             ? (() => {
               const { label, color } = dbsStatus(latestDbs.expiry_date)
               return (
                 <div>
-                  <p style={`font-family: var(--font-body); font-size: 13px; font-weight: 600; color: ${color}; margin: 0 0 4px;`}>{label}</p>
-                  <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0; line-height: 1.5;">
+                  <p class="font-body text-[13px] font-semibold m-0 mb-1" style={`color: ${color};`}>{label}</p>
+                  <p class="font-body text-xs text-neutral-500 m-0 leading-normal">
                     Cleared {fmtDate(latestDbs.clearance_date)}
                     {latestDbs.expiry_date && <><br />Expires {fmtDate(latestDbs.expiry_date)}</>}
                     {latestDbs.certificate_reference && <><br />Ref: {latestDbs.certificate_reference}</>}
@@ -342,10 +342,10 @@ if (Astro.request.method === 'POST') {
                 </div>
               )
             })()
-            : <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No DBS record</p>
+            : <p class="font-body text-[13px] text-neutral-400 m-0">No DBS record</p>
           }
           <a href={`/admin/members/${id}?tab=dbs`}
-            style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); text-decoration: underline; display: inline-block; margin-top: 10px;">
+            class="font-body text-xs text-neutral-400 underline inline-block mt-2.5">
             Manage DBS →
           </a>
         </div>
@@ -372,49 +372,49 @@ if (Astro.request.method === 'POST') {
                 if (res.ok) { location.reload(); } else { this.statusMsg = d.error || 'Failed to remove buddy.'; }
               }
             }`}
-            style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 16px 20px;"
+            class="bg-white border border-neutral-200 rounded-lg px-5 py-4"
           >
-            <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 10px;">Buddy</p>
+            <p class="font-body text-[11px] font-semibold text-neutral-400 uppercase tracking-[0.08em] m-0 mb-2.5">Buddy</p>
 
             <!-- Remove confirmation modal -->
             <div
               x-show="showModal"
-              style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;"
+              class="fixed inset-0 bg-[rgba(0,0,0,0.5)] flex items-center justify-center z-[1000]"
               @click.self="showModal = false"
             >
-              <div style="background: white; border-radius: var(--radius-lg); padding: 24px; max-width: 320px; width: 90%; text-align: center;">
-                <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700); margin: 0 0 16px;">
+              <div class="bg-white rounded-lg p-6 max-w-[320px] w-[90%] text-center">
+                <p class="font-body text-sm text-neutral-700 m-0 mb-4">
                   Remove this buddy pairing? Both members will be notified.
                 </p>
-                <div style="display: flex; gap: 8px; justify-content: center;">
-                  <button type="button" @click="showModal = false" style="padding: 8px 16px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; cursor: pointer;">Cancel</button>
-                  <button type="button" @click="confirmRemove()" style="padding: 8px 16px; background-color: var(--color-danger-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">Remove</button>
+                <div class="flex gap-2 justify-center">
+                  <button type="button" @click="showModal = false" class="px-4 py-2 bg-neutral-100 border border-neutral-200 rounded-md font-body text-[13px] cursor-pointer">Cancel</button>
+                  <button type="button" @click="confirmRemove()" class="px-4 py-2 bg-danger-600 text-white border-none rounded-md font-body text-[13px] font-semibold cursor-pointer">Remove</button>
                 </div>
               </div>
             </div>
 
             <!-- Their buddy: someone assigned TO this member -->
             {currentBuddy ? (
-              <div style="margin-bottom: 12px;">
-                <p style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); margin: 0 0 4px;">Their buddy</p>
-                <p style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-brand-navy); margin: 0 0 2px;">{currentBuddy.person?.full_name ?? '—'}</p>
-                <p style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); margin: 0 0 10px;">
+              <div class="mb-3">
+                <p class="font-body text-[11px] text-neutral-400 m-0 mb-1">Their buddy</p>
+                <p class="font-body text-[13px] font-semibold text-brand-navy m-0 mb-0.5">{currentBuddy.person?.full_name ?? '—'}</p>
+                <p class="font-body text-[11px] text-neutral-400 m-0 mb-2.5">
                   Since {new Date(currentBuddy.assignment.assigned_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </p>
                 {currentBuddy.assignment.notes && (
-                  <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0 0 10px; font-style: italic;">"{currentBuddy.assignment.notes}"</p>
+                  <p class="font-body text-xs text-neutral-500 m-0 mb-2.5 italic">"{currentBuddy.assignment.notes}"</p>
                 )}
                 <button
                   type="button"
                   @click={`assignmentId = '${currentBuddy.assignment.id}'; showModal = true`}
-                  style="width: 100%; padding: 7px 0; background: var(--color-neutral-50); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-danger-600); cursor: pointer;">
+                  class="w-full py-[7px] px-0 bg-neutral-50 border border-neutral-200 rounded-md font-body text-[13px] text-danger-600 cursor-pointer">
                   Remove buddy
                 </button>
               </div>
             ) : (
-              <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
-                <p style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); margin: 0 0 2px;">Assign a buddy to this member</p>
-                <select x-model="buddyId" style="padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); background: white; width: 100%;">
+              <div class="flex flex-col gap-2 mb-3">
+                <p class="font-body text-[11px] text-neutral-400 m-0 mb-0.5">Assign a buddy to this member</p>
+                <select x-model="buddyId" class="py-[9px] px-3 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-800 bg-white w-full">
                   <option value="">— Select a member —</option>
                   {allActiveMembers.map(m => (
                     <option value={m.id}>{m.full_name}</option>
@@ -423,7 +423,7 @@ if (Astro.request.method === 'POST') {
                 <button
                   type="button"
                   @click="assignBuddy()"
-                  style="width: 100%; padding: 9px 0; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+                  class="w-full py-[9px] px-0 bg-brand-navy text-white border-none rounded-md font-body text-[13px] font-semibold cursor-pointer">
                   Assign buddy
                 </button>
               </div>
@@ -431,14 +431,14 @@ if (Astro.request.method === 'POST') {
 
             <!-- Buddying for: members this person is serving as buddy for -->
             {buddyingFor.length > 0 && (
-              <div style="padding-top: 10px; border-top: 1px solid var(--color-neutral-100);">
-                <p style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); margin: 0 0 8px;">
+              <div class="pt-2.5 border-t border-neutral-100">
+                <p class="font-body text-[11px] text-neutral-400 m-0 mb-2">
                   Serving as buddy to ({buddyingFor.length}/3)
                 </p>
-                <div style="display: flex; flex-direction: column; gap: 6px;">
+                <div class="flex flex-col gap-1.5">
                   {buddyingFor.map(bf => (
                     <a href={`/admin/members/${bf.person?.id}/edit`}
-                      style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none;">
+                      class="font-body text-[13px] font-semibold text-brand-navy no-underline">
                       {bf.person?.full_name ?? '—'}
                     </a>
                   ))}
@@ -446,7 +446,7 @@ if (Astro.request.method === 'POST') {
               </div>
             )}
 
-            <p x-show="statusMsg" x-text="statusMsg" style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-600); margin: 8px 0 0;"></p>
+            <p x-show="statusMsg" x-text="statusMsg" class="font-body text-xs text-danger-600 m-0 mt-2"></p>
           </div>
         )}
 

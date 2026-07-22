@@ -133,137 +133,60 @@ const hasErrors = Object.keys(errors).length > 0 || !!globalError
 ---
 
 <PublicLayout title={training ? `${training.title} — Submit Document` : 'Submit a Document'}>
-  <div style="
-    min-height: 100vh;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    background-color: var(--color-brand-navy);
-    padding: 48px 24px 64px;
-    box-sizing: border-box;
-  ">
-    <div style="width: 100%; max-width: 520px;">
+  <div class="min-h-screen flex items-start justify-center bg-brand-navy pt-12 px-6 pb-16 box-border">
+    <div class="w-full max-w-130">
 
       <!-- Logo / org identity -->
-      <div style="text-align: center; margin-bottom: 32px;">
+      <div class="text-center mb-8">
         {logoUrl ? (
           <img
             src={logoUrl}
             alt={orgName}
-            style="max-height: 56px; max-width: 200px; object-fit: contain; display: inline-block;"
+            class="max-h-14 max-w-50 object-contain inline-block"
           />
         ) : (
-          <p style="
-            font-family: var(--font-heading);
-            font-size: 26px;
-            font-weight: 700;
-            color: white;
-            margin: 0;
-            letter-spacing: -0.5px;
-          ">{orgName}</p>
+          <p class="font-heading text-[26px] font-bold text-white m-0 tracking-[-0.5px]">{orgName}</p>
         )}
       </div>
 
       <!-- Card -->
-      <div style="
-        background: white;
-        border-radius: var(--radius-xl);
-        padding: 40px;
-        box-shadow: var(--shadow-lg);
-      ">
+      <div class="bg-white rounded-xl p-10 shadow-lg">
 
         {success ? (
-          <div style="text-align: center; padding: 16px 0;">
-            <div style="
-              width: 64px; height: 64px;
-              background-color: var(--color-success-50);
-              border-radius: 50%;
-              display: flex; align-items: center; justify-content: center;
-              margin: 0 auto 20px;
-              font-size: 28px;
-            ">✓</div>
-            <h1 style="
-              font-family: var(--font-heading);
-              font-size: 22px;
-              font-weight: 700;
-              color: var(--color-brand-navy);
-              margin: 0 0 8px;
-            ">Document submitted</h1>
-            <p style="
-              font-family: var(--font-body);
-              font-size: 14px;
-              color: var(--color-neutral-500);
-              margin: 0 0 6px;
-              line-height: 1.6;
-            ">
+          <div class="text-center py-4">
+            <div class="w-16 h-16 bg-success-50 rounded-full flex items-center justify-center mx-auto mb-5 text-[28px]">✓</div>
+            <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0 mb-2">Document submitted</h1>
+            <p class="font-body text-sm text-neutral-500 m-0 mb-1.5 leading-[1.6]">
               Thanks{submittedName ? `, ${submittedName.split(' ')[0]}` : ''}. Your document is now awaiting review.
             </p>
             {training && (
-              <p style="
-                font-family: var(--font-body);
-                font-size: 13px;
-                color: var(--color-neutral-500);
-                margin: 0;
-              ">
-                Linked to: <strong style="color: var(--color-brand-navy);">{training.title}</strong>
+              <p class="font-body text-[13px] text-neutral-500 m-0">
+                Linked to: <strong class="text-brand-navy">{training.title}</strong>
               </p>
             )}
           </div>
         ) : (
           <div>
-            <h1 style="
-              font-family: var(--font-heading);
-              font-size: 22px;
-              font-weight: 700;
-              color: var(--color-brand-navy);
-              margin: 0 0 6px;
-            ">Submit a document</h1>
+            <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0 mb-1.5">Submit a document</h1>
 
             {training ? (
-              <div style="
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                background-color: var(--color-neutral-100);
-                border-radius: var(--radius-full);
-                padding: 4px 14px;
-                margin-bottom: 28px;
-              ">
-                <span style="font-size: 11px; color: var(--color-neutral-500); font-family: var(--font-body);">For training:</span>
-                <span style="font-size: 13px; font-weight: 600; color: var(--color-brand-navy); font-family: var(--font-body);">{training.title}</span>
+              <div class="inline-flex items-center gap-1.5 bg-neutral-100 rounded-full py-1 px-3.5 mb-7">
+                <span class="text-[11px] text-neutral-500 font-body">For training:</span>
+                <span class="text-[13px] font-semibold text-brand-navy font-body">{training.title}</span>
               </div>
             ) : (
-              <p style="
-                font-family: var(--font-body);
-                font-size: 14px;
-                color: var(--color-neutral-500);
-                margin: 0 0 28px;
-              ">Fill in your details and attach your document below.</p>
+              <p class="font-body text-sm text-neutral-500 m-0 mb-7">Fill in your details and attach your document below.</p>
             )}
 
             {globalError && (
-              <div style="
-                background-color: var(--color-danger-50);
-                border: 1px solid #fca5a5;
-                border-radius: var(--radius-md);
-                padding: 12px 16px;
-                margin-bottom: 20px;
-                font-family: var(--font-body);
-                font-size: 14px;
-                color: #991b1b;
-              ">{globalError}</div>
+              <div class="bg-danger-50 border border-[#fca5a5] rounded-md py-3 px-4 mb-5 font-body text-sm text-[#991b1b]">{globalError}</div>
             )}
 
-            <form method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 18px;">
+            <form method="POST" enctype="multipart/form-data" class="flex flex-col gap-[18px]">
 
               <!-- Email -->
-              <div style="display: flex; flex-direction: column; gap: 5px;">
-                <label for="emailInput" style="
-                  font-family: var(--font-body);
-                  font-size: 13px;
-                  font-weight: 500;
-                  color: var(--color-neutral-700);
-                ">Your email address *</label>
+              <div class="flex flex-col gap-[5px]">
+                <label for="emailInput" class="font-body text-[13px] font-medium text-neutral-700">Your email address *</label>
                 <input
                   id="emailInput"
                   name="email"
@@ -272,47 +195,24 @@ const hasErrors = Object.keys(errors).length > 0 || !!globalError
                   autocomplete="email"
                   value={formValues.email ?? ''}
                   placeholder="you@example.com"
-                  style={`
-                    padding: 10px 14px;
-                    border: 1px solid ${errors.email ? '#f87171' : 'var(--color-neutral-300)'};
-                    border-radius: var(--radius-md);
-                    font-family: var(--font-body);
-                    font-size: 14px;
-                    color: var(--color-neutral-900);
-                    outline: none;
-                    width: 100%;
-                    box-sizing: border-box;
-                  `}
+                  class="px-3.5 py-2.5 rounded-md font-body text-sm text-neutral-900 outline-none w-full box-border"
+                  style={`border: 1px solid ${errors.email ? '#f87171' : 'var(--color-neutral-300)'};`}
                 />
                 {errors.email && (
-                  <p style="font-family: var(--font-body); font-size: 12px; color: #dc2626; margin: 0;">{errors.email}</p>
+                  <p class="font-body text-xs text-[#dc2626] m-0">{errors.email}</p>
                 )}
               </div>
 
               <!-- Document type (only when training doesn't fix it) -->
               {showDocTypeDropdown && (
-                <div style="display: flex; flex-direction: column; gap: 5px;">
-                  <label for="docTypeSelect" style="
-                    font-family: var(--font-body);
-                    font-size: 13px;
-                    font-weight: 500;
-                    color: var(--color-neutral-700);
-                  ">Document type *</label>
+                <div class="flex flex-col gap-[5px]">
+                  <label for="docTypeSelect" class="font-body text-[13px] font-medium text-neutral-700">Document type *</label>
                   <select
                     id="docTypeSelect"
                     name="document_type_id"
                     required
-                    style={`
-                      padding: 10px 14px;
-                      border: 1px solid ${errors.document_type_id ? '#f87171' : 'var(--color-neutral-300)'};
-                      border-radius: var(--radius-md);
-                      font-family: var(--font-body);
-                      font-size: 14px;
-                      color: var(--color-neutral-900);
-                      background: white;
-                      width: 100%;
-                      box-sizing: border-box;
-                    `}
+                    class="px-3.5 py-2.5 rounded-md font-body text-sm text-neutral-900 bg-white w-full box-border"
+                    style={`border: 1px solid ${errors.document_type_id ? '#f87171' : 'var(--color-neutral-300)'};`}
                   >
                     <option value="">Select a type…</option>
                     {docTypes.map((dt: any) => (
@@ -320,7 +220,7 @@ const hasErrors = Object.keys(errors).length > 0 || !!globalError
                     ))}
                   </select>
                   {errors.document_type_id && (
-                    <p style="font-family: var(--font-body); font-size: 12px; color: #dc2626; margin: 0;">{errors.document_type_id}</p>
+                    <p class="font-body text-xs text-[#dc2626] m-0">{errors.document_type_id}</p>
                   )}
                 </div>
               )}
@@ -331,13 +231,8 @@ const hasErrors = Object.keys(errors).length > 0 || !!globalError
               )}
 
               <!-- Title -->
-              <div style="display: flex; flex-direction: column; gap: 5px;">
-                <label for="titleInput" style="
-                  font-family: var(--font-body);
-                  font-size: 13px;
-                  font-weight: 500;
-                  color: var(--color-neutral-700);
-                ">Document name *</label>
+              <div class="flex flex-col gap-[5px]">
+                <label for="titleInput" class="font-body text-[13px] font-medium text-neutral-700">Document name *</label>
                 <input
                   id="titleInput"
                   name="title"
@@ -345,62 +240,26 @@ const hasErrors = Object.keys(errors).length > 0 || !!globalError
                   required
                   value={formValues.title ?? ''}
                   placeholder={training?.document_type?.name ? `e.g. My ${training.document_type.name}` : 'e.g. Enhanced DBS Certificate'}
-                  style={`
-                    padding: 10px 14px;
-                    border: 1px solid ${errors.title ? '#f87171' : 'var(--color-neutral-300)'};
-                    border-radius: var(--radius-md);
-                    font-family: var(--font-body);
-                    font-size: 14px;
-                    color: var(--color-neutral-900);
-                    width: 100%;
-                    box-sizing: border-box;
-                  `}
+                  class="px-3.5 py-2.5 rounded-md font-body text-sm text-neutral-900 w-full box-border"
+                  style={`border: 1px solid ${errors.title ? '#f87171' : 'var(--color-neutral-300)'};`}
                 />
                 {errors.title && (
-                  <p style="font-family: var(--font-body); font-size: 12px; color: #dc2626; margin: 0;">{errors.title}</p>
+                  <p class="font-body text-xs text-[#dc2626] m-0">{errors.title}</p>
                 )}
               </div>
 
               <!-- File -->
-              <div style="display: flex; flex-direction: column; gap: 5px;">
-                <label for="fileInput" style="
-                  font-family: var(--font-body);
-                  font-size: 13px;
-                  font-weight: 500;
-                  color: var(--color-neutral-700);
-                ">File *</label>
+              <div class="flex flex-col gap-[5px]">
+                <label for="fileInput" class="font-body text-[13px] font-medium text-neutral-700">File *</label>
 
                 <!-- Drop zone -->
-                <label id="dropZone" for="fileInput" style="
-                  display: flex;
-                  flex-direction: column;
-                  align-items: center;
-                  justify-content: center;
-                  gap: 8px;
-                  border: 2px dashed var(--color-neutral-300);
-                  border-radius: var(--radius-md);
-                  padding: 28px 20px;
-                  cursor: pointer;
-                  transition: border-color 0.15s, background-color 0.15s;
-                  background-color: var(--color-neutral-50);
-                ">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--color-neutral-400);">
+                <label id="dropZone" for="fileInput" class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-neutral-300 rounded-md py-7 px-5 cursor-pointer transition-[border-color,background-color] duration-150 bg-neutral-50">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-neutral-400">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                   </svg>
-                  <div style="text-align: center;">
-                    <p id="dropLabel" style="
-                      font-family: var(--font-body);
-                      font-size: 14px;
-                      font-weight: 500;
-                      color: var(--color-neutral-700);
-                      margin: 0 0 2px;
-                    ">Click to choose a file</p>
-                    <p style="
-                      font-family: var(--font-body);
-                      font-size: 12px;
-                      color: var(--color-neutral-400);
-                      margin: 0;
-                    ">PDF, JPEG, PNG or WebP — max 10 MB</p>
+                  <div class="text-center">
+                    <p id="dropLabel" class="font-body text-sm font-medium text-neutral-700 m-0 mb-0.5">Click to choose a file</p>
+                    <p class="font-body text-xs text-neutral-400 m-0">PDF, JPEG, PNG or WebP — max 10 MB</p>
                   </div>
                 </label>
 
@@ -410,11 +269,11 @@ const hasErrors = Object.keys(errors).length > 0 || !!globalError
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png,.webp"
                   required
-                  style="display: none;"
+                  class="hidden"
                 />
 
                 {errors.file && (
-                  <p style="font-family: var(--font-body); font-size: 12px; color: #dc2626; margin: 0;">{errors.file}</p>
+                  <p class="font-body text-xs text-[#dc2626] m-0">{errors.file}</p>
                 )}
               </div>
 
@@ -422,22 +281,7 @@ const hasErrors = Object.keys(errors).length > 0 || !!globalError
               <button
                 type="submit"
                 id="submitBtn"
-                style="
-                  margin-top: 4px;
-                  padding: 12px 20px;
-                  background-color: var(--color-brand-navy);
-                  color: white;
-                  border: none;
-                  border-radius: var(--radius-md);
-                  font-family: var(--font-body);
-                  font-size: 15px;
-                  font-weight: 600;
-                  cursor: pointer;
-                  width: 100%;
-                  transition: opacity 0.15s;
-                "
-                onmouseover="this.style.opacity='0.88'"
-                onmouseout="this.style.opacity='1'"
+                class="mt-1 py-3 px-5 bg-brand-navy text-white border-0 rounded-md font-body text-[15px] font-semibold cursor-pointer w-full transition-opacity duration-150 hover:opacity-[0.88]"
               >
                 Submit document
               </button>
@@ -447,13 +291,7 @@ const hasErrors = Object.keys(errors).length > 0 || !!globalError
       </div>
 
       <!-- Footer -->
-      <p style="
-        text-align: center;
-        font-family: var(--font-body);
-        font-size: 12px;
-        color: rgba(255,255,255,0.4);
-        margin: 24px 0 0;
-      ">
+      <p class="text-center font-body text-xs text-white/40 mt-6 mb-0 mx-0">
         {orgName} · Secure document submission
       </p>
     </div>

@@ -57,54 +57,52 @@ const archived = rows.filter(r => r.is_archived)
       }
     }
   }">
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+    <div class="flex items-center justify-between mb-6">
       <div>
-        <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Roles</h1>
-        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+        <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Roles</h1>
+        <p class="font-body text-sm text-neutral-500 m-0">
           System roles define what members can access.
         </p>
       </div>
       <a href="/admin/roles/new"
-         style="display: inline-flex; align-items: center; gap: 6px; background-color: var(--color-brand-navy); color: white; padding: 10px 18px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+         class="inline-flex items-center gap-1.5 bg-brand-navy text-white py-2.5 px-4.5 rounded-md font-body text-sm font-semibold no-underline">
         + Create role
       </a>
     </div>
 
     {active.length > 0 ? (
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 32px;">
-        <table style="width: 100%; border-collapse: collapse;">
+      <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden mb-8">
+        <table class="w-full border-collapse">
           <thead>
-            <tr style="background-color: var(--color-neutral-100);">
-              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Name</th>
-              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Members</th>
-              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Type</th>
-              <th style="padding: 12px 16px;"></th>
+            <tr class="bg-neutral-100">
+              <th class="px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em]">Name</th>
+              <th class="px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em]">Members</th>
+              <th class="px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em]">Type</th>
+              <th class="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
             {active.map((role) => (
-              <tr style="border-top: 1px solid var(--color-neutral-100);" onmouseover="this.style.backgroundColor='var(--color-neutral-50)'" onmouseout="this.style.backgroundColor=''">
-                <td style="padding: 14px 16px;">
-                  <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-brand-navy); margin: 0 0 2px;">{role.name}</p>
+              <tr class="border-t border-neutral-100 hover:bg-neutral-50">
+                <td class="px-4 py-3.5">
+                  <p class="font-body text-sm font-semibold text-brand-navy mb-0.5">{role.name}</p>
                   {role.description && (
-                    <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0;">{role.description}</p>
+                    <p class="font-body text-xs text-neutral-500 m-0">{role.description}</p>
                   )}
                 </td>
-                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">
                   {(role.user_roles?.[0]?.count ?? 0) > 0
-                    ? <a href={`/admin/roles/${role.id}`} style="color: var(--color-brand-navy); font-weight: 600; text-decoration: none;">{role.user_roles[0].count}</a>
-                    : <span style="color: var(--color-neutral-400);">0</span>}
+                    ? <a href={`/admin/roles/${role.id}`} class="text-brand-navy font-semibold no-underline">{role.user_roles[0].count}</a>
+                    : <span class="text-neutral-400">0</span>}
                 </td>
-                <td style="padding: 14px 16px;">
+                <td class="px-4 py-3.5">
                   {role.is_system_protected
                     ? <Badge variant="info">System</Badge>
                     : <Badge variant="neutral">Custom</Badge>}
                 </td>
-                <td style="padding: 14px 16px; text-align: right; white-space: nowrap;">
+                <td class="px-4 py-3.5 text-right whitespace-nowrap">
                   <a href={`/admin/roles/${role.id}/edit`}
-                     style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-600); text-decoration: none; padding: 4px 10px; border-radius: var(--radius-md);"
-                     onmouseover="this.style.backgroundColor='var(--color-neutral-100)'"
-                     onmouseout="this.style.backgroundColor=''">
+                     class="font-body text-[13px] font-medium text-neutral-600 no-underline px-2.5 py-1 rounded-md hover:bg-neutral-100">
                     Edit
                   </a>
                   {!role.is_system_protected && (
@@ -113,7 +111,7 @@ const archived = rows.filter(r => r.is_archived)
                       data-role-name={role.name}
                       data-member-count={String(role.user_roles?.[0]?.count ?? 0)}
                       @click="openModal($el)"
-                      style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-danger-600); background: none; border: none; cursor: pointer; padding: 4px 10px; border-radius: var(--radius-md);">
+                      class="font-body text-[13px] font-medium text-danger-600 bg-transparent border-0 cursor-pointer px-2.5 py-1 rounded-md">
                       {(role.user_roles?.[0]?.count ?? 0) > 0 ? 'Archive' : 'Delete'}
                     </button>
                   )}
@@ -129,18 +127,18 @@ const archived = rows.filter(r => r.is_archived)
 
     {archived.length > 0 && (
       <details>
-        <summary style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); cursor: pointer; margin-bottom: 12px;">
+        <summary class="font-body text-[13px] text-neutral-500 cursor-pointer mb-3">
           Archived roles ({archived.length})
         </summary>
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
-          <table style="width: 100%; border-collapse: collapse;">
+        <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+          <table class="w-full border-collapse">
             <tbody>
               {archived.map((role) => (
-                <tr style="border-top: 1px solid var(--color-neutral-100);">
-                  <td style="padding: 12px 16px;">
-                    <span style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400);">{role.name}</span>
+                <tr class="border-t border-neutral-100">
+                  <td class="px-4 py-3">
+                    <span class="font-body text-sm text-neutral-400">{role.name}</span>
                   </td>
-                  <td style="padding: 12px 16px;">
+                  <td class="px-4 py-3">
                     <Badge variant="neutral">Archived</Badge>
                   </td>
                 </tr>
@@ -153,18 +151,18 @@ const archived = rows.filter(r => r.is_archived)
 
     <!-- Confirmation Modal -->
     <div x-show="modalOpen" @click.self="modalOpen = false" @keydown.escape.window="modalOpen = false"
-      style="position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.45);">
-      <div style="background: white; border-radius: var(--radius-lg); padding: 28px 32px; max-width: 420px; width: 90%; box-shadow: 0 25px 50px rgba(0,0,0,0.2);">
-        <h3 style="font-family: var(--font-heading); font-size: 17px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 10px;" x-text="actionLabel + ' role'"></h3>
-        <p x-text="message" style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700); margin: 0 0 20px; line-height: 1.55;"></p>
-        <p x-show="error" x-text="error" style="font-family: var(--font-body); font-size: 13px; color: var(--color-danger-600); margin: 0 0 14px;"></p>
-        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+      class="fixed inset-0 z-100 flex items-center justify-center bg-[rgba(0,0,0,0.45)]">
+      <div class="bg-white rounded-lg py-7 px-8 max-w-105 w-[90%] shadow-[0_25px_50px_rgba(0,0,0,0.2)]">
+        <h3 class="font-heading text-[17px] font-bold text-brand-navy mb-2.5" x-text="actionLabel + ' role'"></h3>
+        <p x-text="message" class="font-body text-sm text-neutral-700 mb-5 leading-[1.55]"></p>
+        <p x-show="error" x-text="error" class="font-body text-[13px] text-danger-600 mb-3.5"></p>
+        <div class="flex gap-2.5 justify-end">
           <button @click="modalOpen = false" :disabled="loading"
-            style="padding: 8px 18px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer; color: var(--color-neutral-700);">
+            class="py-2 px-4.5 bg-neutral-100 border border-neutral-200 rounded-md font-body text-sm font-medium cursor-pointer text-neutral-700">
             Cancel
           </button>
           <button @click="doAction()" :disabled="loading" x-text="loading ? 'Working...' : actionLabel"
-            style="padding: 8px 18px; background: var(--color-danger-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+            class="py-2 px-4.5 bg-danger-600 text-white border-0 rounded-md font-body text-sm font-semibold cursor-pointer">
           </button>
         </div>
       </div>

@@ -49,63 +49,63 @@ const { data: programmeYears } = await supabaseAdmin
 ---
 
 <DashboardLayout title="Mentees">
-  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+  <div class="flex items-center justify-between mb-6">
     <div>
-      <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Mentees</h1>
-      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">{rows.length} mentee{rows.length !== 1 ? 's' : ''}</p>
+      <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Mentees</h1>
+      <p class="font-body text-sm text-neutral-500 m-0">{rows.length} mentee{rows.length !== 1 ? 's' : ''}</p>
     </div>
     <a href="/admin/mentees/new"
-      style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+      class="px-4.5 py-2.5 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
       + New mentee
     </a>
   </div>
 
   <!-- Filters -->
-  <form method="GET" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: flex-end;">
+  <form method="GET" class="flex gap-2.5 mb-5 flex-wrap items-end">
     <input type="text" name="q" value={q} placeholder="Search name, email, school…"
-      style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; min-width: 220px;" />
+      class="px-3 py-2 border border-neutral-300 rounded-md font-body text-sm min-w-[220px]" />
     <select name="mentor_id" onchange="this.form.submit()"
-      style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
+      class="px-3 py-2 border border-neutral-300 rounded-md font-body text-sm bg-white">
       <option value="" selected={!mentorId}>All mentors</option>
       {(members ?? []).map(m => (
         <option value={m.id} selected={mentorId === m.id}>{m.full_name}</option>
       ))}
     </select>
     <select name="programme_year_id" onchange="this.form.submit()"
-      style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
+      class="px-3 py-2 border border-neutral-300 rounded-md font-body text-sm bg-white">
       <option value="" selected={!programmeYearId}>All years</option>
       {(programmeYears ?? []).map(py => (
         <option value={py.id} selected={programmeYearId === py.id}>{py.name as string}</option>
       ))}
     </select>
     <button type="submit"
-      style="padding: 8px 14px; background: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; cursor: pointer;">
+      class="px-3.5 py-2 bg-brand-navy text-white border-none rounded-md font-body text-sm cursor-pointer">
       Search
     </button>
     {(q || mentorId || programmeYearId) && (
       <a href="/admin/mentees"
-        style="padding: 8px 12px; background: var(--color-neutral-100); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); text-decoration: none;">
+        class="px-3 py-2 bg-neutral-100 rounded-md font-body text-[13px] text-neutral-600 no-underline">
         Clear
       </a>
     )}
   </form>
 
   <!-- Mentees table -->
-  <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+  <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
     {rows.length === 0 ? (
-      <div style="padding: 48px; text-align: center;">
-        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">No mentees found.</p>
+      <div class="p-12 text-center">
+        <p class="font-body text-sm text-neutral-400 m-0">No mentees found.</p>
       </div>
     ) : (
-      <table style="width: 100%; border-collapse: collapse;">
-        <thead style="background-color: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+      <table class="w-full border-collapse">
+        <thead class="bg-neutral-50 border-b border-neutral-200">
           <tr>
-            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Name</th>
-            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">School</th>
-            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Year group</th>
-            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Mentor</th>
-            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Programme year</th>
-            <th style="padding: 10px 16px;"></th>
+            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Name</th>
+            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">School</th>
+            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Year group</th>
+            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Mentor</th>
+            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Programme year</th>
+            <th class="px-4 py-2.5"></th>
           </tr>
         </thead>
         <tbody>
@@ -113,40 +113,40 @@ const { data: programmeYears } = await supabaseAdmin
             const mentor = (mentee as unknown as { people: { id: string; full_name: string } | null }).people
             const py = (mentee as unknown as { cmp_programme_years: { id: string; name: string } | null }).cmp_programme_years
             return (
-              <tr style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
-                <td style="padding: 14px 16px;">
+              <tr class={i > 0 ? 'border-t border-neutral-100' : ''}>
+                <td class="px-4 py-3.5">
                   <a href={`/admin/mentees/${mentee.id}`}
-                    style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none;">
+                    class="font-body text-sm font-medium text-brand-navy no-underline">
                     {mentee.full_name as string}
                   </a>
-                  <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 2px 0 0;">{mentee.email as string}</p>
+                  <p class="font-body text-xs text-neutral-400 mt-0.5 mb-0">{mentee.email as string}</p>
                 </td>
-                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">
                   {(mentee.school as string | null) ?? '—'}
                 </td>
-                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">
                   {(mentee.year_group as string | null) ?? '—'}
                 </td>
-                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">
                   {mentor ? (
                     <a href={`/admin/members/${mentor.id}`}
-                      style="color: var(--color-brand-navy); text-decoration: none; font-size: 13px; font-family: var(--font-body);">
+                      class="text-brand-navy no-underline text-[13px] font-body">
                       {mentor.full_name}
                     </a>
                   ) : (
-                    <span style="color: var(--color-neutral-400);">Unassigned</span>
+                    <span class="text-neutral-400">Unassigned</span>
                   )}
                 </td>
-                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">
                   {py?.year_label ?? '—'}
                 </td>
-                <td style="padding: 14px 16px; text-align: right;">
+                <td class="px-4 py-3.5 text-right">
                   <a href={`/admin/mentees/${mentee.id}/edit`}
-                    style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); text-decoration: none; margin-right: 12px;">
+                    class="font-body text-[13px] text-neutral-500 no-underline mr-3">
                     Edit
                   </a>
                   <a href={`/admin/mentees/${mentee.id}`}
-                    style="font-family: var(--font-body); font-size: 13px; color: var(--color-brand-navy); text-decoration: none;">
+                    class="font-body text-[13px] text-brand-navy no-underline">
                     View →
                   </a>
                 </td>

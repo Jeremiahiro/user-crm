@@ -106,57 +106,57 @@ function gravatarUrl(email: string): string {
 <DashboardLayout title="Members">
   <div>
     <!-- Page header -->
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+    <div class="flex items-center justify-between mb-6">
       <div>
-        <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Members</h1>
-        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+        <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Members</h1>
+        <p class="font-body text-sm text-neutral-500 m-0">
           {count ?? 0} member{(count ?? 0) !== 1 ? 's' : ''}{statusFilter || teamFilter || searchQ ? ' (filtered)' : ''}
         </p>
       </div>
-      <div style="display: flex; gap: 8px;">
+      <div class="flex gap-2">
         <a href="/admin/members/export"
-           style="display: inline-flex; align-items: center; gap: 6px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); padding: 10px 18px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none; border: 1px solid var(--color-neutral-200);">
+           class="inline-flex items-center gap-1.5 bg-neutral-100 text-neutral-700 px-4.5 py-2.5 rounded-md font-body text-sm font-medium no-underline border border-neutral-200">
           ↓ Export CSV
         </a>
         <a href="/admin/members/import"
-           style="display: inline-flex; align-items: center; gap: 6px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); padding: 10px 18px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none; border: 1px solid var(--color-neutral-200);">
+           class="inline-flex items-center gap-1.5 bg-neutral-100 text-neutral-700 px-4.5 py-2.5 rounded-md font-body text-sm font-medium no-underline border border-neutral-200">
           ↑ Import CSV
         </a>
         <a href="/admin/members/new"
-           style="display: inline-flex; align-items: center; gap: 6px; background-color: var(--color-brand-navy); color: white; padding: 10px 18px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+           class="inline-flex items-center gap-1.5 bg-brand-navy text-white px-4.5 py-2.5 rounded-md font-body text-sm font-semibold no-underline">
           + Add member
         </a>
       </div>
     </div>
 
     <!-- Filters -->
-    <form method="GET" style="display: flex; gap: 12px; align-items: center; margin-bottom: 20px; flex-wrap: wrap;">
+    <form method="GET" class="flex gap-3 items-center mb-5 flex-wrap">
       <input
         type="search"
         name="q"
         value={searchQ}
         placeholder="Search by name…"
-        style="padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); min-width: 200px;"
+        class="px-3 py-2.25 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 min-w-50"
       />
       <select name="type"
-        style="padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+        class="px-3 py-2.25 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 bg-white">
         {VALID_TYPES.map(t => <option value={t} selected={typeFilter === t}>{titleCase(t)}</option>)}
       </select>
       <select name="status"
-        style="padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+        class="px-3 py-2.25 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 bg-white">
         {statusOptions.map(o => <option value={o.value} selected={statusFilter === o.value}>{o.label}</option>)}
       </select>
       <select name="team_id"
-        style="padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+        class="px-3 py-2.25 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 bg-white">
         <option value="">All teams</option>
         {(teams ?? []).map((t: { id: string; name: string }) => <option value={t.id} selected={teamFilter === t.id}>{t.name}</option>)}
       </select>
       <button type="submit"
-        style="padding: 9px 16px; background-color: var(--color-neutral-800); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer;">
+        class="px-4 py-2.25 bg-neutral-800 text-white border-0 rounded-md font-body text-sm font-medium cursor-pointer">
         Filter
       </button>
       {(statusFilter || teamFilter || searchQ || typeFilter !== 'member') && (
-        <a href="/admin/members" style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); text-decoration: none;">
+        <a href="/admin/members" class="font-body text-[13px] text-neutral-500 no-underline">
           Clear filters
         </a>
       )}
@@ -164,67 +164,67 @@ function gravatarUrl(email: string): string {
 
     <!-- Table -->
     {members.length > 0 ? (
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
-        <table style="width: 100%; border-collapse: collapse;">
+      <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+        <table class="w-full border-collapse">
           <thead>
-            <tr style="background-color: var(--color-neutral-100);">
-              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Member</th>
-              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Team(s)</th>
-              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Types</th>
-              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Status</th>
-              <th style="padding: 12px 16px;"></th>
+            <tr class="bg-neutral-100">
+              <th class="px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em]">Member</th>
+              <th class="px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em]">Team(s)</th>
+              <th class="px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em]">Types</th>
+              <th class="px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em]">Status</th>
+              <th class="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
             {members.map((m) => (
-              <tr style="border-top: 1px solid var(--color-neutral-100);" onmouseover="this.style.backgroundColor='var(--color-neutral-50)'" onmouseout="this.style.backgroundColor=''">
-                <td style="padding: 12px 16px;">
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <div style="width: 36px; height: 36px; border-radius: var(--radius-full); background-color: var(--color-brand-navy); color: white; display: flex; align-items: center; justify-content: center; font-family: var(--font-body); font-size: 12px; font-weight: 600; flex-shrink: 0; overflow: hidden;">
-                      <img src={m.profile_photo_url ?? gravatarUrl(m.email)} alt={m.full_name} width={36} height={36} style="width:100%;height:100%;object-fit:cover;" />
+              <tr class="border-t border-neutral-100" onmouseover="this.style.backgroundColor='var(--color-neutral-50)'" onmouseout="this.style.backgroundColor=''">
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-full bg-brand-navy text-white flex items-center justify-center font-body text-xs font-semibold shrink-0 overflow-hidden">
+                      <img src={m.profile_photo_url ?? gravatarUrl(m.email)} alt={m.full_name} width={36} height={36} class="w-full h-full object-cover" />
                     </div>
                     <div>
                       <a href={`/admin/members/${m.id}`}
-                         style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none; display: block;">
+                         class="font-body text-sm font-semibold text-brand-navy no-underline block">
                         {m.full_name}
                       </a>
-                      <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500);">
+                      <span class="font-body text-xs text-neutral-500">
                         {m.email}
                       </span>
                     </div>
                   </div>
                 </td>
-                <td style="padding: 12px 16px;">
-                  <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                <td class="px-4 py-3">
+                  <div class="flex flex-wrap gap-1">
                     {(m.person_teams ?? []).map(pt => pt.teams && (
-                      <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); background-color: var(--color-neutral-100); padding: 2px 8px; border-radius: var(--radius-full);">
+                      <span class="font-body text-xs text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">
                         {pt.is_team_lead ? '★ ' : ''}{pt.teams.name}
                       </span>
                     ))}
                     {(!m.person_teams || m.person_teams.length === 0) && (
-                      <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400);">—</span>
+                      <span class="font-body text-xs text-neutral-400">—</span>
                     )}
                   </div>
                 </td>
-                <td style="padding: 12px 16px;">
-                  <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600);">
+                <td class="px-4 py-3">
+                  <span class="font-body text-xs text-neutral-600">
                     {(m.person_types ?? []).map(titleCase).join(', ') || '—'}
                   </span>
                 </td>
-                <td style="padding: 12px 16px;">
+                <td class="px-4 py-3">
                   <Badge variant={statusVariant(m.status)}>
                     {titleCase(m.status)}
                   </Badge>
                 </td>
-                <td style="padding: 12px 16px; text-align: right; white-space: nowrap;">
+                <td class="px-4 py-3 text-right whitespace-nowrap">
                   <a href={`/admin/members/${m.id}`}
-                     style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-600); text-decoration: none; padding: 4px 10px; border-radius: var(--radius-md);"
+                     class="font-body text-[13px] font-medium text-neutral-600 no-underline px-2.5 py-1 rounded-md"
                      onmouseover="this.style.backgroundColor='var(--color-neutral-100)'"
                      onmouseout="this.style.backgroundColor=''">
                     View
                   </a>
                   <a href={`/admin/members/${m.id}/edit`}
-                     style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-600); text-decoration: none; padding: 4px 10px; border-radius: var(--radius-md);"
+                     class="font-body text-[13px] font-medium text-neutral-600 no-underline px-2.5 py-1 rounded-md"
                      onmouseover="this.style.backgroundColor='var(--color-neutral-100)'"
                      onmouseout="this.style.backgroundColor=''">
                     Edit
@@ -243,7 +243,7 @@ function gravatarUrl(email: string): string {
       >
         {!searchQ && !statusFilter && !teamFilter && (
           <a slot="cta" href="/admin/members/new"
-             style="display: inline-block; background-color: var(--color-brand-navy); color: white; padding: 10px 18px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+             class="inline-block bg-brand-navy text-white px-4.5 py-2.5 rounded-md font-body text-sm font-semibold no-underline">
             Add first member
           </a>
         )}

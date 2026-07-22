@@ -54,44 +54,44 @@ const backUrl = preselectedYearId ? `/admin/cmp/years/${preselectedYearId}` : '/
 ---
 
 <DashboardLayout title="New Session">
-  <div style="max-width: 600px;">
+  <div class="max-w-150">
     <Breadcrumb crumbs={[{ label: 'CMP', href: '/admin/cmp' }, { label: 'New Session' }]} />
-    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">New Session</h1>
+    <h1 class="font-heading text-[22px] font-bold text-brand-navy mb-6">New Session</h1>
 
     {globalError && (
-      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+      <div class="bg-danger-50 border border-danger-200 rounded-md px-4 py-3 mb-5 font-body text-sm text-danger-700">
         {globalError}
       </div>
     )}
 
-    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+    <form method="POST" class="bg-white border border-neutral-200 rounded-lg p-8 flex flex-col gap-5">
 
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Programme year *</label>
+      <div class="flex flex-col gap-1">
+        <label class="font-body text-[13px] font-medium text-neutral-700">Programme year *</label>
         <select name="programme_year_id" required
-          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
+          class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm bg-white">
           <option value="">Select year…</option>
           {(years ?? []).map(y => (
             <option value={y.id} selected={values.programme_year_id === y.id}>{y.name as string}</option>
           ))}
         </select>
-        {errors.programme_year_id && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-600); margin: 0;">{errors.programme_year_id}</p>}
+        {errors.programme_year_id && <p class="font-body text-xs text-danger-600 m-0">{errors.programme_year_id}</p>}
       </div>
 
       <Input label="Title *" name="title" value={values.title} error={errors.title} required placeholder="e.g. Session 3 — CV Writing" />
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+      <div class="grid grid-cols-3 gap-4">
         <Input label="Date *" name="session_date" type="date" value={values.session_date} error={errors.session_date} required />
         <Input label="Start time" name="session_time" type="time" value={values.session_time} error={errors.session_time} />
         <Input label="End time" name="session_end_time" type="time" value={values.session_end_time} error={errors.session_end_time} />
       </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div class="grid grid-cols-2 gap-4">
         <Input label="Location" name="location" value={values.location} error={errors.location} placeholder="e.g. Google HQ, London" />
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-          <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Type</label>
+        <div class="flex flex-col gap-1">
+          <label class="font-body text-[13px] font-medium text-neutral-700">Type</label>
           <select name="type"
-            style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
+            class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm bg-white">
             <option value="regular" selected={values.type === 'regular'}>Regular</option>
             <option value="special" selected={values.type === 'special'}>Special</option>
             <option value="trip" selected={values.type === 'trip'}>Trip</option>
@@ -99,17 +99,17 @@ const backUrl = preselectedYearId ? `/admin/cmp/years/${preselectedYearId}` : '/
         </div>
       </div>
 
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Notes</label>
+      <div class="flex flex-col gap-1">
+        <label class="font-body text-[13px] font-medium text-neutral-700">Notes</label>
         <textarea name="notes" rows={3} placeholder="Any details about the session…"
-          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; resize: vertical;">{values.notes ?? ''}</textarea>
+          class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm resize-y">{values.notes ?? ''}</textarea>
       </div>
 
-      <div style="display: flex; gap: 12px; padding-top: 8px;">
-        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="px-5 py-2.5 bg-brand-navy text-white border-0 rounded-md font-body text-sm font-semibold cursor-pointer">
           Create session
         </button>
-        <a href={backUrl} style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+        <a href={backUrl} class="px-5 py-2.5 bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">
           Cancel
         </a>
       </div>

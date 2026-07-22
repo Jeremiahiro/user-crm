@@ -109,27 +109,27 @@ const tabs = [
   <Breadcrumb crumbs={[{ label: 'Mentees', href: '/admin/mentees' }, { label: mentee.full_name as string }]} />
 
   <!-- Header -->
-  <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px;">
+  <div class="flex items-start justify-between mb-5">
     <div>
-      <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">{mentee.full_name as string}</h1>
-      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+      <h1 class="font-heading text-2xl font-bold text-brand-navy m-0 mb-1">{mentee.full_name as string}</h1>
+      <p class="font-body text-sm text-neutral-500 m-0">
         {mentee.email as string | null ?? (mentee.guardian_email as string | null) ?? 'No email on file'}
       </p>
     </div>
     <a href={`/admin/mentees/${id}/edit`}
-      style="padding: 8px 16px; background: white; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700); text-decoration: none;">
+      class="py-2 px-4 bg-white border border-neutral-300 rounded-md font-body text-[13px] font-medium text-neutral-700 no-underline">
       Edit
     </a>
   </div>
 
   <!-- Status banner -->
-  <div id="statusBanner" style="display: none; padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 16px; font-family: var(--font-body); font-size: 14px;"></div>
+  <div id="statusBanner" class="hidden py-3 px-4 rounded-md mb-4 font-body text-sm"></div>
 
   <!-- Tabs -->
-  <div style="display: flex; gap: 2px; border-bottom: 2px solid var(--color-neutral-200); margin-bottom: 24px;">
+  <div class="flex gap-0.5 border-b-2 border-neutral-200 mb-6">
     {tabs.map(t => (
       <a href={`/admin/mentees/${id}?tab=${t.key}`}
-        style={`padding: 10px 16px; font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -2px; ${activeTab === t.key ? 'color: var(--color-brand-navy); border-bottom-color: var(--color-brand-navy);' : 'color: var(--color-neutral-500);'}`}>
+        class={`py-2.5 px-4 font-body text-sm font-medium no-underline border-b-2 -mb-0.5 ${activeTab === t.key ? 'text-brand-navy border-brand-navy' : 'text-neutral-500 border-transparent'}`}>
         {t.label}
       </a>
     ))}
@@ -137,11 +137,11 @@ const tabs = [
 
   <!-- ── Overview tab ──────────────────────────────────────────────────────── -->
   {activeTab === 'overview' && (
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div class="grid grid-cols-2 gap-5">
       <!-- Personal details -->
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
-        <h2 style="font-family: var(--font-heading); font-size: 12px; font-weight: 700; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px;">Personal details</h2>
-        <table style="border-collapse: collapse; width: 100%;">
+      <div class="bg-white border border-neutral-200 rounded-lg p-6">
+        <h2 class="font-heading text-xs font-bold text-neutral-500 uppercase tracking-[0.08em] m-0 mb-4">Personal details</h2>
+        <table class="border-collapse w-full">
           {[
             ['Date of birth', formatDate(mentee.date_of_birth as string | null)],
             ['School', (mentee.school as string | null) ?? '—'],
@@ -149,59 +149,59 @@ const tabs = [
             ['Phone', (mentee.phone as string | null) ?? '—'],
           ].map(([label, value]) => (
             <tr>
-              <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); padding: 5px 16px 5px 0; width: 130px; vertical-align: top;">{label}</td>
-              <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); padding: 5px 0;">{value}</td>
+              <td class="font-body text-[13px] text-neutral-400 py-[5px] pr-4 w-[130px] align-top">{label}</td>
+              <td class="font-body text-[13px] text-neutral-800 py-[5px]">{value}</td>
             </tr>
           ))}
         </table>
       </div>
 
       <!-- Programme info -->
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
-        <h2 style="font-family: var(--font-heading); font-size: 12px; font-weight: 700; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px;">Programme</h2>
-        <table style="border-collapse: collapse; width: 100%;">
+      <div class="bg-white border border-neutral-200 rounded-lg p-6">
+        <h2 class="font-heading text-xs font-bold text-neutral-500 uppercase tracking-[0.08em] m-0 mb-4">Programme</h2>
+        <table class="border-collapse w-full">
           <tr>
-            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); padding: 5px 16px 5px 0; width: 130px;">Mentor</td>
-            <td style="font-family: var(--font-body); font-size: 13px; padding: 5px 0;">
+            <td class="font-body text-[13px] text-neutral-400 py-[5px] pr-4 w-[130px]">Mentor</td>
+            <td class="font-body text-[13px] py-[5px]">
               {mentor ? (
-                <a href={`/admin/members/${mentor.id}`} style="color: var(--color-brand-navy); text-decoration: none; font-weight: 500;">{mentor.full_name}</a>
-              ) : <span style="color: var(--color-warning-600); font-weight: 500;">Unassigned</span>}
+                <a href={`/admin/members/${mentor.id}`} class="text-brand-navy no-underline font-medium">{mentor.full_name}</a>
+              ) : <span class="text-warning-600 font-medium">Unassigned</span>}
             </td>
           </tr>
           <tr>
-            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); padding: 5px 16px 5px 0;">Programme year</td>
-            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); padding: 5px 0;">
+            <td class="font-body text-[13px] text-neutral-400 py-[5px] pr-4">Programme year</td>
+            <td class="font-body text-[13px] text-neutral-800 py-[5px]">
               {programmeYear ? (
-                <a href={`/admin/cmp/years/${programmeYear.id}`} style="color: var(--color-brand-navy); text-decoration: none;">{programmeYear.name}</a>
+                <a href={`/admin/cmp/years/${programmeYear.id}`} class="text-brand-navy no-underline">{programmeYear.name}</a>
               ) : '—'}
             </td>
           </tr>
           <tr>
-            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); padding: 5px 16px 5px 0;">Sessions attended</td>
-            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); padding: 5px 0;">{attendedCount} / {totalSessions}</td>
+            <td class="font-body text-[13px] text-neutral-400 py-[5px] pr-4">Sessions attended</td>
+            <td class="font-body text-[13px] text-neutral-800 py-[5px]">{attendedCount} / {totalSessions}</td>
           </tr>
           <tr>
-            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); padding: 5px 16px 5px 0;">Mentor notes</td>
-            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); padding: 5px 0;">{noteRows.length}</td>
+            <td class="font-body text-[13px] text-neutral-400 py-[5px] pr-4">Mentor notes</td>
+            <td class="font-body text-[13px] text-neutral-800 py-[5px]">{noteRows.length}</td>
           </tr>
           <tr>
-            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); padding: 5px 16px 5px 0;">Call logs</td>
-            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); padding: 5px 0;">{callRows.length}</td>
+            <td class="font-body text-[13px] text-neutral-400 py-[5px] pr-4">Call logs</td>
+            <td class="font-body text-[13px] text-neutral-800 py-[5px]">{callRows.length}</td>
           </tr>
         </table>
       </div>
 
       <!-- Guardian -->
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; grid-column: 1 / -1;">
-        <h2 style="font-family: var(--font-heading); font-size: 12px; font-weight: 700; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px;">Guardian / Parent</h2>
-        <table style="border-collapse: collapse; width: 100%;">
+      <div class="bg-white border border-neutral-200 rounded-lg p-6 col-span-2">
+        <h2 class="font-heading text-xs font-bold text-neutral-500 uppercase tracking-[0.08em] m-0 mb-4">Guardian / Parent</h2>
+        <table class="border-collapse w-full">
           {[
             ['Name', (mentee.guardian_name as string | null) ?? '—'],
             ['Email', (mentee.guardian_email as string | null) ?? '—'],
           ].map(([label, value]) => (
             <tr>
-              <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); padding: 5px 16px 5px 0; width: 130px;">{label}</td>
-              <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); padding: 5px 0;">{value}</td>
+              <td class="font-body text-[13px] text-neutral-400 py-[5px] pr-4 w-[130px]">{label}</td>
+              <td class="font-body text-[13px] text-neutral-800 py-[5px]">{value}</td>
             </tr>
           ))}
         </table>
@@ -213,50 +213,51 @@ const tabs = [
   {activeTab === 'attendance' && (
     <div>
       <!-- Summary bar -->
-      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;">
+      <div class="grid grid-cols-3 gap-3 mb-5">
         {[
-          { label: 'Present', count: attendRows.filter(a => a.status === 'present').length, bg: 'var(--color-success-50)', border: 'var(--color-success-200)', text: 'var(--color-success-700)' },
-          { label: 'Absent', count: attendRows.filter(a => a.status === 'absent').length, bg: 'var(--color-danger-50)', border: 'var(--color-danger-200)', text: 'var(--color-danger-700)' },
-          { label: 'Apology', count: attendRows.filter(a => a.status === 'apology').length, bg: 'var(--color-warning-50)', border: 'var(--color-warning-200)', text: 'var(--color-warning-700)' },
+          { label: 'Present', count: attendRows.filter(a => a.status === 'present').length, bgClass: 'bg-success-50', borderClass: 'border-success-200', textClass: 'text-success-700' },
+          { label: 'Absent', count: attendRows.filter(a => a.status === 'absent').length, bgClass: 'bg-danger-50', borderClass: 'border-danger-200', textClass: 'text-danger-700' },
+          { label: 'Apology', count: attendRows.filter(a => a.status === 'apology').length, bgClass: 'bg-warning-50', borderClass: 'border-warning-200', textClass: 'text-warning-700' },
         ].map(s => (
-          <div style={`background: ${s.bg}; border: 1px solid ${s.border}; border-radius: var(--radius-lg); padding: 16px 20px;`}>
-            <p style={`font-family: var(--font-heading); font-size: 28px; font-weight: 700; color: ${s.text}; margin: 0;`}>{s.count}</p>
-            <p style={`font-family: var(--font-body); font-size: 13px; color: ${s.text}; margin: 2px 0 0;`}>{s.label}</p>
+          <div class={`border rounded-lg py-4 px-5 ${s.bgClass} ${s.borderClass}`}>
+            <p class={`font-heading text-[28px] font-bold m-0 ${s.textClass}`}>{s.count}</p>
+            <p class={`font-body text-[13px] mt-[2px] mb-0 ${s.textClass}`}>{s.label}</p>
           </div>
         ))}
       </div>
 
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+      <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
         {attendRows.length === 0 ? (
-          <div style="padding: 36px; text-align: center;">
-            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">No attendance records yet.</p>
+          <div class="p-9 text-center">
+            <p class="font-body text-sm text-neutral-400 m-0">No attendance records yet.</p>
           </div>
         ) : (
-          <table style="width: 100%; border-collapse: collapse;">
-            <thead style="background: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+          <table class="w-full border-collapse">
+            <thead class="bg-neutral-50 border-b border-neutral-200">
               <tr>
-                <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Session</th>
-                <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Date</th>
-                <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
+                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-[0.05em]">Session</th>
+                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-[0.05em]">Date</th>
+                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-[0.05em]">Status</th>
               </tr>
             </thead>
             <tbody>
               {attendRows.map((a, i) => (
-                <tr style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
-                  <td style="padding: 12px 16px;">
+                <tr class={i > 0 ? 'border-t border-neutral-100' : ''}>
+                  <td class="py-3 px-4">
                     {a.cmp_sessions ? (
                       <a href={`/admin/cmp/sessions/${a.cmp_sessions.id}`}
-                        style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none;">
+                        class="font-body text-sm font-medium text-brand-navy no-underline">
                         {a.cmp_sessions.title}
                       </a>
-                    ) : <span style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400);">—</span>}
+                    ) : <span class="font-body text-sm text-neutral-400">—</span>}
                   </td>
-                  <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">
+                  <td class="py-3 px-4 font-body text-[13px] text-neutral-600">
                     {a.cmp_sessions ? formatDate(a.cmp_sessions.session_date) : '—'}
-                    {a.cmp_sessions?.session_time && <span style="margin-left: 4px; color: var(--color-neutral-400);">{formatTime(a.cmp_sessions.session_time)}</span>}
+                    {a.cmp_sessions?.session_time && <span class="ml-1 text-neutral-400">{formatTime(a.cmp_sessions.session_time)}</span>}
                   </td>
-                  <td style="padding: 12px 16px;">
-                    <span style={`padding: 2px 10px; border-radius: var(--radius-full); background: ${STATUS_COLORS[a.status] ?? 'var(--color-neutral-100)'}; color: ${STATUS_TEXT[a.status] ?? 'var(--color-neutral-600)'}; font-family: var(--font-body); font-size: 12px; font-weight: 600; text-transform: capitalize;`}>
+                  <td class="py-3 px-4">
+                    <span class="py-0.5 px-2.5 rounded-full font-body text-xs font-semibold capitalize"
+                      style={`background: ${STATUS_COLORS[a.status] ?? 'var(--color-neutral-100)'}; color: ${STATUS_TEXT[a.status] ?? 'var(--color-neutral-600)'};`}>
                       {a.status}
                     </span>
                   </td>
@@ -273,41 +274,40 @@ const tabs = [
   {activeTab === 'notes' && (
     <div>
       <!-- Add note form -->
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 20px;">
-        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 12px;">Add note</h2>
+      <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6 mb-5">
+        <h2 class="font-heading text-sm font-bold text-neutral-800 m-0 mb-3">Add note</h2>
         <textarea id="newNote" rows={3} placeholder="Observations about this mentee's progress, engagement, areas to support…"
-          style="width: 100%; padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; resize: vertical; box-sizing: border-box;"></textarea>
-        <div style="margin-top: 10px; display: flex; gap: 8px;">
+          class="w-full py-2.5 px-3 border border-neutral-300 rounded-md font-body text-sm resize-y box-border"></textarea>
+        <div class="mt-2.5 flex gap-2">
           <button id="btnSaveNote"
-            style="padding: 8px 18px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+            class="py-2 px-[18px] bg-brand-navy text-white border-none rounded-md font-body text-[13px] font-semibold cursor-pointer">
             Save note
           </button>
         </div>
       </div>
 
       <!-- Notes list -->
-      <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div class="flex flex-col gap-3">
         {noteRows.length === 0 ? (
-          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 36px; text-align: center;">
-            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">No mentor notes yet.</p>
+          <div class="bg-white border border-neutral-200 rounded-lg p-9 text-center">
+            <p class="font-body text-sm text-neutral-400 m-0">No mentor notes yet.</p>
           </div>
         ) : noteRows.map(n => (
-          <div data-note-id={n.id} style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 16px 20px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div data-note-id={n.id} class="bg-white border border-neutral-200 rounded-lg py-4 px-5">
+            <div class="flex items-center justify-between mb-2">
               <div>
-                <span style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-neutral-700);">
+                <span class="font-body text-[13px] font-semibold text-neutral-700">
                   {n.people?.full_name ?? 'Unknown'}
                 </span>
-                <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin-left: 8px;">
+                <span class="font-body text-xs text-neutral-400 ml-2">
                   {formatDate(n.created_at)}
                 </span>
               </div>
-              <button class="btn-delete-note" data-id={n.id}
-                style="padding: 3px 10px; background: var(--color-neutral-100); border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); cursor: pointer;">
+              <button class="btn-delete-note py-[3px] px-2.5 bg-neutral-100 border-none rounded-md font-body text-xs text-neutral-500 cursor-pointer" data-id={n.id}>
                 Delete
               </button>
             </div>
-            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700); margin: 0; white-space: pre-wrap; line-height: 1.6;">{n.note}</p>
+            <p class="font-body text-sm text-neutral-700 m-0 whitespace-pre-wrap leading-[1.6]">{n.note}</p>
           </div>
         ))}
       </div>
@@ -318,23 +318,23 @@ const tabs = [
   {activeTab === 'calls' && (
     <div>
       <!-- Log call form -->
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 20px;">
-        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 14px;">Log a call</h2>
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-700);">Date *</label>
+      <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6 mb-5">
+        <h2 class="font-heading text-sm font-bold text-neutral-800 m-0 mb-3.5">Log a call</h2>
+        <div class="grid grid-cols-3 gap-3 mb-3">
+          <div class="flex flex-col gap-1">
+            <label class="font-body text-xs font-medium text-neutral-700">Date *</label>
             <input type="date" id="callDate" value={new Date().toISOString().slice(0, 10)}
-              style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px;" />
+              class="py-2 px-3 border border-neutral-300 rounded-md font-body text-sm" />
           </div>
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-700);">Duration (mins)</label>
+          <div class="flex flex-col gap-1">
+            <label class="font-body text-xs font-medium text-neutral-700">Duration (mins)</label>
             <input type="number" id="callDuration" min="1" max="120" placeholder="e.g. 15"
-              style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px;" />
+              class="py-2 px-3 border border-neutral-300 rounded-md font-body text-sm" />
           </div>
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-700);">Outcome *</label>
+          <div class="flex flex-col gap-1">
+            <label class="font-body text-xs font-medium text-neutral-700">Outcome *</label>
             <select id="callOutcome"
-              style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white; height: 38px;">
+              class="py-2 px-3 border border-neutral-300 rounded-md font-body text-sm bg-white h-[38px]">
               <option value="reached">Reached</option>
               <option value="no_answer">No answer</option>
               <option value="left_voicemail">Left voicemail</option>
@@ -342,56 +342,56 @@ const tabs = [
             </select>
           </div>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px;">
-          <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-700);">Summary</label>
+        <div class="flex flex-col gap-1 mb-3">
+          <label class="font-body text-xs font-medium text-neutral-700">Summary</label>
           <textarea id="callSummary" rows={2} placeholder="Key points from the call…"
-            style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; resize: vertical;"></textarea>
+            class="py-2 px-3 border border-neutral-300 rounded-md font-body text-sm resize-y"></textarea>
         </div>
         <button id="btnSaveCall"
-          style="padding: 8px 18px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+          class="py-2 px-[18px] bg-brand-navy text-white border-none rounded-md font-body text-[13px] font-semibold cursor-pointer">
           Log call
         </button>
       </div>
 
       <!-- Call log list -->
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+      <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
         {callRows.length === 0 ? (
-          <div style="padding: 36px; text-align: center;">
-            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">No call logs yet.</p>
+          <div class="p-9 text-center">
+            <p class="font-body text-sm text-neutral-400 m-0">No call logs yet.</p>
           </div>
         ) : (
-          <table style="width: 100%; border-collapse: collapse;">
-            <thead style="background: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+          <table class="w-full border-collapse">
+            <thead class="bg-neutral-50 border-b border-neutral-200">
               <tr>
-                <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Date</th>
-                <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Caller</th>
-                <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Outcome</th>
-                <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Duration</th>
-                <th style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 9px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Notes</th>
-                <th style="padding: 9px 16px;"></th>
+                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-[0.05em]">Date</th>
+                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-[0.05em]">Caller</th>
+                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-[0.05em]">Outcome</th>
+                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-[0.05em]">Duration</th>
+                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-[9px] px-4 uppercase tracking-[0.05em]">Notes</th>
+                <th class="py-[9px] px-4"></th>
               </tr>
             </thead>
             <tbody>
               {callRows.map((c, i) => (
-                <tr data-call-id={c.id} style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
-                  <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); font-weight: 500;">{formatDate(c.called_at)}</td>
-                  <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">{c.people?.full_name ?? '—'}</td>
-                  <td style="padding: 12px 16px;">
-                    <span style={`padding: 2px 10px; border-radius: var(--radius-full); background: ${OUTCOME_COLORS[c.outcome] ?? 'var(--color-neutral-100)'}; color: ${OUTCOME_TEXT_COLORS[c.outcome] ?? 'var(--color-neutral-600)'}; font-family: var(--font-body); font-size: 12px; font-weight: 600;`}>
+                <tr data-call-id={c.id} class={i > 0 ? 'border-t border-neutral-100' : ''}>
+                  <td class="py-3 px-4 font-body text-[13px] text-neutral-700 font-medium">{formatDate(c.called_at)}</td>
+                  <td class="py-3 px-4 font-body text-[13px] text-neutral-600">{c.people?.full_name ?? '—'}</td>
+                  <td class="py-3 px-4">
+                    <span class="py-0.5 px-2.5 rounded-full font-body text-xs font-semibold"
+                      style={`background: ${OUTCOME_COLORS[c.outcome] ?? 'var(--color-neutral-100)'}; color: ${OUTCOME_TEXT_COLORS[c.outcome] ?? 'var(--color-neutral-600)'};`}>
                       {OUTCOME_LABELS[c.outcome] ?? c.outcome}
                     </span>
                   </td>
-                  <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">
+                  <td class="py-3 px-4 font-body text-[13px] text-neutral-600">
                     {c.duration_minutes != null ? `${c.duration_minutes} min` : '—'}
                   </td>
-                  <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); max-width: 280px;">
+                  <td class="py-3 px-4 font-body text-[13px] text-neutral-600 max-w-[280px]">
                     {c.summary ? (
-                      <span style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">{c.summary}</span>
-                    ) : <span style="color: var(--color-neutral-300);">—</span>}
+                      <span class="line-clamp-2">{c.summary}</span>
+                    ) : <span class="text-neutral-300">—</span>}
                   </td>
-                  <td style="padding: 12px 16px; text-align: right;">
-                    <button class="btn-delete-call" data-id={c.id}
-                      style="padding: 3px 10px; background: var(--color-neutral-100); border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); cursor: pointer;">
+                  <td class="py-3 px-4 text-right">
+                    <button class="btn-delete-call py-[3px] px-2.5 bg-neutral-100 border-none rounded-md font-body text-xs text-neutral-500 cursor-pointer" data-id={c.id}>
                       Delete
                     </button>
                   </td>

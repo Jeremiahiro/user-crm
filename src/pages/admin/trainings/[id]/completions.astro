@@ -30,100 +30,88 @@ function fmt(d: string | null) {
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-const STATUS_BG: Record<string, string> = {
-  complete: 'var(--color-success-50)',
-  pending: 'var(--color-neutral-100)',
-  overdue: 'var(--color-danger-50)',
-}
-const STATUS_COLOR: Record<string, string> = {
-  complete: 'var(--color-success-700)',
-  pending: 'var(--color-neutral-600)',
-  overdue: 'var(--color-danger-700)',
-}
-const STATUS_BORDER: Record<string, string> = {
-  complete: 'var(--color-success-100)',
-  pending: 'var(--color-neutral-200)',
-  overdue: 'var(--color-danger-100)',
+const STATUS_CLASSES: Record<string, string> = {
+  complete: 'bg-success-50 text-success-700 border border-success-100',
+  pending: 'bg-neutral-100 text-neutral-600 border border-neutral-200',
+  overdue: 'bg-danger-50 text-danger-700 border border-danger-100',
 }
 
 const t = training as any
 ---
 
 <DashboardLayout title={`${t.title} — Completions`}>
-  <div style="max-width: 960px;">
+  <div class="max-w-[960px]">
     <Breadcrumb crumbs={[
       { label: 'Trainings', href: '/admin/trainings' },
       { label: t.title, href: `/admin/trainings/${trainingId}` },
       { label: 'Completions' },
     ]} />
 
-    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">{t.title} — Completions</h1>
+    <h1 class="font-heading text-[22px] font-bold text-brand-navy mb-6">{t.title} — Completions</h1>
 
     <!-- Stat cards -->
-    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px;">
-      <div style="background: white; border: 1px solid var(--color-success-100); border-radius: var(--radius-lg); padding: 18px 20px;">
-        <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-success-700); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px;">Completed</p>
-        <p style="font-family: var(--font-heading); font-size: 28px; font-weight: 700; color: var(--color-success-700); margin: 0;">{completed}</p>
+    <div class="grid grid-cols-4 gap-4 mb-7">
+      <div class="bg-white border border-success-100 rounded-lg py-[18px] px-5">
+        <p class="font-body text-[11px] font-semibold text-success-700 uppercase tracking-[0.05em] mb-1">Completed</p>
+        <p class="font-heading text-[28px] font-bold text-success-700 m-0">{completed}</p>
       </div>
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 18px 20px;">
-        <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px;">Pending</p>
-        <p style="font-family: var(--font-heading); font-size: 28px; font-weight: 700; color: var(--color-neutral-700); margin: 0;">{pending}</p>
+      <div class="bg-white border border-neutral-200 rounded-lg py-[18px] px-5">
+        <p class="font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.05em] mb-1">Pending</p>
+        <p class="font-heading text-[28px] font-bold text-neutral-700 m-0">{pending}</p>
       </div>
-      <div style="background: white; border: 1px solid var(--color-danger-100); border-radius: var(--radius-lg); padding: 18px 20px;">
-        <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-danger-700); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px;">Overdue</p>
-        <p style="font-family: var(--font-heading); font-size: 28px; font-weight: 700; color: var(--color-danger-700); margin: 0;">{overdue}</p>
+      <div class="bg-white border border-danger-100 rounded-lg py-[18px] px-5">
+        <p class="font-body text-[11px] font-semibold text-danger-700 uppercase tracking-[0.05em] mb-1">Overdue</p>
+        <p class="font-heading text-[28px] font-bold text-danger-700 m-0">{overdue}</p>
       </div>
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 18px 20px;">
-        <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px;">Total assigned</p>
-        <p style="font-family: var(--font-heading); font-size: 28px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">{total}</p>
+      <div class="bg-white border border-neutral-200 rounded-lg py-[18px] px-5">
+        <p class="font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.05em] mb-1">Total assigned</p>
+        <p class="font-heading text-[28px] font-bold text-neutral-800 m-0">{total}</p>
       </div>
     </div>
 
     <!-- Table -->
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+    <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
       {report.length === 0 ? (
-        <div style="padding: 48px; text-align: center;">
-          <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">No assignments found for this training.</p>
+        <div class="p-12 text-center">
+          <p class="font-body text-sm text-neutral-400 m-0">No assignments found for this training.</p>
         </div>
       ) : (
-        <table style="width: 100%; border-collapse: collapse;">
-          <thead style="background-color: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+        <table class="w-full border-collapse">
+          <thead class="bg-neutral-50 border-b border-neutral-200">
             <tr>
-              <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Name</th>
-              <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Email</th>
-              <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Teams</th>
-              <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
-              <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Deadline</th>
-              <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Days overdue</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-[0.05em]">Name</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-[0.05em]">Email</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-[0.05em]">Teams</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-[0.05em]">Status</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-[0.05em]">Deadline</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-[0.05em]">Days overdue</th>
             </tr>
           </thead>
           <tbody>
             {report.map((r: any, i: number) => {
-              const bg = STATUS_BG[r.status] ?? 'var(--color-neutral-100)'
-              const color = STATUS_COLOR[r.status] ?? 'var(--color-neutral-700)'
-              const border = STATUS_BORDER[r.status] ?? 'var(--color-neutral-200)'
               const daysOverdue = r.status === 'overdue' && r.deadline
                 ? Math.floor((Date.now() - new Date(r.deadline).getTime()) / (1000 * 60 * 60 * 24))
                 : null
               return (
-                <tr style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
-                  <td style="padding: 14px 16px;">
+                <tr class={i > 0 ? 'border-t border-neutral-100' : ''}>
+                  <td class="px-4 py-3.5">
                     <a href={`/admin/members/${r.person_id}`}
-                      style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none;">
+                      class="font-body text-sm font-medium text-brand-navy no-underline">
                       {r.full_name ?? '—'}
                     </a>
                   </td>
-                  <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">{r.email ?? '—'}</td>
-                  <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">
+                  <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600">{r.email ?? '—'}</td>
+                  <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600">
                     {Array.isArray(r.teams) ? r.teams.join(', ') : (r.teams ?? '—')}
                   </td>
-                  <td style="padding: 14px 16px;">
-                    <span style={`display: inline-block; padding: 2px 10px; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 12px; font-weight: 600; background-color: ${bg}; color: ${color}; border: 1px solid ${border};`}>
+                  <td class="px-4 py-3.5">
+                    <span
+                      class={`inline-block py-0.5 px-2.5 rounded-full font-body text-xs font-semibold ${STATUS_CLASSES[r.status] ?? 'bg-neutral-100 text-neutral-700 border border-neutral-200'}`}>
                       {r.status.charAt(0).toUpperCase() + r.status.slice(1)}
                     </span>
                   </td>
-                  <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">{fmt(r.deadline)}</td>
-                  <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-danger-700); font-weight: 500;">
+                  <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600">{fmt(r.deadline)}</td>
+                  <td class="px-4 py-3.5 font-body text-[13px] text-danger-700 font-medium">
                     {daysOverdue !== null ? `${daysOverdue}d` : '—'}
                   </td>
                 </tr>

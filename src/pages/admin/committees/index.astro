@@ -55,7 +55,7 @@ const rows = (committees ?? []) as CommitteeRow[]
         action={admin ? { label: 'New Committee', href: '/admin/committees/new' } : undefined}
       />
     ) : (
-      <div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+      <div class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(300px,1fr))]">
         {rows.map((c) => (
           <a href={`/admin/committees/${c.id}`}
             class="block bg-white border border-neutral-200 rounded-xl p-5 no-underline hover:border-neutral-300 hover:shadow-sm transition-all">

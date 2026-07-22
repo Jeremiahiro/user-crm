@@ -34,49 +34,49 @@ const rows = (tenures ?? []) as TenureRow[]
 <DashboardLayout title={`${position.title} — History`}>
   <Breadcrumb crumbs={[{ label: 'Positions', href: '/admin/positions' }, { label: position.title as string, href: '/admin/positions' }, { label: 'History' }]} />
   <div>
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
-      <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0">
         {position.title} — Tenure History
       </h1>
       <a href={`/admin/positions/${id}/assign`}
-         style="padding: 8px 16px; background-color: var(--color-brand-gold); color: var(--color-brand-navy); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; text-decoration: none;">
+         class="px-4 py-2 bg-brand-gold text-brand-navy rounded-md font-body text-[13px] font-semibold no-underline">
         Assign new holder
       </a>
     </div>
 
     {rows.length > 0 ? (
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
-        <table style="width: 100%; border-collapse: collapse;">
+      <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+        <table class="w-full border-collapse">
           <thead>
-            <tr style="background-color: var(--color-neutral-100);">
-              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Member</th>
-              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Term start</th>
-              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Term end</th>
-              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Elected by</th>
+            <tr class="bg-neutral-100">
+              <th class="px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em]">Member</th>
+              <th class="px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em]">Term start</th>
+              <th class="px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em]">Term end</th>
+              <th class="px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em]">Elected by</th>
             </tr>
           </thead>
           <tbody>
             {rows.map(t => (
-              <tr style={`border-top: 1px solid var(--color-neutral-100); ${!t.term_end ? 'background-color: var(--color-neutral-50);' : ''}`}>
-                <td style="padding: 14px 16px;">
+              <tr class={`border-t border-neutral-100 ${!t.term_end ? 'bg-neutral-50' : ''}`}>
+                <td class="px-4 py-[14px]">
                   {t.people ? (
                     <a href={`/admin/members/${t.people.id}`}
-                       style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none; display: block;">
+                       class="font-body text-sm font-semibold text-brand-navy no-underline block">
                       {t.people.full_name}
                       {!t.term_end && <Badge variant="success">Current</Badge>}
                     </a>
                   ) : (
-                    <span style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400);">Unknown member</span>
+                    <span class="font-body text-sm text-neutral-400">Unknown member</span>
                   )}
                 </td>
-                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">{t.term_start}</td>
-                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500);">{t.term_end ?? '—'}</td>
-                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">{(t.elected_by ?? '').replace(/_/g, ' ')}</td>
+                <td class="px-4 py-[14px] font-body text-[13px] text-neutral-700">{t.term_start}</td>
+                <td class="px-4 py-[14px] font-body text-[13px] text-neutral-500">{t.term_end ?? '—'}</td>
+                <td class="px-4 py-[14px] font-body text-[13px] text-neutral-600">{(t.elected_by ?? '').replace(/_/g, ' ')}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); padding: 12px 16px; margin: 0; border-top: 1px solid var(--color-neutral-100);">
+        <p class="font-body text-xs text-neutral-400 px-4 py-3 m-0 border-t border-neutral-100">
           Tenure records are permanent and cannot be deleted.
         </p>
       </div>

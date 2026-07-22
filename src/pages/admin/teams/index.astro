@@ -68,18 +68,18 @@ if (admin) {
 
 <DashboardLayout title="Teams">
   <div>
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+    <div class="flex items-center justify-between mb-6">
       <div>
-        <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">
+        <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">
           Teams
         </h1>
-        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+        <p class="font-body text-sm text-neutral-500 m-0">
           Chapter teams and working groups.
         </p>
       </div>
       {admin && (
         <a href="/admin/teams/new"
-           style="display: inline-flex; align-items: center; gap: 6px; background-color: var(--color-brand-navy); color: white; padding: 10px 18px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+           class="inline-flex items-center gap-1.5 bg-brand-navy text-white px-4.5 py-2.5 rounded-md font-body text-sm font-semibold no-underline">
           + Add team
         </a>
       )}
@@ -87,34 +87,34 @@ if (admin) {
 
     <!-- Pending requests banner for admins -->
     {admin && totalPending > 0 && (
-      <div style="background: #fffbeb; border: 1px solid var(--color-warning-200); border-radius: var(--radius-lg); padding: 14px 20px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span style="font-size: 18px;">🔔</span>
-          <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-warning-800); margin: 0;">
+      <div class="bg-warning-50 border border-warning-200 rounded-lg px-5 py-3.5 mb-5 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-2.5">
+          <span class="text-lg">🔔</span>
+          <p class="font-body text-sm font-semibold text-warning-800 m-0">
             {totalPending} pending join request{totalPending !== 1 ? 's' : ''} need{totalPending === 1 ? 's' : ''} review
           </p>
         </div>
-        <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-warning-700); margin: 0;">
+        <p class="font-body text-[13px] text-warning-700 m-0">
           Click a team to approve or decline
         </p>
       </div>
     )}
 
     {teamsError && (
-      <div style="background: #fef2f2; border: 1px solid #fca5a5; border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: #991b1b;">
+      <div class="bg-[#fef2f2] border border-[#fca5a5] rounded-md px-4 py-3 mb-5 font-body text-sm text-[#991b1b]">
         Failed to load teams. Please refresh the page.
       </div>
     )}
 
     {rows.length > 0 ? (
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
-        <table style="width: 100%; border-collapse: collapse;">
+      <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+        <table class="w-full border-collapse">
           <thead>
-            <tr style="background-color: var(--color-neutral-100);">
-              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Name</th>
-              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Pillar</th>
-              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Members</th>
-              <th style="padding: 12px 16px;"></th>
+            <tr class="bg-neutral-100">
+              <th class="px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em]">Name</th>
+              <th class="px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em]">Pillar</th>
+              <th class="px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em]">Members</th>
+              <th class="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
@@ -123,42 +123,42 @@ if (admin) {
               const isPending = myPendingTeamIds.has(team.id)
               const pendingCount = pendingCountMap.get(team.id) ?? 0
               return (
-                <tr style="border-top: 1px solid var(--color-neutral-100);" onmouseover="this.style.backgroundColor='var(--color-neutral-50)'" onmouseout="this.style.backgroundColor=''">
-                  <td style="padding: 14px 16px;">
+                <tr class="border-t border-neutral-100 hover:bg-neutral-50">
+                  <td class="px-4 py-3.5">
                     <a href={`/admin/teams/${team.id}`}
-                       style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none;">
+                       class="font-body text-sm font-semibold text-brand-navy no-underline">
                       {team.name}
                     </a>
                     {team.description && (
-                      <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 2px 0 0;">{team.description}</p>
+                      <p class="font-body text-xs text-neutral-500 mt-0.5">{team.description}</p>
                     )}
                   </td>
-                  <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">
-                    {team.pillars?.name ?? <span style="color: var(--color-neutral-400);">—</span>}
+                  <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600">
+                    {team.pillars?.name ?? <span class="text-neutral-400">—</span>}
                   </td>
-                  <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+                  <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">
                     {team.person_teams?.length ?? 0}
                   </td>
-                  <td style="padding: 14px 16px; text-align: right;">
-                    <div style="display: inline-flex; align-items: center; gap: 8px;">
+                  <td class="px-4 py-3.5 text-right">
+                    <div class="inline-flex items-center gap-2">
                       {admin ? (
                         <>
                           {pendingCount > 0 && (
-                            <span style="padding: 2px 8px; background-color: var(--color-warning-100); color: var(--color-warning-700); border-radius: var(--radius-full); font-family: var(--font-body); font-size: 11px; font-weight: 600;">
+                            <span class="px-2 py-0.5 bg-warning-100 text-warning-700 rounded-full font-body text-[11px] font-semibold">
                               {pendingCount} pending
                             </span>
                           )}
                           <a href={`/admin/teams/${team.id}/edit`}
-                             style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-600); text-decoration: none; padding: 6px 12px; border-radius: var(--radius-md); border: 1px solid var(--color-neutral-200);">
+                             class="font-body text-[13px] font-medium text-neutral-600 no-underline px-3 py-1.5 rounded-md border border-neutral-200">
                             Edit
                           </a>
                         </>
                       ) : isMember ? (
-                        <span style="padding: 4px 10px; background-color: var(--color-success-100); color: var(--color-success-700); border-radius: var(--radius-full); font-family: var(--font-body); font-size: 12px; font-weight: 600;">
+                        <span class="px-2.5 py-1 bg-success-100 text-success-700 rounded-full font-body text-xs font-semibold">
                           Member
                         </span>
                       ) : isPending ? (
-                        <span style="padding: 4px 10px; background-color: var(--color-warning-100); color: var(--color-warning-700); border-radius: var(--radius-full); font-family: var(--font-body); font-size: 12px; font-weight: 600;">
+                        <span class="px-2.5 py-1 bg-warning-100 text-warning-700 rounded-full font-body text-xs font-semibold">
                           Requested
                         </span>
                       ) : (
@@ -167,7 +167,7 @@ if (admin) {
                           @click="request()"
                           :disabled="loading"
                           x-text="loading ? 'Sending…' : 'Request to join'"
-                          style="padding: 6px 12px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
+                          class="px-3 py-1.5 bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-medium cursor-pointer">
                           Request to join
                         </button>
                       )}
@@ -183,7 +183,7 @@ if (admin) {
       <EmptyState heading="No teams yet" subtext="Teams group members by function. Add your first team.">
         {admin && (
           <a slot="cta" href="/admin/teams/new"
-             style="display: inline-block; background-color: var(--color-brand-navy); color: white; padding: 10px 18px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+             class="inline-block bg-brand-navy text-white px-4.5 py-2.5 rounded-md font-body text-sm font-semibold no-underline">
             Add first team
           </a>
         )}
@@ -191,4 +191,3 @@ if (admin) {
     )}
   </div>
 </DashboardLayout>
-

@@ -72,58 +72,58 @@ function formatDate(d: string | null) {
 ---
 
 <DashboardLayout title="Match Unmatched Document">
-  <div style="max-width: 560px;">
+  <div class="max-w-[560px]">
     <Breadcrumb crumbs={[{ label: 'Documents', href: '/admin/documents' }, { label: 'Match Member' }]} />
-    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">Match Unmatched Document</h1>
+    <h1 class="font-heading text-[22px] font-bold text-brand-navy mb-6">Match Unmatched Document</h1>
 
     <!-- Document summary -->
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 24px;">
-      <table style="border-collapse: collapse; width: 100%;">
+    <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6 mb-6">
+      <table class="border-collapse w-full">
         <tr>
-          <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); padding: 4px 16px 4px 0; width: 140px;">Type</td>
-          <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); padding: 4px 0;">{TYPE_LABELS[doc.type as string] ?? doc.type}</td>
+          <td class="font-body text-[13px] text-neutral-500 py-1 pr-4 w-[140px]">Type</td>
+          <td class="font-body text-[13px] text-neutral-800 py-1">{TYPE_LABELS[doc.type as string] ?? doc.type}</td>
         </tr>
         <tr>
-          <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); padding: 4px 16px 4px 0;">Submitted email</td>
-          <td style="font-family: var(--font-mono); font-size: 13px; color: var(--color-neutral-800); padding: 4px 0;">{(doc as { uploaded_email?: string }).uploaded_email ?? '—'}</td>
+          <td class="font-body text-[13px] text-neutral-500 py-1 pr-4">Submitted email</td>
+          <td class="font-mono text-[13px] text-neutral-800 py-1">{(doc as { uploaded_email?: string }).uploaded_email ?? '—'}</td>
         </tr>
         <tr>
-          <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); padding: 4px 16px 4px 0;">Received</td>
-          <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); padding: 4px 0;">{formatDate(doc.created_at as string | null)}</td>
+          <td class="font-body text-[13px] text-neutral-500 py-1 pr-4">Received</td>
+          <td class="font-body text-[13px] text-neutral-800 py-1">{formatDate(doc.created_at as string | null)}</td>
         </tr>
         {doc.drive_url && (
           <tr>
-            <td style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); padding: 4px 16px 4px 0;">Drive link</td>
-            <td style="padding: 4px 0;"><a href={doc.drive_url as string} target="_blank" rel="noopener noreferrer" style="font-family: var(--font-body); font-size: 13px; color: var(--color-brand-navy); text-decoration: underline;">Open ↗</a></td>
+            <td class="font-body text-[13px] text-neutral-500 py-1 pr-4">Drive link</td>
+            <td class="py-1"><a href={doc.drive_url as string} target="_blank" rel="noopener noreferrer" class="font-body text-[13px] text-brand-navy underline">Open ↗</a></td>
           </tr>
         )}
       </table>
     </div>
 
     {globalError && (
-      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+      <div class="bg-danger-50 border border-danger-200 rounded-md px-4 py-3 mb-5 font-body text-sm text-danger-700">
         {globalError}
       </div>
     )}
 
-    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 28px 24px; display: flex; flex-direction: column; gap: 20px;">
-      <div style="display: flex; flex-direction: column; gap: 4px;">
+    <form method="POST" class="bg-white border border-neutral-200 rounded-lg py-7 px-6 flex flex-col gap-5">
+      <div class="flex flex-col gap-1">
         <MemberSearch
           name="person_id"
           label="Link to member"
           required
           value={selectedPersonId}
         />
-        <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">
+        <p class="font-body text-xs text-neutral-400 m-0">
           The document status will change to "Matched" once linked.
         </p>
       </div>
 
-      <div style="display: flex; gap: 12px;">
-        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+      <div class="flex gap-3">
+        <button type="submit" class="py-2.5 px-5 bg-brand-navy text-white border-0 rounded-md font-body text-sm font-semibold cursor-pointer">
           Link document
         </button>
-        <a href="/admin/documents" style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+        <a href="/admin/documents" class="py-2.5 px-5 bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">
           Cancel
         </a>
       </div>

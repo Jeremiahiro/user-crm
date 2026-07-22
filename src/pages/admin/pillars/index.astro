@@ -49,25 +49,19 @@ const rows = (pillars ?? []) as PillarRow[]
       }
     }
   }">
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+    <div class="flex items-center justify-between mb-6">
       <div>
-        <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">
+        <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">
           Pillars
         </h1>
-        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+        <p class="font-body text-sm text-neutral-500 m-0">
           Strategic pillars of the chapter.
         </p>
       </div>
       {admin && (
         <a
           href="/admin/pillars/new"
-          style="
-            display: inline-flex; align-items: center; gap: 6px;
-            background-color: var(--color-brand-navy); color: white;
-            padding: 10px 18px; border-radius: var(--radius-md);
-            font-family: var(--font-body); font-size: 14px; font-weight: 600;
-            text-decoration: none;
-          "
+          class="inline-flex items-center gap-1.5 bg-brand-navy text-white px-4.5 py-2.5 rounded-md font-body text-sm font-semibold no-underline"
         >
           + Add pillar
         </a>
@@ -75,41 +69,41 @@ const rows = (pillars ?? []) as PillarRow[]
     </div>
 
     {error && (
-      <div style="background: #fef2f2; border: 1px solid #fca5a5; border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: #991b1b;">
+      <div class="bg-[#fef2f2] border border-[#fca5a5] rounded-md px-4 py-3 mb-5 font-body text-sm text-danger-800">
         Failed to load pillars. Please refresh the page.
       </div>
     )}
 
     {rows.length > 0 ? (
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
-        <table style="width: 100%; border-collapse: collapse;">
+      <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+        <table class="w-full border-collapse">
           <thead>
-            <tr style="background-color: var(--color-neutral-100);">
-              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Name</th>
-              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Description</th>
-              <th style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em;">Teams</th>
-              <th style="padding: 12px 16px;"></th>
+            <tr class="bg-neutral-100">
+              <th class="px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em]">Name</th>
+              <th class="px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em]">Description</th>
+              <th class="px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em]">Teams</th>
+              <th class="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
             {rows.map((pillar) => (
-              <tr data-pillar-id={pillar.id} style="border-top: 1px solid var(--color-neutral-100);" onmouseover="this.style.backgroundColor='var(--color-neutral-50)'" onmouseout="this.style.backgroundColor=''">
-                <td style="padding: 14px 16px;">
-                  <span style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-brand-navy);">
+              <tr data-pillar-id={pillar.id} class="border-t border-neutral-100" onmouseover="this.style.backgroundColor='var(--color-neutral-50)'" onmouseout="this.style.backgroundColor=''">
+                <td class="px-4 py-3.5">
+                  <span class="font-body text-sm font-semibold text-brand-navy">
                     {pillar.name}
                   </span>
                 </td>
-                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); max-width: 320px;">
-                  {pillar.description ?? <span style="color: var(--color-neutral-400);">—</span>}
+                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600 max-w-[320px]">
+                  {pillar.description ?? <span class="text-neutral-400">—</span>}
                 </td>
-                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">
                   {pillar.teams?.[0]?.count ?? 0}
                 </td>
-                <td style="padding: 14px 16px; text-align: right;">
+                <td class="px-4 py-3.5 text-right">
                   {admin && (
-                    <div style="display: inline-flex; align-items: center; gap: 6px;">
+                    <div class="inline-flex items-center gap-1.5">
                       <a href={`/admin/pillars/${pillar.id}/edit`}
-                         style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-600); text-decoration: none; padding: 4px 10px; border-radius: var(--radius-md);"
+                         class="font-body text-[13px] font-medium text-neutral-600 no-underline px-2.5 py-1 rounded-md"
                          onmouseover="this.style.backgroundColor='var(--color-neutral-100)'"
                          onmouseout="this.style.backgroundColor=''">
                         Edit
@@ -117,7 +111,7 @@ const rows = (pillars ?? []) as PillarRow[]
                       {pillar.is_active && (
                         <button
                           @click={`modal.open = true; modal.id = '${pillar.id}'; modal.name = ${JSON.stringify(pillar.name)}`}
-                          style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-danger-600); background: none; border: none; padding: 4px 10px; border-radius: var(--radius-md); cursor: pointer;"
+                          class="font-body text-[13px] font-medium text-danger-600 bg-transparent border-0 px-2.5 py-1 rounded-md cursor-pointer"
                           onmouseover="this.style.backgroundColor='var(--color-danger-50)'"
                           onmouseout="this.style.backgroundColor=''">
                           Delete
@@ -138,7 +132,7 @@ const rows = (pillars ?? []) as PillarRow[]
       >
         {admin && (
           <a slot="cta" href="/admin/pillars/new"
-             style="display: inline-block; background-color: var(--color-brand-navy); color: white; padding: 10px 18px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+             class="inline-block bg-brand-navy text-white px-4.5 py-2.5 rounded-md font-body text-sm font-semibold no-underline">
             Add first pillar
           </a>
         )}
@@ -147,18 +141,18 @@ const rows = (pillars ?? []) as PillarRow[]
 
     <!-- Delete confirm modal -->
     <div x-show="modal.open" x-cloak @click="modal.open = false"
-      style="position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; display: flex; align-items: center; justify-content: center;">
-      <div @click.stop style="background: white; border-radius: var(--radius-lg); padding: 28px 32px; max-width: 380px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.2);">
-        <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-neutral-800); margin: 0 0 6px;">Archive pillar?</p>
-        <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); margin: 0 0 4px; line-height: 1.5;">Archive <span x-text="'&quot;' + modal.name + '&quot;'"></span>?</p>
-        <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0 0 20px; line-height: 1.5;">This will hide it from the list. It cannot be deleted if active teams are assigned to it.</p>
-        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+      class="fixed inset-0 bg-black/45 z-1000 flex items-center justify-center">
+      <div @click.stop class="bg-white rounded-lg py-7 px-8 max-w-95 w-[90%] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
+        <p class="font-body text-sm font-semibold text-neutral-800 mb-1.5">Archive pillar?</p>
+        <p class="font-body text-[13px] text-neutral-600 mb-1 leading-normal">Archive <span x-text="'&quot;' + modal.name + '&quot;'"></span>?</p>
+        <p class="font-body text-[13px] text-neutral-500 mb-5 leading-normal">This will hide it from the list. It cannot be deleted if active teams are assigned to it.</p>
+        <div class="flex gap-2.5 justify-end">
           <button @click="modal.open = false"
-            style="padding: 8px 16px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; color: var(--color-neutral-700);">
+            class="px-4 py-2 bg-neutral-100 border border-neutral-200 rounded-md font-body text-[13px] font-medium cursor-pointer text-neutral-700">
             Cancel
           </button>
           <button @click="doDelete()"
-            style="padding: 8px 16px; background: var(--color-danger-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+            class="px-4 py-2 bg-danger-600 text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
             Archive
           </button>
         </div>

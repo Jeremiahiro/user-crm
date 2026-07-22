@@ -41,41 +41,41 @@ const completedIds = new Set((completions ?? []).map((c: any) => c.training_id))
 ---
 
 <DashboardLayout title="Trainings">
-  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+  <div class="flex items-center justify-between mb-6">
     <div>
-      <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Trainings</h1>
-      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">{trainings.length} training{trainings.length !== 1 ? 's' : ''}</p>
+      <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Trainings</h1>
+      <p class="font-body text-sm text-neutral-500 m-0">{trainings.length} training{trainings.length !== 1 ? 's' : ''}</p>
     </div>
     {isLead && (
       <a href="/admin/trainings/new"
-        style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+        class="px-4.5 py-2.5 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
         + New Training
       </a>
     )}
   </div>
 
   {trainings.length === 0 ? (
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 48px; text-align: center;">
-      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0 0 16px;">No trainings available.</p>
+    <div class="bg-white border border-neutral-200 rounded-lg p-12 text-center">
+      <p class="font-body text-sm text-neutral-400 mb-4">No trainings available.</p>
       {isLead && (
         <a href="/admin/trainings/new"
-          style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+          class="px-4.5 py-2.5 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
           Create first training
         </a>
       )}
     </div>
   ) : (
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px;">
+    <div class="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-4">
       {trainings.map((t: any) => (
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 22px; display: flex; flex-direction: column; gap: 10px;">
+        <div class="bg-white border border-neutral-200 rounded-lg p-[22px] flex flex-col gap-2.5">
           <!-- Title + badges -->
-          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+          <div class="flex items-start justify-between gap-2">
             <a href={`/admin/trainings/${t.id}`}
-              style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-brand-navy); text-decoration: none; line-height: 1.3;">
+              class="font-heading text-[15px] font-bold text-brand-navy no-underline leading-[1.3]">
               {t.title}
             </a>
             {completedIds.has(t.id) && (
-              <span style="flex-shrink: 0; display: inline-block; padding: 2px 8px; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 11px; font-weight: 600; background-color: var(--color-success-50); color: var(--color-success-700); border: 1px solid var(--color-success-100);">
+              <span class="shrink-0 inline-block px-2 py-0.5 rounded-full font-body text-[11px] font-semibold bg-success-50 text-success-700 border border-success-100">
                 Completed &#10003;
               </span>
             )}
@@ -83,38 +83,38 @@ const completedIds = new Set((completions ?? []).map((c: any) => c.training_id))
 
           <!-- Description -->
           {t.description && (
-            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; line-height: 1.5;">
+            <p class="font-body text-[13px] text-neutral-600 m-0 line-clamp-2 leading-normal">
               {t.description}
             </p>
           )}
 
           <!-- Badges row -->
-          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <div class="flex gap-1.5 flex-wrap">
             {t.requires_document && (
-              <span style="display: inline-block; padding: 2px 8px; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 11px; font-weight: 500; background-color: var(--color-warning-50); color: var(--color-warning-800); border: 1px solid var(--color-warning-300);">
+              <span class="inline-block px-2 py-0.5 rounded-full font-body text-[11px] font-medium bg-warning-50 text-warning-800 border border-warning-300">
                 Requires document
               </span>
             )}
           </div>
 
           <!-- Footer -->
-          <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 6px; border-top: 1px solid var(--color-neutral-100);">
-            <div style="display: flex; gap: 12px; align-items: center;">
+          <div class="flex items-center justify-between pt-1.5 border-t border-neutral-100">
+            <div class="flex gap-3 items-center">
               {t.external_url && (
                 <a href={t.external_url} target="_blank" rel="noopener noreferrer"
-                  style="font-family: var(--font-body); font-size: 12px; color: var(--color-brand-navy); text-decoration: none; font-weight: 500;">
+                  class="font-body text-xs text-brand-navy no-underline font-medium">
                   Open &#8599;
                 </a>
               )}
               {isLead && (
                 <a href={`/admin/trainings/${t.id}/edit`}
-                  style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); text-decoration: none;">
+                  class="font-body text-xs text-neutral-500 no-underline">
                   Edit
                 </a>
               )}
             </div>
             {isLead && t.creator && (
-              <span style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400);">by {(t.creator as any).full_name}</span>
+              <span class="font-body text-[11px] text-neutral-400">by {(t.creator as any).full_name}</span>
             )}
           </div>
         </div>

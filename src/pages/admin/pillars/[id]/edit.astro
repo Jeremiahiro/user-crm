@@ -49,7 +49,7 @@ if (Astro.request.method === 'POST') {
 </style>
 
 <DashboardLayout title={`Edit ${pillar.name}`}>
-  <div style="max-width: 600px;" x-data={`{
+  <div class="max-w-150" x-data={`{
     modal: { open: false, action: '' },
     pillarId: ${JSON.stringify(id)},
     async doAction() {
@@ -72,56 +72,56 @@ if (Astro.request.method === 'POST') {
   }`}>
     <Breadcrumb crumbs={[{ label: 'Pillars', href: '/admin/pillars' }, { label: pillar.name as string, href: '/admin/pillars' }, { label: 'Edit' }]} />
 
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
-      <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0">
         Edit Pillar
       </h1>
       {!pillar.is_active && (
-        <span style="padding: 4px 10px; background: var(--color-neutral-100); border-radius: 20px; font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500);">
+        <span class="px-2.5 py-1 bg-neutral-100 rounded-[20px] font-body text-xs font-semibold text-neutral-500">
           Archived
         </span>
       )}
     </div>
 
-    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px; margin-bottom: 24px;">
+    <form method="POST" class="bg-white border border-neutral-200 rounded-lg p-8 flex flex-col gap-5 mb-6">
       <Input label="Name *" name="name" value={values.name} error={errors.name} required />
       <Input label="Description" name="description" value={values.description} error={errors.description} />
 
-      <div style="display: flex; gap: 12px; padding-top: 8px;">
+      <div class="flex gap-3 pt-2">
         <button type="submit"
-          style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          class="px-5 py-2.5 bg-brand-navy text-white border-0 rounded-md font-body text-sm font-semibold cursor-pointer">
           Save changes
         </button>
         <a href="/admin/pillars"
-          style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+          class="px-5 py-2.5 bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">
           Cancel
         </a>
       </div>
     </form>
 
     {pillar.is_active ? (
-      <div style="background: white; border: 1px solid var(--color-danger-200); border-radius: var(--radius-lg); padding: 24px;">
-        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--color-danger-700); margin: 0 0 8px;">
+      <div class="bg-white border border-danger-200 rounded-lg p-6">
+        <h2 class="font-heading text-sm font-semibold text-danger-700 mb-2">
           Archive pillar
         </h2>
-        <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); margin: 0 0 16px; line-height: 1.5;">
+        <p class="font-body text-[13px] text-neutral-600 mb-4 leading-normal">
           Archiving removes this pillar from active lists. It cannot be archived while it has active teams assigned.
         </p>
         <button type="button" @click="modal.open = true; modal.action = 'archive'"
-          style="padding: 8px 16px; background-color: white; color: var(--color-danger-600); border: 1px solid var(--color-danger-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
+          class="px-4 py-2 bg-white text-danger-600 border border-danger-300 rounded-md font-body text-[13px] font-medium cursor-pointer">
           Archive pillar
         </button>
       </div>
     ) : (
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
-        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--color-neutral-700); margin: 0 0 8px;">
+      <div class="bg-white border border-neutral-200 rounded-lg p-6">
+        <h2 class="font-heading text-sm font-semibold text-neutral-700 mb-2">
           Restore pillar
         </h2>
-        <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); margin: 0 0 16px; line-height: 1.5;">
+        <p class="font-body text-[13px] text-neutral-600 mb-4 leading-normal">
           This pillar is archived and hidden from active lists. Restore it to make it active again.
         </p>
         <button type="button" @click="modal.open = true; modal.action = 'restore'"
-          style="padding: 8px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
+          class="px-4 py-2 bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-medium cursor-pointer">
           Restore pillar
         </button>
       </div>
@@ -129,20 +129,20 @@ if (Astro.request.method === 'POST') {
 
     <!-- Archive/restore confirm modal -->
     <div x-show="modal.open" x-cloak @click="modal.open = false"
-      style="position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; display: flex; align-items: center; justify-content: center;">
-      <div @click.stop style="background: white; border-radius: var(--radius-lg); padding: 28px 32px; max-width: 380px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.2);">
+      class="fixed inset-0 bg-black/45 z-[1000] flex items-center justify-center">
+      <div @click.stop class="bg-white rounded-lg py-7 px-8 max-w-[380px] w-[90%] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
         <p x-text="modal.action === 'archive' ? 'Archive this pillar?' : 'Restore this pillar?'"
-          style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-neutral-800); margin: 0 0 6px;"></p>
+          class="font-body text-sm font-semibold text-neutral-800 mb-1.5"></p>
         <p x-text="modal.action === 'archive' ? 'It will be hidden from active lists but can be restored at any time.' : 'It will become active and visible in the list again.'"
-          style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); margin: 0 0 20px; line-height: 1.5;"></p>
-        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          class="font-body text-[13px] text-neutral-600 mb-5 leading-normal"></p>
+        <div class="flex gap-2.5 justify-end">
           <button @click="modal.open = false"
-            style="padding: 8px 16px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; color: var(--color-neutral-700);">
+            class="px-4 py-2 bg-neutral-100 border border-neutral-200 rounded-md font-body text-[13px] font-medium cursor-pointer text-neutral-700">
             Cancel
           </button>
           <button @click="doAction()"
             :style="modal.action === 'archive' ? 'background: var(--color-danger-600);' : 'background: var(--color-brand-navy);'"
-            style="padding: 8px 16px; color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+            class="px-4 py-2 text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
             Confirm
           </button>
         </div>

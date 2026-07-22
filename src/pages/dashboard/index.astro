@@ -319,11 +319,11 @@ const AWARD_LABELS: Record<string, string> = {
 
 <DashboardLayout title="Dashboard">
   <!-- Header -->
-  <div style="margin-bottom: 28px;">
-    <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">
+  <div class="mb-7">
+    <h1 class="font-heading text-2xl font-bold text-brand-navy m-0 mb-1">
       Welcome back, {user.name.split(' ')[0]}.
     </h1>
-    <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+    <p class="font-body text-sm text-neutral-500 m-0">
       {today.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
     </p>
   </div>
@@ -331,84 +331,84 @@ const AWARD_LABELS: Record<string, string> = {
   {userIsAdmin ? (
     <>
       <!-- Admin: Stat cards row 1 — members -->
-      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
+      <div class="grid grid-cols-4 gap-4 mb-4">
         {[
           { label: 'Members', value: membersCount, href: '/admin/members', colour: 'var(--color-brand-navy)' },
           { label: 'Active members', value: activeMembersCount, href: '/admin/members?status=active', colour: 'var(--color-success-600)' },
           { label: 'Suspended / Inactive', value: inactiveMembersCount, href: '/admin/members?status=inactive', colour: 'var(--color-warning-600)' },
         ].map(stat => (
-          <a href={stat.href} style="display: flex; flex-direction: column; justify-content: space-between; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; text-decoration: none; min-height: 96px;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-              <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">{stat.label}</p>
-              <span style="font-size: 14px; color: var(--color-neutral-400);">→</span>
+          <a href={stat.href} class="flex flex-col justify-between bg-white border border-neutral-200 rounded-lg py-5 px-6 no-underline min-h-24">
+            <div class="flex justify-between items-start">
+              <p class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.08em] m-0">{stat.label}</p>
+              <span class="text-sm text-neutral-400">→</span>
             </div>
-            <p style={`font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: ${stat.colour}; margin: 8px 0 0; line-height: 1;`}>{stat.value}</p>
+            <p class="font-heading text-[32px] font-bold m-0 mt-2 leading-none" style={`color: ${stat.colour};`}>{stat.value}</p>
           </a>
         ))}
         <!-- Dues compliance card -->
-        <a href="/admin/dues" style="display: flex; flex-direction: column; justify-content: space-between; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; text-decoration: none; min-height: 96px;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">Dues compliance {currentYear}</p>
-            <span style="font-size: 14px; color: var(--color-neutral-400);">→</span>
+        <a href="/admin/dues" class="flex flex-col justify-between bg-white border border-neutral-200 rounded-lg py-5 px-6 no-underline min-h-24">
+          <div class="flex justify-between items-start">
+            <p class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.08em] m-0">Dues compliance {currentYear}</p>
+            <span class="text-sm text-neutral-400">→</span>
           </div>
           <div>
-            <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 8px;">
-              <p style="font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: var(--color-brand-navy); margin: 0; line-height: 1;">{duesCompliancePct}%</p>
-              <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">{membersPaidThisYear}/{eligibleCount}</p>
+            <div class="flex items-baseline gap-2 mt-2">
+              <p class="font-heading text-[32px] font-bold text-brand-navy m-0 leading-none">{duesCompliancePct}%</p>
+              <p class="font-body text-[13px] text-neutral-400 m-0">{membersPaidThisYear}/{eligibleCount}</p>
             </div>
-            <div style="margin-top: 10px; height: 4px; background-color: var(--color-neutral-100); border-radius: 2px; overflow: hidden;">
-              <div style={`height: 100%; width: ${duesCompliancePct}%; background-color: var(--color-brand-navy); border-radius: 2px; transition: width 0.3s;`}></div>
+            <div class="mt-2.5 h-1 bg-neutral-100 rounded-[2px] overflow-hidden">
+              <div class="h-full bg-brand-navy rounded-[2px] transition-[width] duration-300" style={`width: ${duesCompliancePct}%;`}></div>
             </div>
           </div>
         </a>
       </div>
 
       <!-- Admin: Stat cards row 2 — volunteers -->
-      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px;">
+      <div class="grid grid-cols-4 gap-4 mb-4">
         {[
           { label: 'Volunteers', value: volunteersCount, href: '/admin/volunteers', colour: 'var(--color-brand-navy)' },
           { label: 'Active volunteers', value: activeVolunteersCount, href: '/admin/volunteers?status=active', colour: 'var(--color-success-600)' },
           { label: 'Suspended / Inactive', value: inactiveVolunteersCount, href: '/admin/volunteers?status=inactive', colour: 'var(--color-warning-600)' },
           { label: 'Board / Trustees', value: trusteesCount, href: '/admin/members?person_type=trustee', colour: 'var(--color-brand-navy)' },
         ].map(stat => (
-          <a href={stat.href} style="display: flex; flex-direction: column; justify-content: space-between; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; text-decoration: none; min-height: 96px;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-              <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">{stat.label}</p>
-              <span style="font-size: 14px; color: var(--color-neutral-400);">→</span>
+          <a href={stat.href} class="flex flex-col justify-between bg-white border border-neutral-200 rounded-lg py-5 px-6 no-underline min-h-24">
+            <div class="flex justify-between items-start">
+              <p class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.08em] m-0">{stat.label}</p>
+              <span class="text-sm text-neutral-400">→</span>
             </div>
-            <p style={`font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: ${stat.colour}; margin: 8px 0 0; line-height: 1;`}>{stat.value}</p>
+            <p class="font-heading text-[32px] font-bold m-0 mt-2 leading-none" style={`color: ${stat.colour};`}>{stat.value}</p>
           </a>
         ))}
       </div>
 
       <!-- Admin: Stat cards row 3 — DBS -->
-      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px;">
+      <div class="grid grid-cols-4 gap-4 mb-7">
         {[
           { label: 'Active DBS', value: dbsActive, href: '/admin/dbs?status=valid', colour: 'var(--color-success-600)' },
           { label: 'DBS expiring (60d)', value: dbsExpiring, href: '/admin/dbs?status=expiring_soon', colour: dbsExpiring > 0 ? 'var(--color-warning-600)' : 'var(--color-success-600)' },
           { label: 'DBS expired', value: dbsExpired, href: '/admin/dbs?status=expired', colour: dbsExpired > 0 ? 'var(--color-danger-600)' : 'var(--color-success-600)' },
           { label: 'No DBS record', value: dbsMissing, href: '/admin/dbs?status=missing', colour: dbsMissing > 0 ? 'var(--color-warning-600)' : 'var(--color-success-600)' },
         ].map(stat => (
-          <a href={stat.href} style="display: flex; flex-direction: column; justify-content: space-between; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; text-decoration: none; min-height: 96px;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-              <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">{stat.label}</p>
-              <span style="font-size: 14px; color: var(--color-neutral-400);">→</span>
+          <a href={stat.href} class="flex flex-col justify-between bg-white border border-neutral-200 rounded-lg py-5 px-6 no-underline min-h-24">
+            <div class="flex justify-between items-start">
+              <p class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.08em] m-0">{stat.label}</p>
+              <span class="text-sm text-neutral-400">→</span>
             </div>
-            <p style={`font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: ${stat.colour}; margin: 8px 0 0; line-height: 1;`}>{stat.value}</p>
+            <p class="font-heading text-[32px] font-bold m-0 mt-2 leading-none" style={`color: ${stat.colour};`}>{stat.value}</p>
           </a>
         ))}
       </div>
 
       <!-- Admin: Main content — 3-col layout -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr 360px; gap: 20px;">
+      <div class="grid [grid-template-columns:1fr_1fr_360px] gap-5">
 
         <!-- Activity feed -->
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
-          <div style="padding: 16px 20px; border-bottom: 1px solid var(--color-neutral-200);">
-            <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">Recent activity</h2>
+        <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+          <div class="py-4 px-5 border-b border-neutral-200">
+            <h2 class="font-heading text-sm font-bold text-neutral-800 m-0">Recent activity</h2>
           </div>
           {activityRows.length === 0 ? (
-            <p style="padding: 24px 20px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No activity yet.</p>
+            <p class="py-6 px-5 font-body text-[13px] text-neutral-400 m-0">No activity yet.</p>
           ) : (
             <div>
               {activityRows.map((a, i) => {
@@ -416,50 +416,50 @@ const AWARD_LABELS: Record<string, string> = {
                 const tableLabel = TABLE_LABELS[a.target_table] ?? a.target_table
                 const actionLabel = ACTION_LABELS[a.action] ?? a.action
                 return (
-                  <div style={`padding: 12px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''} display: flex; align-items: flex-start; gap: 10px;`}>
-                    <div style="width: 6px; height: 6px; border-radius: 50%; background-color: var(--color-brand-navy); margin-top: 6px; flex-shrink: 0;"></div>
-                    <div style="flex: 1; min-width: 0;">
-                      <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); margin: 0; line-height: 1.4;">
-                        <span style="font-weight: 500; color: var(--color-neutral-800);">{actor?.full_name ?? 'System'}</span>
+                  <div class={`py-3 px-5 flex items-start gap-2.5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}>
+                    <div class="w-1.5 h-1.5 rounded-full bg-brand-navy mt-1.5 shrink-0"></div>
+                    <div class="flex-1 min-w-0">
+                      <p class="font-body text-[13px] text-neutral-700 m-0 leading-[1.4]">
+                        <span class="font-medium text-neutral-800">{actor?.full_name ?? 'System'}</span>
                         {' '}{actionLabel.toLowerCase()} a {tableLabel}
                       </p>
-                      <p style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); margin: 2px 0 0;">{timeAgo(a.created_at)}</p>
+                      <p class="font-body text-[11px] text-neutral-400 m-0 mt-0.5">{timeAgo(a.created_at)}</p>
                     </div>
                   </div>
                 )
               })}
-              <div style="padding: 10px 20px; border-top: 1px solid var(--color-neutral-100);">
-                <a href="/admin/audit" style="font-family: var(--font-body); font-size: 12px; color: var(--color-brand-navy); text-decoration: none; font-weight: 500;">View full audit log →</a>
+              <div class="py-2.5 px-5 border-t border-neutral-100">
+                <a href="/admin/audit" class="font-body text-xs text-brand-navy no-underline font-medium">View full audit log →</a>
               </div>
             </div>
           )}
         </div>
 
         <!-- Upcoming CMP sessions + Praise -->
-        <div style="display: flex; flex-direction: column; gap: 20px;">
-          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
-            <div style="padding: 16px 20px; border-bottom: 1px solid var(--color-neutral-200); display: flex; align-items: center; justify-content: space-between;">
-              <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">Upcoming CMP sessions</h2>
-              <a href="/admin/cmp/years" style="font-family: var(--font-body); font-size: 12px; color: var(--color-brand-navy); text-decoration: none;">View all →</a>
+        <div class="flex flex-col gap-5">
+          <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+            <div class="py-4 px-5 border-b border-neutral-200 flex items-center justify-between">
+              <h2 class="font-heading text-sm font-bold text-neutral-800 m-0">Upcoming CMP sessions</h2>
+              <a href="/admin/cmp/years" class="font-body text-xs text-brand-navy no-underline">View all →</a>
             </div>
             {sessions.length === 0 ? (
-              <p style="padding: 24px 20px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No upcoming sessions.</p>
+              <p class="py-6 px-5 font-body text-[13px] text-neutral-400 m-0">No upcoming sessions.</p>
             ) : (
               <div>
                 {sessions.map((s, i) => (
                   <a href={`/admin/cmp/sessions/${s.id}`}
-                    style={`display: block; padding: 12px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''} text-decoration: none;`}>
-                    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+                    class={`block py-3 px-5 no-underline ${i > 0 ? 'border-t border-neutral-100' : ''}`}>
+                    <div class="flex items-start justify-between gap-2">
                       <div>
-                        <p style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-brand-navy); margin: 0 0 2px;">{s.title}</p>
-                        <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">
+                        <p class="font-body text-[13px] font-medium text-brand-navy m-0 mb-0.5">{s.title}</p>
+                        <p class="font-body text-xs text-neutral-400 m-0">
                           {s.cmp_programme_years?.name}
                           {s.location && <span> · {s.location}</span>}
                         </p>
                       </div>
-                      <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); white-space: nowrap; flex-shrink: 0;">
+                      <span class="font-body text-xs text-neutral-500 whitespace-nowrap shrink-0">
                         {formatDate(s.session_date)}
-                        {s.session_time && <span style="margin-left: 4px;">{formatTime(s.session_time)}</span>}
+                        {s.session_time && <span class="ml-1">{formatTime(s.session_time)}</span>}
                       </span>
                     </div>
                   </a>
@@ -469,15 +469,15 @@ const AWARD_LABELS: Record<string, string> = {
           </div>
 
           <!-- Recent praise -->
-          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
-            <div style="padding: 16px 20px; border-bottom: 1px solid var(--color-neutral-200); display: flex; align-items: center; justify-content: space-between;">
-              <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">Recent praise ⭐</h2>
-              <a href="/admin/praise" style="font-family: var(--font-body); font-size: 12px; color: var(--color-brand-navy); text-decoration: none;">View all →</a>
+          <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+            <div class="py-4 px-5 border-b border-neutral-200 flex items-center justify-between">
+              <h2 class="font-heading text-sm font-bold text-neutral-800 m-0">Recent praise ⭐</h2>
+              <a href="/admin/praise" class="font-body text-xs text-brand-navy no-underline">View all →</a>
             </div>
             {praiseRows.filter(p => p.visibility === 'public').length === 0 ? (
-              <div style="padding: 20px;">
-                <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0 0 8px;">No praise yet.</p>
-                <a href="/admin/praise/new" style="font-family: var(--font-body); font-size: 12px; color: var(--color-brand-navy); text-decoration: none; font-weight: 500;">Give praise →</a>
+              <div class="p-5">
+                <p class="font-body text-[13px] text-neutral-400 m-0 mb-2">No praise yet.</p>
+                <a href="/admin/praise/new" class="font-body text-xs text-brand-navy no-underline font-medium">Give praise →</a>
               </div>
             ) : (
               <div>
@@ -485,12 +485,12 @@ const AWARD_LABELS: Record<string, string> = {
                   const recipient = p['people!praise_recipient_id_fkey']
                   const giver = p['people!praise_given_by_fkey']
                   return (
-                    <div style={`padding: 12px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}`}>
-                      <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0 0 4px;">
-                        {giver?.full_name ?? 'Admin'} → <span style="font-weight: 500; color: var(--color-brand-navy);">{recipient?.full_name ?? '—'}</span>
-                        <span style="margin-left: 6px; color: var(--color-neutral-400);">{timeAgo(p.created_at)}</span>
+                    <div class={`py-3 px-5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}>
+                      <p class="font-body text-xs text-neutral-500 m-0 mb-1">
+                        {giver?.full_name ?? 'Admin'} → <span class="font-medium text-brand-navy">{recipient?.full_name ?? '—'}</span>
+                        <span class="ml-1.5 text-neutral-400">{timeAgo(p.created_at)}</span>
                       </p>
-                      <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); margin: 0; line-height: 1.5; border-left: 2px solid var(--color-brand-gold); padding-left: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                      <p class="font-body text-[13px] text-neutral-700 m-0 leading-normal border-l-2 border-brand-gold pl-2 line-clamp-2">
                         {p.message}
                       </p>
                     </div>
@@ -502,10 +502,10 @@ const AWARD_LABELS: Record<string, string> = {
         </div>
 
         <!-- Quick actions sidebar -->
-        <div style="display: flex; flex-direction: column; gap: 16px;">
-          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px;">
-            <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 700; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 14px;">Quick actions</h2>
-            <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div class="flex flex-col gap-4">
+          <div class="bg-white border border-neutral-200 rounded-lg p-5">
+            <h2 class="font-heading text-[13px] font-bold text-neutral-500 uppercase tracking-[0.05em] m-0 mb-3.5">Quick actions</h2>
+            <div class="flex flex-col gap-1.5">
               {[
                 { label: '+ Add member', href: '/admin/members/new' },
                 { label: '+ Add mentee', href: '/admin/mentees/new' },
@@ -515,16 +515,16 @@ const AWARD_LABELS: Record<string, string> = {
                 { label: '+ Log participation', href: '/admin/participation/new' },
               ].map(link => (
                 <a href={link.href}
-                  style="display: block; padding: 8px 12px; background-color: var(--color-neutral-50); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); text-decoration: none; font-weight: 500;">
+                  class="block py-2 px-3 bg-neutral-50 border border-neutral-200 rounded-md font-body text-[13px] text-neutral-700 no-underline font-medium">
                   {link.label}
                 </a>
               ))}
             </div>
           </div>
 
-          <div style="background: var(--color-brand-navy); border-radius: var(--radius-lg); padding: 20px;">
-            <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 14px;">Admin areas</h2>
-            <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div class="bg-brand-navy rounded-lg p-5">
+            <h2 class="font-heading text-[13px] font-bold text-white/60 uppercase tracking-[0.05em] m-0 mb-3.5">Admin areas</h2>
+            <div class="flex flex-col gap-1">
               {[
                 { label: 'Members', href: '/admin/members' },
                 { label: 'Onboarding', href: '/admin/onboarding' },
@@ -541,7 +541,7 @@ const AWARD_LABELS: Record<string, string> = {
                 { label: 'Audit log', href: '/admin/audit' },
               ].map(link => (
                 <a href={link.href}
-                  style="display: block; padding: 6px 10px; border-radius: var(--radius-sm); font-family: var(--font-body); font-size: 13px; color: rgba(255,255,255,0.8); text-decoration: none;">
+                  class="block py-1.5 px-2.5 rounded-sm font-body text-[13px] text-white/80 no-underline">
                   {link.label}
                 </a>
               ))}
@@ -555,135 +555,131 @@ const AWARD_LABELS: Record<string, string> = {
       <!-- Member dashboard -->
 
       <!-- Stat cards -->
-      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+      <div class="grid grid-cols-4 gap-4 mb-6">
         <!-- DBS Status -->
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
-          <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px;">My DBS</p>
-          <p style={`font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: ${myDbsStatus.color}; margin: 0; line-height: 1.2;`}>{myDbsStatus.label}</p>
+        <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6">
+          <p class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.08em] m-0 mb-1.5">My DBS</p>
+          <p class="font-heading text-xl font-bold m-0 leading-[1.2]" style={`color: ${myDbsStatus.color};`}>{myDbsStatus.label}</p>
         </div>
         <!-- Awards -->
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
-          <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px;">Awards</p>
-          <p style="font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: var(--color-brand-gold); margin: 0; line-height: 1;">🏆 {myAwardsCount}</p>
+        <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6">
+          <p class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.08em] m-0 mb-1.5">Awards</p>
+          <p class="font-heading text-[32px] font-bold text-brand-gold m-0 leading-none">🏆 {myAwardsCount}</p>
         </div>
         <!-- Praise received -->
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
-          <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px;">Praise received</p>
-          <p style="font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: var(--color-brand-navy); margin: 0; line-height: 1;">⭐ {myPraiseReceivedCount}</p>
+        <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6">
+          <p class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.08em] m-0 mb-1.5">Praise received</p>
+          <p class="font-heading text-[32px] font-bold text-brand-navy m-0 leading-none">⭐ {myPraiseReceivedCount}</p>
         </div>
         <!-- Praise given -->
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
-          <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px;">Praise given</p>
-          <p style="font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: var(--color-neutral-600); margin: 0; line-height: 1;">⭐ {myPraiseGivenCount}</p>
+        <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6">
+          <p class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.08em] m-0 mb-1.5">Praise given</p>
+          <p class="font-heading text-[32px] font-bold text-neutral-600 m-0 leading-none">⭐ {myPraiseGivenCount}</p>
         </div>
       </div>
 
       <!-- Dues summary widget -->
       {!userIsAdmin && (
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
-          <div style="display: flex; align-items: center; gap: 20px;">
-            <span style="font-size: 24px;">💰</span>
+        <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6 mb-6 flex items-center justify-between gap-4">
+          <div class="flex items-center gap-5">
+            <span class="text-2xl">💰</span>
             <div>
-              <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 4px;">Dues — {new Date().getFullYear()}</p>
-              <p style="font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">
+              <p class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.08em] m-0 mb-1">Dues — {new Date().getFullYear()}</p>
+              <p class="font-heading text-lg font-bold text-brand-navy m-0">
                 {myDuesPaid} month{myDuesPaid !== 1 ? 's' : ''} paid
                 {myDuesPending > 0 && (
-                  <span style="font-size: 13px; font-weight: 500; color: #92400e; margin-left: 8px;">· {myDuesPending} pending approval</span>
+                  <span class="text-[13px] font-medium text-[#92400e] ml-2">· {myDuesPending} pending approval</span>
                 )}
               </p>
             </div>
           </div>
-          <a href="/dues" style="padding: 8px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; text-decoration: none; white-space: nowrap;">
+          <a href="/dues" class="py-2 px-[18px] bg-brand-navy text-white rounded-md font-body text-[13px] font-medium no-underline whitespace-nowrap">
             View dues
           </a>
         </div>
       )}
 
       <!-- Buddy cards row -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+      <div class="grid grid-cols-2 gap-4 mb-6">
         <!-- My Buddy -->
-        <div class="buddy-card" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-            <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">🤝 My Buddy</p>
-            {myBuddy?.buddyPerson && <button onclick="revealSection(this)" style="font-family: var(--font-body); font-size: 11px; font-weight: 500; color: var(--color-brand-navy); background: none; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-sm); padding: 2px 10px; cursor: pointer;">Reveal details</button>}
+        <div class="buddy-card bg-white border border-neutral-200 rounded-lg py-5 px-6">
+          <div class="flex items-center justify-between mb-2.5">
+            <p class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.08em] m-0">🤝 My Buddy</p>
+            {myBuddy?.buddyPerson && <button onclick="revealSection(this)" class="font-body text-[11px] font-medium text-brand-navy bg-transparent border border-neutral-300 rounded-sm py-0.5 px-2.5 cursor-pointer">Reveal details</button>}
           </div>
           {myBuddy?.buddyPerson ? (
             <div>
-              <p style="font-family: var(--font-heading); font-size: 16px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 6px;">{myBuddy.buddyPerson.full_name}</p>
+              <p class="font-heading text-base font-bold text-brand-navy m-0 mb-1.5">{myBuddy.buddyPerson.full_name}</p>
               {myBuddy.buddyPerson.email && (
                 <a href={`mailto:${myBuddy.buddyPerson.email}`}
-                   class="blurred-field"
-                   style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); text-decoration: none; display: block; filter: blur(4px); user-select: none; transition: filter 0.2s;">{myBuddy.buddyPerson.email}</a>
+                   class="blurred-field font-body text-[13px] text-neutral-600 no-underline block blur-sm select-none transition-[filter] duration-200">{myBuddy.buddyPerson.email}</a>
               )}
               {myBuddy.buddyPerson.phone && (
                 <a href={`tel:${myBuddy.buddyPerson.phone}`}
-                   class="blurred-field"
-                   style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); text-decoration: none; display: block; margin-top: 2px; filter: blur(4px); user-select: none; transition: filter 0.2s;">{myBuddy.buddyPerson.phone}</a>
+                   class="blurred-field font-body text-[13px] text-neutral-600 no-underline block mt-0.5 blur-sm select-none transition-[filter] duration-200">{myBuddy.buddyPerson.phone}</a>
               )}
             </div>
           ) : (
-            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">No buddy assigned yet.</p>
+            <p class="font-body text-sm text-neutral-400 m-0">No buddy assigned yet.</p>
           )}
         </div>
 
         <!-- I am buddy to -->
-        <div class="buddy-card" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-            <p style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">🤝 I am buddy to</p>
-            {iAmBuddyTo.length > 0 && <button onclick="revealSection(this)" style="font-family: var(--font-body); font-size: 11px; font-weight: 500; color: var(--color-brand-navy); background: none; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-sm); padding: 2px 10px; cursor: pointer;">Reveal details</button>}
+        <div class="buddy-card bg-white border border-neutral-200 rounded-lg py-5 px-6">
+          <div class="flex items-center justify-between mb-2.5">
+            <p class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.08em] m-0">🤝 I am buddy to</p>
+            {iAmBuddyTo.length > 0 && <button onclick="revealSection(this)" class="font-body text-[11px] font-medium text-brand-navy bg-transparent border border-neutral-300 rounded-sm py-0.5 px-2.5 cursor-pointer">Reveal details</button>}
           </div>
           {iAmBuddyTo.length > 0 ? (
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="grid grid-cols-2 gap-3">
               {iAmBuddyTo.map(entry => entry.primaryPerson && (
                 <div>
-                  <p style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">{entry.primaryPerson.full_name}</p>
+                  <p class="font-heading text-sm font-bold text-brand-navy m-0 mb-1">{entry.primaryPerson.full_name}</p>
                   {entry.primaryPerson.email && (
                     <a href={`mailto:${entry.primaryPerson.email}`}
-                       class="blurred-field"
-                       style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); text-decoration: none; display: block; filter: blur(4px); user-select: none; transition: filter 0.2s;">{entry.primaryPerson.email}</a>
+                       class="blurred-field font-body text-xs text-neutral-600 no-underline block blur-sm select-none transition-[filter] duration-200">{entry.primaryPerson.email}</a>
                   )}
                   {entry.primaryPerson.phone && (
                     <a href={`tel:${entry.primaryPerson.phone}`}
-                       class="blurred-field"
-                       style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); text-decoration: none; display: block; margin-top: 2px; filter: blur(4px); user-select: none; transition: filter 0.2s;">{entry.primaryPerson.phone}</a>
+                       class="blurred-field font-body text-xs text-neutral-600 no-underline block mt-0.5 blur-sm select-none transition-[filter] duration-200">{entry.primaryPerson.phone}</a>
                   )}
                 </div>
               ))}
             </div>
           ) : (
-            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">Not a buddy to anyone yet.</p>
+            <p class="font-body text-sm text-neutral-400 m-0">Not a buddy to anyone yet.</p>
           )}
         </div>
       </div>
 
       <!-- Main content grid -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr 300px; gap: 20px;">
+      <div class="grid [grid-template-columns:1fr_1fr_300px] gap-5">
 
         <!-- My Teams -->
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
-          <div style="padding: 16px 20px; border-bottom: 1px solid var(--color-neutral-200); display: flex; align-items: center; justify-content: space-between;">
-            <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">My Teams</h2>
-            <a href="/admin/teams" style="font-family: var(--font-body); font-size: 12px; color: var(--color-brand-navy); text-decoration: none;">Browse all →</a>
+        <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+          <div class="py-4 px-5 border-b border-neutral-200 flex items-center justify-between">
+            <h2 class="font-heading text-sm font-bold text-neutral-800 m-0">My Teams</h2>
+            <a href="/admin/teams" class="font-body text-xs text-brand-navy no-underline">Browse all →</a>
           </div>
           {myTeams.length === 0 ? (
-            <div style="padding: 24px 20px;">
-              <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0 0 8px;">You're not in any teams yet.</p>
-              <a href="/admin/teams" style="font-family: var(--font-body); font-size: 12px; color: var(--color-brand-navy); text-decoration: none; font-weight: 500;">Browse teams →</a>
+            <div class="py-6 px-5">
+              <p class="font-body text-[13px] text-neutral-400 m-0 mb-2">You're not in any teams yet.</p>
+              <a href="/admin/teams" class="font-body text-xs text-brand-navy no-underline font-medium">Browse teams →</a>
             </div>
           ) : (
             <div>
               {myTeams.map((t, i) => (
                 <a href={`/admin/teams/${t.teams?.id}`}
-                   style={`display: block; padding: 12px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''} text-decoration: none;`}>
-                  <div style="display: flex; align-items: center; justify-content: space-between;">
+                   class={`block py-3 px-5 no-underline ${i > 0 ? 'border-t border-neutral-100' : ''}`}>
+                  <div class="flex items-center justify-between">
                     <div>
-                      <p style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-brand-navy); margin: 0;">{t.teams?.name}</p>
+                      <p class="font-body text-[13px] font-medium text-brand-navy m-0">{t.teams?.name}</p>
                       {t.teams?.description && (
-                        <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 2px 0 0;">{t.teams.description}</p>
+                        <p class="font-body text-xs text-neutral-400 m-0 mt-0.5">{t.teams.description}</p>
                       )}
                     </div>
                     {t.is_team_lead && (
-                      <span style="padding: 2px 8px; background-color: var(--color-brand-gold); color: var(--color-brand-navy); border-radius: var(--radius-full); font-family: var(--font-body); font-size: 11px; font-weight: 600; white-space: nowrap;">Lead</span>
+                      <span class="py-0.5 px-2 bg-brand-gold text-brand-navy rounded-full font-body text-[11px] font-semibold whitespace-nowrap">Lead</span>
                     )}
                   </div>
                 </a>
@@ -693,21 +689,21 @@ const AWARD_LABELS: Record<string, string> = {
         </div>
 
         <!-- Upcoming CMP sessions -->
-        <div style="display: flex; flex-direction: column; gap: 20px;">
-          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
-            <div style="padding: 16px 20px; border-bottom: 1px solid var(--color-neutral-200); display: flex; align-items: center; justify-content: space-between;">
-              <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">Upcoming CMP sessions</h2>
+        <div class="flex flex-col gap-5">
+          <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+            <div class="py-4 px-5 border-b border-neutral-200 flex items-center justify-between">
+              <h2 class="font-heading text-sm font-bold text-neutral-800 m-0">Upcoming CMP sessions</h2>
             </div>
             {myUpcomingSessions.length === 0 ? (
-              <p style="padding: 24px 20px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No upcoming sessions.</p>
+              <p class="py-6 px-5 font-body text-[13px] text-neutral-400 m-0">No upcoming sessions.</p>
             ) : (
               <div>
                 {myUpcomingSessions.map((s, i) => (
-                  <div style={`padding: 12px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}`}>
-                    <p style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-brand-navy); margin: 0 0 2px;">{s.title}</p>
-                    <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">
+                  <div class={`py-3 px-5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}>
+                    <p class="font-body text-[13px] font-medium text-brand-navy m-0 mb-0.5">{s.title}</p>
+                    <p class="font-body text-xs text-neutral-400 m-0">
                       {formatDate(s.session_date)}
-                      {s.session_time && <span style="margin-left: 4px;">{formatTime(s.session_time)}</span>}
+                      {s.session_time && <span class="ml-1">{formatTime(s.session_time)}</span>}
                       {s.location && <span> · {s.location}</span>}
                     </p>
                   </div>
@@ -717,23 +713,23 @@ const AWARD_LABELS: Record<string, string> = {
           </div>
 
           <!-- Recent praise received -->
-          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
-            <div style="padding: 16px 20px; border-bottom: 1px solid var(--color-neutral-200);">
-              <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">Recent praise ⭐</h2>
+          <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+            <div class="py-4 px-5 border-b border-neutral-200">
+              <h2 class="font-heading text-sm font-bold text-neutral-800 m-0">Recent praise ⭐</h2>
             </div>
             {myRecentPraise.length === 0 ? (
-              <p style="padding: 24px 20px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No praise yet.</p>
+              <p class="py-6 px-5 font-body text-[13px] text-neutral-400 m-0">No praise yet.</p>
             ) : (
               <div>
                 {myRecentPraise.map((p, i) => {
                   const giver = p['people!praise_given_by_fkey']
                   return (
-                    <div style={`padding: 12px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}`}>
-                      <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0 0 4px;">
+                    <div class={`py-3 px-5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}>
+                      <p class="font-body text-xs text-neutral-500 m-0 mb-1">
                         From {giver?.full_name ?? 'Admin'}
-                        <span style="margin-left: 6px; color: var(--color-neutral-400);">{timeAgo(p.created_at)}</span>
+                        <span class="ml-1.5 text-neutral-400">{timeAgo(p.created_at)}</span>
                       </p>
-                      <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); margin: 0; line-height: 1.5; border-left: 2px solid var(--color-brand-gold); padding-left: 8px;">{p.message}</p>
+                      <p class="font-body text-[13px] text-neutral-700 m-0 leading-normal border-l-2 border-brand-gold pl-2">{p.message}</p>
                     </div>
                   )
                 })}
@@ -743,28 +739,28 @@ const AWARD_LABELS: Record<string, string> = {
         </div>
 
         <!-- Right column: My recent awards + Give praise button -->
-        <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div class="flex flex-col gap-4">
           <!-- Give praise CTA -->
           <a href="/admin/praise/new"
-             style="display: block; padding: 14px 20px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-lg); font-family: var(--font-heading); font-size: 15px; font-weight: 700; text-decoration: none; text-align: center;">
+             class="block py-3.5 px-5 bg-brand-navy text-white rounded-lg font-heading text-[15px] font-bold no-underline text-center">
             ⭐ Give Praise
           </a>
 
           <!-- My recent awards -->
-          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
-            <div style="padding: 16px 20px; border-bottom: 1px solid var(--color-neutral-200);">
-              <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">My Awards</h2>
+          <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+            <div class="py-4 px-5 border-b border-neutral-200">
+              <h2 class="font-heading text-sm font-bold text-neutral-800 m-0">My Awards</h2>
             </div>
             {myRecentAwards.length === 0 ? (
-              <p style="padding: 24px 20px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No awards yet.</p>
+              <p class="py-6 px-5 font-body text-[13px] text-neutral-400 m-0">No awards yet.</p>
             ) : (
               <div>
                 {myRecentAwards.map((a, i) => (
-                  <div style={`padding: 12px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''} display: flex; align-items: center; gap: 10px;`}>
-                    <span style="font-size: 18px;">🏆</span>
+                  <div class={`py-3 px-5 flex items-center gap-2.5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}>
+                    <span class="text-lg">🏆</span>
                     <div>
-                      <p style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-brand-gold); margin: 0;">{AWARD_LABELS[a.type] ?? a.type}</p>
-                      <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">{a.year}</p>
+                      <p class="font-body text-[13px] font-semibold text-brand-gold m-0">{AWARD_LABELS[a.type] ?? a.type}</p>
+                      <p class="font-body text-xs text-neutral-400 m-0">{a.year}</p>
                     </div>
                   </div>
                 ))}

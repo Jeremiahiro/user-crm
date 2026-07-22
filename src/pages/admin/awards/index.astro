@@ -109,14 +109,14 @@ const AWARD_LABELS: Record<string, string> = {
       }
     }
   }">
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+    <div class="flex items-center justify-between mb-6">
       <div>
-        <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Awards</h1>
-        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">{awardCount ?? 0} award{(awardCount ?? 0) !== 1 ? 's' : ''} in {selectedYear}</p>
+        <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Awards</h1>
+        <p class="font-body text-sm text-neutral-500 m-0">{awardCount ?? 0} award{(awardCount ?? 0) !== 1 ? 's' : ''} in {selectedYear}</p>
       </div>
       {admin && (
         <a href="/admin/awards/new"
-          style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+          class="px-4.5 py-2.5 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
           + Give award
         </a>
       )}
@@ -124,9 +124,9 @@ const AWARD_LABELS: Record<string, string> = {
 
     <!-- Year filter -->
     {availableYears.length > 0 && (
-      <div style="margin-bottom: 20px;">
+      <div class="mb-5">
         <select onchange="window.location.href='/admin/awards?year='+this.value"
-          style="padding: 7px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white; color: var(--color-neutral-700); cursor: pointer; min-width: 110px;">
+          class="px-3 py-1.75 border border-neutral-300 rounded-md font-body text-sm bg-white text-neutral-700 cursor-pointer min-w-27.5">
           {availableYears.map(y => (
             <option value={String(y)} selected={y === selectedYear}>{y}</option>
           ))}
@@ -135,26 +135,26 @@ const AWARD_LABELS: Record<string, string> = {
     )}
 
     <!-- Awards table -->
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+    <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
       {rows.length === 0 ? (
-        <div style="padding: 48px; text-align: center;">
-          <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0 0 16px;">No awards yet.</p>
+        <div class="p-12 text-center">
+          <p class="font-body text-sm text-neutral-400 mb-4">No awards yet.</p>
           {admin && (
             <a href="/admin/awards/new"
-              style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+              class="px-4.5 py-2.5 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
               Give first award
             </a>
           )}
         </div>
       ) : (
-        <table style="width: 100%; border-collapse: collapse;">
-          <thead style="background-color: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+        <table class="w-full border-collapse">
+          <thead class="bg-neutral-50 border-b border-neutral-200">
             <tr>
-              <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Award</th>
-              {admin && <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Recipient</th>}
-              <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Year</th>
-              <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Awarded by</th>
-              {admin && <th style="padding: 10px 16px;"></th>}
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Award</th>
+              {admin && <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Recipient</th>}
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Year</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Awarded by</th>
+              {admin && <th class="px-4 py-2.5"></th>}
             </tr>
           </thead>
           <tbody>
@@ -162,34 +162,34 @@ const AWARD_LABELS: Record<string, string> = {
               const recipientName = award.person_id ? (recipientMap.get(award.person_id) ?? '—') : '—'
               const grantorName = award.awarded_by ? (grantorMap.get(award.awarded_by) ?? '—') : '—'
               return (
-                <tr data-award-id={award.id} style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
-                  <td style="padding: 14px 16px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                      <span style="font-size: 20px;">🏆</span>
+                <tr data-award-id={award.id} class={i > 0 ? 'border-t border-neutral-100' : ''}>
+                  <td class="px-4 py-3.5">
+                    <div class="flex items-center gap-2.5">
+                      <span class="text-xl">🏆</span>
                       <div>
-                        <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-brand-gold); margin: 0 0 2px;">{AWARD_LABELS[award.type] ?? award.type}</p>
-                        {award.citation && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0;">{award.citation}</p>}
+                        <p class="font-body text-sm font-semibold text-brand-gold mb-0.5">{AWARD_LABELS[award.type] ?? award.type}</p>
+                        {award.citation && <p class="font-body text-xs text-neutral-500 m-0">{award.citation}</p>}
                       </div>
                     </div>
                   </td>
                   {admin && (
-                    <td style="padding: 14px 16px;">
+                    <td class="px-4 py-3.5">
                       {award.person_id ? (
                         <a href={`/admin/members/${award.person_id}`}
-                          style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none;">
+                          class="font-body text-sm font-medium text-brand-navy no-underline">
                           {recipientName}
                         </a>
-                      ) : <span style="color: var(--color-neutral-400);">—</span>}
+                      ) : <span class="text-neutral-400">—</span>}
                     </td>
                   )}
-                  <td style="padding: 14px 16px; font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--color-neutral-700);">{award.year}</td>
-                  <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">
+                  <td class="px-4 py-3.5 font-heading text-sm font-semibold text-neutral-700">{award.year}</td>
+                  <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600">
                     {grantorName}
                   </td>
                   {admin && (
-                    <td style="padding: 14px 16px; text-align: right;">
+                    <td class="px-4 py-3.5 text-right">
                       <button @click={`openModal('${award.id}')`}
-                        style="padding: 4px 10px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); cursor: pointer;">
+                        class="px-2.5 py-1 bg-neutral-100 border border-neutral-200 rounded-md font-body text-xs text-neutral-600 cursor-pointer">
                         Delete
                       </button>
                     </td>
@@ -205,18 +205,18 @@ const AWARD_LABELS: Record<string, string> = {
 
     <!-- Confirmation Modal -->
     <div x-show="modalOpen" @click.self="modalOpen = false" @keydown.escape.window="modalOpen = false"
-      style="position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.45);">
-      <div style="background: white; border-radius: var(--radius-lg); padding: 28px 32px; max-width: 420px; width: 90%; box-shadow: 0 25px 50px rgba(0,0,0,0.2);">
-        <h3 style="font-family: var(--font-heading); font-size: 17px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 10px;">Delete award</h3>
-        <p x-text="message" style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700); margin: 0 0 20px; line-height: 1.55;"></p>
-        <p x-show="error" x-text="error" style="font-family: var(--font-body); font-size: 13px; color: var(--color-danger-600); margin: 0 0 14px;"></p>
-        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+      class="fixed inset-0 z-100 flex items-center justify-center bg-[rgba(0,0,0,0.45)]">
+      <div class="bg-white rounded-lg py-7 px-8 max-w-105 w-[90%] shadow-[0_25px_50px_rgba(0,0,0,0.2)]">
+        <h3 class="font-heading text-[17px] font-bold text-brand-navy mb-2.5">Delete award</h3>
+        <p x-text="message" class="font-body text-sm text-neutral-700 mb-5 leading-[1.55]"></p>
+        <p x-show="error" x-text="error" class="font-body text-[13px] text-danger-600 mb-3.5"></p>
+        <div class="flex gap-2.5 justify-end">
           <button @click="modalOpen = false" :disabled="loading"
-            style="padding: 8px 18px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer; color: var(--color-neutral-700);">
+            class="py-2 px-4.5 bg-neutral-100 border border-neutral-200 rounded-md font-body text-sm font-medium cursor-pointer text-neutral-700">
             Cancel
           </button>
           <button @click="doAction()" :disabled="loading" x-text="loading ? 'Deleting...' : 'Delete'"
-            style="padding: 8px 18px; background: var(--color-danger-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+            class="py-2 px-4.5 bg-danger-600 text-white border-0 rounded-md font-body text-sm font-semibold cursor-pointer">
           </button>
         </div>
       </div>
