@@ -22,10 +22,9 @@ const { title = '100BMOL Member Portal' } = Astro.props
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap"
       rel="stylesheet"
     />
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
   </head>
-  <body
-    style="background-color: var(--color-neutral-50); font-family: var(--font-body); margin: 0; min-height: 100vh;"
-  >
+  <body class="bg-neutral-50 font-body m-0 min-h-screen">
     <slot />
   </body>
 </html>

@@ -1,0 +1,54 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Breadcrumb from '@/components/ui/Breadcrumb.astro'
+import Input from '@/components/ui/Input.astro'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+
+let errors: Record<string, string> = {}
+let values: Record<string, string> = {}
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData()
+  values = Object.fromEntries(form.entries()) as Record<string, string>
+
+  const res = await fetch(`${Astro.url.origin}/api/committees`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: Astro.request.headers.get('cookie') ?? '' },
+    body: JSON.stringify({
+      name:        values.name,
+      description: values.description || undefined,
+    }),
+  })
+
+  if (res.ok) {
+    return Astro.redirect('/admin/committees')
+  } else {
+    const body = await res.json() as { issues?: { fieldErrors?: Record<string, string[]> } }
+    errors = Object.fromEntries(Object.entries(body.issues?.fieldErrors ?? {}).map(([k, v]) => [k, v[0] ?? '']))
+  }
+}
+---
+
+<DashboardLayout title="New Committee">
+  <div class="max-w-xl">
+    <Breadcrumb crumbs={[{ label: 'Committees', href: '/admin/committees' }, { label: 'New Committee' }]} />
+    <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0 mb-6">New Committee</h1>
+
+    <form method="POST" class="bg-white border border-neutral-200 rounded-xl p-8 flex flex-col gap-5">
+      <Input label="Name *" name="name" value={values.name} error={errors.name} required placeholder="e.g. Events Committee" />
+      <Input label="Description" name="description" value={values.description} placeholder="Brief description of the committee's purpose" />
+
+      <div class="flex gap-3 pt-2">
+        <button type="submit"
+          class="py-2.5 px-5 bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">
+          Save committee
+        </button>
+        <a href="/admin/committees"
+          class="py-2.5 px-5 bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</DashboardLayout>

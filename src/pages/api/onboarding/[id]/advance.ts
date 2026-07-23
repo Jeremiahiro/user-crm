@@ -1,45 +1,60 @@
 /**
  * POST /api/onboarding/:id/advance
  *
- * Moves a member through the onboarding pipeline in any direction:
- *   Forward:   applicant → pending_review → approved → active
- *   Back:      pending_review → applicant, approved → pending_review
- *   Cancel:    any pre-active status → cancelled (stores reason in notes)
+ * Moves an applicant through the onboarding pipeline:
+ *   Forward:   applicant → in_progress → in_training → active
+ *   Back:      in_progress → applicant, in_training → in_progress
+ *   Cancel:    any pre-active status → cancelled (with type + reason)
  *   Reinstate: cancelled → applicant
  */
 import type { APIRoute } from 'astro'
 import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin } from '@/lib/rbac'
 import { sendEmail } from '@/lib/gmail'
 import { memberStatusEmail } from '@/lib/email-templates'
 import { writeAuditLog } from '@/lib/audit'
 
 const FORWARD: Record<string, string> = {
-  applicant:      'pending_review',
-  pending_review: 'approved',
-  approved:       'active',
+  applicant:   'in_progress',
+  in_progress: 'in_training',
+  in_training: 'active',
 }
 
 const BACKWARD: Record<string, string> = {
-  pending_review: 'applicant',
-  approved:       'pending_review',
+  in_progress: 'applicant',
+  in_training: 'in_progress',
 }
+
+const STAGE_LABELS: Record<string, string> = {
+  applicant:   'Applicant',
+  in_progress: 'In Progress',
+  in_training: 'In Training',
+  active:      'Activated',
+  cancelled:   'Cancelled',
+}
+
+const CANCELLATION_TYPES = ['opted_out', 'training_incomplete', 'eligibility', 'no_response', 'other'] as const
 
 export const POST: APIRoute = async ({ params, request, locals, url }) => {
   if (!locals.user) {
     return new Response(JSON.stringify({ error: 'Unauthorised' }), { status: 401 })
   }
+  if (!isAdmin(locals.user)) {
+    return new Response(JSON.stringify({ error: 'Admins only' }), { status: 403 })
+  }
 
   const { id } = params
 
   let body: {
-    direction?: string  // 'forward' (default) | 'back' | 'cancel' | 'reinstate'
-    send_email?: boolean
-    reason?: string
-    notes?: string
+    direction?:          string
+    send_email?:         boolean
+    reason?:             string
+    cancellation_type?:  string
+    notes?:              string
   } = {}
-  try { body = await request.json() } catch { /* ok — use defaults */ }
+  try { body = await request.json() } catch { /* use defaults */ }
 
-  const direction = body.direction ?? 'forward'
+  const direction  = body.direction ?? 'forward'
   const send_email = body.send_email !== false
 
   const { data: person } = await supabaseAdmin
@@ -50,7 +65,7 @@ export const POST: APIRoute = async ({ params, request, locals, url }) => {
     .single()
 
   if (!person) {
-    return new Response(JSON.stringify({ error: 'Member not found' }), { status: 404 })
+    return new Response(JSON.stringify({ error: 'Person not found' }), { status: 404 })
   }
 
   const currentStatus = person.status as string
@@ -78,14 +93,58 @@ export const POST: APIRoute = async ({ params, request, locals, url }) => {
       return new Response(JSON.stringify({ error: `Cannot advance from "${currentStatus}".` }), { status: 422 })
     }
     nextStatus = next
+
+    // Gate: all current-stage checklist items must be complete before advancing
+    const CHECKLIST_GATES: Record<string, string[]> = {
+      in_progress: ['interview', 'documentation', 'reference_check'],
+      in_training: ['safeguarding', 'mentoring_100_way', 'dbs_check'],
+    }
+    const required = CHECKLIST_GATES[currentStatus]
+    if (required) {
+      const { data: done } = await supabaseAdmin
+        .from('onboarding_checklist_items')
+        .select('item_key')
+        .eq('person_id', id ?? '')
+        .in('item_key', required)
+        .not('completed_at', 'is', null)
+
+      const completedKeys = new Set((done ?? []).map((r: any) => r.item_key))
+      const missing = required.filter(k => !completedKeys.has(k))
+      if (missing.length > 0) {
+        const labels: Record<string, string> = {
+          interview:         'Interview',
+          documentation:     'Documentation submitted',
+          reference_check:   'Reference check',
+          safeguarding:      'Safeguarding',
+          mentoring_100_way: 'Mentoring the 100 WAY',
+          dbs_check:         'DBS Check',
+        }
+        return new Response(JSON.stringify({
+          error: `Complete all checklist items first: ${missing.map(k => labels[k] ?? k).join(', ')}`,
+        }), { status: 422 })
+      }
+    }
   }
 
+  // Build update payload
   const updatePayload: Record<string, unknown> = { status: nextStatus }
+
   if (nextStatus === 'active') {
-    updatePayload.date_joined = new Date().toISOString().slice(0, 10)
+    updatePayload.date_joined   = new Date().toISOString().slice(0, 10)
+    updatePayload.person_types  = ['member']
   }
-  if (nextStatus === 'cancelled' && body.reason) {
-    updatePayload.notes = body.reason
+
+  if (nextStatus === 'cancelled') {
+    if (body.reason) updatePayload.cancellation_reason = body.reason
+    if (body.cancellation_type && (CANCELLATION_TYPES as readonly string[]).includes(body.cancellation_type)) {
+      updatePayload.cancellation_type = body.cancellation_type
+    }
+  }
+
+  if (nextStatus === 'applicant' && currentStatus === 'cancelled') {
+    // Reinstatement — clear cancellation fields
+    updatePayload.cancellation_reason = null
+    updatePayload.cancellation_type   = null
   }
 
   const { error: updateError } = await supabaseAdmin
@@ -94,45 +153,64 @@ export const POST: APIRoute = async ({ params, request, locals, url }) => {
     .eq('id', id ?? '')
 
   if (updateError) {
-    return new Response(JSON.stringify({ error: 'Failed to update member status' }), { status: 500 })
+    console.error('[advance] update error:', updateError)
+    return new Response(JSON.stringify({ error: 'Failed to update status' }), { status: 500 })
   }
 
-  if (nextStatus === 'active') {
-    await supabaseAdmin
-      .from('onboarding_checklists')
-      .upsert({ person_id: id, completed_at: new Date().toISOString() }, { onConflict: 'person_id' })
-  }
+  // Write timeline event
+  const authorId = locals.user.person_id
+  const now      = new Date().toISOString()
 
-  if (body.notes) {
-    await supabaseAdmin
-      .from('onboarding_checklists')
-      .upsert({ person_id: id, notes: body.notes }, { onConflict: 'person_id' })
-  }
+  await supabaseAdmin.from('onboarding_timeline').insert({
+    person_id:  id,
+    event_type: 'stage_change',
+    from_stage: currentStatus,
+    to_stage:   nextStatus,
+    note:       body.reason ?? body.notes ?? null,
+    author_id:  authorId,
+    created_at: now,
+  })
 
+  // Email notification
   let emailSent = false
-  if (send_email && direction === 'forward' && person.email && (nextStatus === 'approved' || nextStatus === 'active')) {
+  if (
+    send_email &&
+    direction === 'forward' &&
+    person.email &&
+    (nextStatus === 'active' || nextStatus === 'in_progress' || nextStatus === 'in_training')
+  ) {
     try {
       const template = memberStatusEmail({
-        fullName: person.full_name as string,
-        newStatus: nextStatus as 'approved' | 'active',
+        fullName:  person.full_name as string,
+        newStatus: nextStatus as 'in_progress' | 'in_training' | 'active',
         portalUrl: url.origin,
       })
-      const result = await sendEmail({ to: person.email as string, subject: template.subject, html: template.html })
+      const result = await sendEmail({
+        to:      person.email as string,
+        subject: template.subject,
+        html:    template.html,
+      })
       emailSent = result.success
     } catch { /* non-fatal */ }
   }
 
   await writeAuditLog({
-    actorId: locals.user.person_id,
-    action: 'update',
+    actorId:     authorId,
+    action:      'update',
     targetTable: 'people',
-    targetId: id ?? '',
+    targetId:    id ?? '',
     beforeValue: { status: currentStatus },
-    afterValue: { status: nextStatus, direction, email_sent: emailSent },
+    afterValue:  { status: nextStatus, direction, email_sent: emailSent },
   })
 
   return new Response(
-    JSON.stringify({ success: true, previousStatus: currentStatus, newStatus: nextStatus, emailSent }),
-    { status: 200 }
+    JSON.stringify({
+      success:        true,
+      previousStatus: currentStatus,
+      newStatus:      nextStatus,
+      label:          STAGE_LABELS[nextStatus] ?? nextStatus,
+      emailSent,
+    }),
+    { status: 200, headers: { 'Content-Type': 'application/json' } },
   )
 }

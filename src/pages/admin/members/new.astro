@@ -2,27 +2,22 @@
 import DashboardLayout from '@/layouts/DashboardLayout.astro'
 import Breadcrumb from '@/components/ui/Breadcrumb.astro'
 import Input from '@/components/ui/Input.astro'
-import { supabaseAdmin } from '@/lib/supabase'
-
 if (!Astro.locals.user) return Astro.redirect('/login')
 
-const { data: teams } = await supabaseAdmin.from('teams').select('id, name').eq('is_active', true).order('name')
-
-const PERSON_TYPES = ['member', 'mentor', 'volunteer', 'alumni', 'parent', 'trustee']
+const PERSON_TYPES = ['member', 'mentor', 'volunteer', 'parent', 'trustee']
 const STATUS_OPTIONS = [
   { value: 'applicant',      label: 'Applicant' },
   { value: 'pending_review', label: 'Pending Review' },
-  { value: 'approved',       label: 'Approved' },
   { value: 'active',         label: 'Active' },
   { value: 'suspended',      label: 'Suspended' },
   { value: 'inactive',       label: 'Inactive' },
-  { value: 'alumni',         label: 'Alumni' },
-  { value: 'left',           label: 'Left' },
 ]
 
 let errors: Record<string, string> = {}
 let globalError = ''
-let values: Record<string, string | string[]> = { status: 'applicant', person_types: ['member'] }
+const preselectedType = Astro.url.searchParams.get('type')
+const defaultTypes = preselectedType && PERSON_TYPES.includes(preselectedType) ? [preselectedType] : ['member']
+let values: Record<string, string | string[]> = { status: 'applicant', person_types: defaultTypes }
 
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData()
@@ -37,6 +32,7 @@ if (Astro.request.method === 'POST') {
       middle_name: (values.middle_name as string) || undefined,
       last_name: values.last_name,
       email: values.email,
+      email_secondary: (values.email_secondary as string) || undefined,
       phone: (values.phone as string) || undefined,
       date_of_birth: (values.date_of_birth as string) || undefined,
       gender: (values.gender as string) || undefined,
@@ -61,33 +57,34 @@ if (Astro.request.method === 'POST') {
 ---
 
 <DashboardLayout title="Add Member">
-  <div style="max-width: 700px;">
+  <div class="max-w-175">
     <Breadcrumb crumbs={[{ label: 'Members', href: '/admin/members' }, { label: 'Add Member' }]} />
-    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">Add Member</h1>
+    <h1 class="font-heading text-[22px] font-bold text-brand-navy mb-6">Add Member</h1>
 
     {globalError && (
-      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+      <div class="bg-danger-50 border border-danger-200 rounded-md px-4 py-3 mb-5 font-body text-sm text-danger-700">
         {globalError}
       </div>
     )}
 
-    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 28px;">
+    <form method="POST" class="bg-white border border-neutral-200 rounded-lg p-8 flex flex-col gap-7">
 
       <!-- Personal details -->
       <section>
-        <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--color-neutral-100);">Personal details</h2>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <h2 class="font-heading text-[13px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mb-4 pb-2 border-b border-neutral-100">Personal details</h2>
+        <div class="grid grid-cols-2 gap-4">
           <Input label="First name *" name="first_name" value={values.first_name as string} error={errors.first_name} required placeholder="e.g. John" />
           <Input label="Last name *" name="last_name" value={values.last_name as string} error={errors.last_name} required placeholder="e.g. Smith" />
-          <div style="grid-column: 1 / -1;">
+          <div class="col-span-full">
             <Input label="Middle name" name="middle_name" value={values.middle_name as string} placeholder="Optional" />
           </div>
           <Input label="Email *" name="email" type="email" value={values.email as string} error={errors.email} required placeholder="john@example.com" />
+          <Input label="Secondary email" name="email_secondary" type="email" value={values.email_secondary as string} placeholder="Optional" />
           <Input label="Phone" name="phone" type="tel" value={values.phone as string} error={errors.phone} placeholder="+44 7700 000000" />
           <Input label="Date of birth" name="date_of_birth" type="date" value={values.date_of_birth as string} />
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Gender</label>
-            <select name="gender" style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+          <div class="flex flex-col gap-1">
+            <label class="font-body text-[13px] font-medium text-neutral-700">Gender</label>
+            <select name="gender" class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 bg-white">
               <option value="">— Select —</option>
               <option value="male" selected={values.gender === 'male'}>Male</option>
               <option value="female" selected={values.gender === 'female'}>Female</option>
@@ -96,54 +93,54 @@ if (Astro.request.method === 'POST') {
             </select>
           </div>
         </div>
-        <div style="margin-top: 16px;">
+        <div class="mt-4">
           <Input label="Address" name="address" value={values.address as string} placeholder="Street, City, Postcode" />
         </div>
       </section>
 
       <!-- Organisation -->
       <section>
-        <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--color-neutral-100);">Organisation</h2>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Status</label>
-            <select name="status" style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+        <h2 class="font-heading text-[13px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mb-4 pb-2 border-b border-neutral-100">Organisation</h2>
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div class="flex flex-col gap-1">
+            <label class="font-body text-[13px] font-medium text-neutral-700">Status</label>
+            <select name="status" class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 bg-white">
               {STATUS_OPTIONS.map(s => <option value={s.value} selected={values.status === s.value}>{s.label}</option>)}
             </select>
           </div>
           <Input label="Date joined" name="date_joined" type="date" value={values.date_joined as string} />
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-          <span style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Person types *</span>
-          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <div class="flex flex-col gap-2">
+          <span class="font-body text-[13px] font-medium text-neutral-700">Person types *</span>
+          <div class="flex flex-wrap gap-2">
             {PERSON_TYPES.map(type => (
-              <label style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-full); cursor: pointer; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+              <label class="flex items-center gap-1.5 px-3 py-1.5 border border-neutral-300 rounded-full cursor-pointer font-body text-[13px] text-neutral-700">
                 <input type="checkbox" name="person_types" value={type}
                   checked={(values.person_types as string[])?.includes(type)} />
                 {type}
               </label>
             ))}
           </div>
-          {errors.person_types && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-600); margin: 0;">{errors.person_types}</p>}
+          {errors.person_types && <p class="font-body text-xs text-danger-600 m-0">{errors.person_types}</p>}
         </div>
       </section>
 
       <!-- Notes -->
       <section>
-        <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--color-neutral-100);">Notes</h2>
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-          <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Internal notes</label>
+        <h2 class="font-heading text-[13px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mb-4 pb-2 border-b border-neutral-100">Notes</h2>
+        <div class="flex flex-col gap-1">
+          <label class="font-body text-[13px] font-medium text-neutral-700">Internal notes</label>
           <textarea name="notes" rows={4} placeholder="Any additional context about this member…"
-            style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); resize: vertical;">{values.notes as string}</textarea>
+            class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 resize-y">{values.notes as string}</textarea>
         </div>
       </section>
 
-      <div style="display: flex; gap: 12px; padding-top: 8px;">
-        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="px-5 py-2.5 bg-brand-navy text-white border-0 rounded-md font-body text-sm font-semibold cursor-pointer">
           Add member
         </button>
-        <a href="/admin/members" style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+        <a href="/admin/members" class="px-5 py-2.5 bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">
           Cancel
         </a>
       </div>

@@ -1,17 +1,23 @@
 export type PersonStatus =
   | 'applicant'
-  | 'pending_review'
-  | 'approved'
+  | 'in_progress'
+  | 'in_training'
   | 'active'
+  | 'suspended'
   | 'inactive'
-  | 'alumni'
-  | 'left'
+  | 'cancelled'
+
+export type CancellationType =
+  | 'opted_out'
+  | 'training_incomplete'
+  | 'eligibility'
+  | 'no_response'
+  | 'other'
 
 export type PersonType =
   | 'member'
   | 'mentor'
   | 'volunteer'
-  | 'alumni'
   | 'parent'
   | 'trustee'
 

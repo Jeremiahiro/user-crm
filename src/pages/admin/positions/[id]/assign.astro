@@ -46,24 +46,24 @@ if (Astro.request.method === 'POST') {
 ---
 
 <DashboardLayout title={`Assign — ${position.title}`}>
-  <div style="max-width: 600px;">
+  <div class="max-w-150">
     <Breadcrumb crumbs={[{ label: 'Positions', href: '/admin/positions' }, { label: position.title as string, href: '/admin/positions' }, { label: 'Assign' }]} />
-    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Assign Position</h1>
-    <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0 0 24px;">{position.title}</p>
+    <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0 mb-1">Assign Position</h1>
+    <p class="font-body text-sm text-neutral-500 m-0 mb-6">{position.title}</p>
 
     {globalError && (
-      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+      <div class="bg-danger-50 border border-danger-200 rounded-md px-4 py-3 mb-5 font-body text-sm text-danger-700">
         {globalError}
       </div>
     )}
 
-    <div style="background-color: var(--color-warning-50); border: 1px solid var(--color-warning-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 24px;">
-      <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-warning-700); margin: 0; line-height: 1.5;">
+    <div class="bg-warning-50 border border-warning-200 rounded-md px-4 py-3 mb-6">
+      <p class="font-body text-[13px] text-warning-700 m-0 leading-normal">
         <strong>Note:</strong> Assigning this position will close the current holder's tenure (if any) and automatically grant the linked role where applicable.
       </p>
     </div>
 
-    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+    <form method="POST" class="bg-white border border-neutral-200 rounded-lg p-8 flex flex-col gap-5">
       <MemberSearch
         name="person_id"
         label="Member"
@@ -75,27 +75,27 @@ if (Astro.request.method === 'POST') {
 
       <Input label="Term start date *" name="term_start" type="date" value={values.term_start} error={errors.term_start} required />
 
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Elected by *</label>
+      <div class="flex flex-col gap-1">
+        <label class="font-body text-[13px] font-medium text-neutral-700">Elected by *</label>
         <select name="elected_by" required
-          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+          class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 bg-white">
           <option value="chapter_vote" selected={values.elected_by === 'chapter_vote'}>Chapter vote</option>
           <option value="board_appointment" selected={values.elected_by === 'board_appointment'}>Board appointment</option>
           <option value="co_option" selected={values.elected_by === 'co_option'}>Co-option</option>
         </select>
       </div>
 
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Notes</label>
+      <div class="flex flex-col gap-1">
+        <label class="font-body text-[13px] font-medium text-neutral-700">Notes</label>
         <textarea name="notes" rows={3}
-          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); resize: vertical;">{values.notes}</textarea>
+          class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 resize-y">{values.notes}</textarea>
       </div>
 
-      <div style="display: flex; gap: 12px; padding-top: 8px;">
-        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-gold); color: var(--color-brand-navy); border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="px-5 py-2.5 bg-brand-gold text-brand-navy border-none rounded-md font-body text-sm font-semibold cursor-pointer">
           Confirm assignment
         </button>
-        <a href="/admin/positions" style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">Cancel</a>
+        <a href="/admin/positions" class="px-5 py-2.5 bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">Cancel</a>
       </div>
     </form>
   </div>

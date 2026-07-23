@@ -5,53 +5,32 @@ interface Props {
     | 'inactive'
     | 'applicant'
     | 'pending'
-    | 'alumni'
     | 'volunteer'
   class?: string
 }
 
 const { variant, class: className = '' } = Astro.props
-
-const variantStyles: Record<string, string> = {
-  active: `
-    background-color: #F0FDF4;
-    color: #16A34A;
-  `,
-  inactive: `
-    background-color: #F3F4F6;
-    color: #374151;
-  `,
-  applicant: `
-    background-color: #EFF6FF;
-    color: #1D4ED8;
-  `,
-  pending: `
-    background-color: #FFFBEB;
-    color: #92400E;
-  `,
-  alumni: `
-    background-color: #FAF5FF;
-    color: #7E22CE;
-  `,
-  volunteer: `
-    background-color: #ECFDF5;
-    color: #065F46;
-  `,
-}
-
-const style = `
-  display: inline-flex;
-  align-items: center;
-  border-radius: var(--radius-full);
-  padding: 2px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  font-family: var(--font-body);
-  white-space: nowrap;
-  ${variantStyles[variant] ?? variantStyles['inactive']}
-`
 ---
 
-<span style={style} class={className}>
+<span class={`badge-base badge-${variant} ${className}`}>
   <slot />
 </span>
+
+<style>
+  .badge-base {
+    display: inline-flex;
+    align-items: center;
+    border-radius: var(--radius-full);
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-body);
+    white-space: nowrap;
+  }
+
+  .badge-active    { background-color: #F0FDF4; color: #16A34A; }
+  .badge-inactive  { background-color: #F3F4F6; color: #374151; }
+  .badge-applicant { background-color: #EFF6FF; color: #1D4ED8; }
+  .badge-pending   { background-color: #FFFBEB; color: #92400E; }
+.badge-volunteer { background-color: #ECFDF5; color: #065F46; }
+</style>

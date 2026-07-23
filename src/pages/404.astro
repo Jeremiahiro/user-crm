@@ -15,111 +15,21 @@ import '../styles/global.css'
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Inter:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <style>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body {
-        min-height: 100vh;
-        background-color: var(--color-brand-navy);
-        font-family: var(--font-body);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 32px 24px;
-      }
-      .card {
-        background: white;
-        border-radius: 16px;
-        padding: 56px 48px;
-        max-width: 480px;
-        width: 100%;
-        text-align: center;
-        box-shadow: 0 24px 64px rgba(0,0,0,0.25);
-      }
-      .code {
-        font-family: var(--font-heading);
-        font-size: 80px;
-        font-weight: 700;
-        color: var(--color-brand-navy);
-        line-height: 1;
-        margin-bottom: 4px;
-      }
-      .code span { color: var(--color-brand-gold); }
-      .title {
-        font-family: var(--font-heading);
-        font-size: 22px;
-        font-weight: 700;
-        color: var(--color-brand-navy);
-        margin-bottom: 12px;
-      }
-      .body {
-        font-size: 15px;
-        color: var(--color-neutral-500);
-        line-height: 1.6;
-        margin-bottom: 36px;
-      }
-      .actions {
-        display: flex;
-        gap: 12px;
-        justify-content: center;
-        flex-wrap: wrap;
-      }
-      .btn-primary {
-        background-color: var(--color-brand-navy);
-        color: white;
-        padding: 11px 24px;
-        border-radius: 8px;
-        font-family: var(--font-body);
-        font-size: 14px;
-        font-weight: 600;
-        text-decoration: none;
-        transition: opacity 0.15s;
-      }
-      .btn-primary:hover { opacity: 0.85; }
-      .btn-secondary {
-        background-color: var(--color-neutral-100);
-        color: var(--color-neutral-700);
-        padding: 11px 24px;
-        border-radius: 8px;
-        font-family: var(--font-body);
-        font-size: 14px;
-        font-weight: 500;
-        text-decoration: none;
-        transition: background-color 0.15s;
-      }
-      .btn-secondary:hover { background-color: var(--color-neutral-200); }
-      .divider {
-        width: 48px;
-        height: 3px;
-        background-color: var(--color-brand-gold);
-        border-radius: 2px;
-        margin: 0 auto 28px;
-      }
-      .logo {
-        font-family: var(--font-heading);
-        font-size: 13px;
-        font-weight: 700;
-        color: var(--color-neutral-300);
-        margin-top: 32px;
-        letter-spacing: 0.03em;
-      }
-      .logo span { color: var(--color-brand-gold); }
-    </style>
   </head>
-  <body>
-    <div class="card">
-      <div class="code">4<span>0</span>4</div>
-      <div class="divider"></div>
-      <p class="title">Page not found</p>
-      <p class="body">
+  <body class="min-h-screen bg-brand-navy font-body flex flex-col items-center justify-center px-6 py-8">
+    <div class="bg-white rounded-4 px-12 py-14 max-w-120 w-full text-center shadow-[0_24px_64px_rgba(0,0,0,0.25)]">
+      <div class="font-heading text-[80px] font-bold text-brand-navy leading-none mb-1">4<span class="text-brand-gold">0</span>4</div>
+      <div class="w-12 h-0.75 bg-brand-gold rounded-0.5 mx-auto mb-7"></div>
+      <p class="font-heading text-[22px] font-bold text-brand-navy mb-3">Page not found</p>
+      <p class="text-[15px] text-neutral-500 leading-relaxed mb-9">
         The page you're looking for doesn't exist or may have been moved.
         Double-check the URL or head back to the dashboard.
       </p>
-      <div class="actions">
-        <a href="/dashboard" class="btn-primary">Go to Dashboard</a>
-        <a href="javascript:history.back()" class="btn-secondary">Go back</a>
+      <div class="flex gap-3 justify-center flex-wrap">
+        <a href="/dashboard" class="bg-brand-navy text-white px-6 py-2.75 rounded-2 font-body text-sm font-semibold no-underline transition-opacity duration-150 hover:opacity-85">Go to Dashboard</a>
+        <a href="javascript:history.back()" class="bg-neutral-100 text-neutral-700 px-6 py-2.75 rounded-2 font-body text-sm font-medium no-underline transition-colors duration-150 hover:bg-neutral-200">Go back</a>
       </div>
     </div>
-    <p class="logo">100 Black Men of <span>London</span></p>
+    <p class="font-heading text-[13px] font-bold text-neutral-300 mt-8 tracking-[0.03em]">100 Black Men of <span class="text-brand-gold">London</span></p>
   </body>
 </html>

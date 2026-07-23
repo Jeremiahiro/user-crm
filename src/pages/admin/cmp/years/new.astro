@@ -35,17 +35,17 @@ if (Astro.request.method === 'POST') {
 ---
 
 <DashboardLayout title="New Programme Year">
-  <div style="max-width: 520px;">
+  <div class="max-w-130">
     <Breadcrumb crumbs={[{ label: 'CMP', href: '/admin/cmp' }, { label: 'New Year' }]} />
-    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">New Programme Year</h1>
+    <h1 class="font-heading text-[22px] font-bold text-brand-navy mb-6">New Programme Year</h1>
 
     {globalError && (
-      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+      <div class="bg-danger-50 border border-danger-200 rounded-md px-4 py-3 mb-5 font-body text-sm text-danger-700">
         {globalError}
       </div>
     )}
 
-    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+    <form method="POST" class="bg-white border border-neutral-200 rounded-lg p-8 flex flex-col gap-5">
       <Input
         label="Name *"
         name="name"
@@ -54,16 +54,16 @@ if (Astro.request.method === 'POST') {
         required
         placeholder="e.g. 2024–25 Cohort"
       />
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div class="grid grid-cols-2 gap-4">
         <Input label="Start date" name="start_date" type="date" value={values.start_date} error={errors.start_date} />
         <Input label="End date" name="end_date" type="date" value={values.end_date} error={errors.end_date} />
       </div>
 
-      <div style="display: flex; gap: 12px; padding-top: 8px;">
-        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="px-5 py-2.5 bg-brand-navy text-white border-0 rounded-md font-body text-sm font-semibold cursor-pointer">
           Create year
         </button>
-        <a href="/admin/cmp/years" style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+        <a href="/admin/cmp/years" class="px-5 py-2.5 bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">
           Cancel
         </a>
       </div>

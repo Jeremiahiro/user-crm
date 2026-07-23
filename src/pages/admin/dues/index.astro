@@ -14,7 +14,7 @@ let memberQuery = supabaseAdmin
   .from('people')
   .select('id, full_name, person_types, date_joined, person_teams(team_id)')
   .eq('is_archived', false)
-  .in('status', ['active', 'approved'])
+  .eq('status', 'active')
   .order('full_name')
 
 const { data: rawMembers } = await memberQuery
@@ -219,32 +219,32 @@ const initialStateJSON = JSON.stringify(initialStateObj)
 
   <div>
     <!-- Header -->
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+    <div class="flex items-center justify-between mb-6">
       <div>
-        <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Dues</h1>
-        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+        <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Dues</h1>
+        <p class="font-body text-sm text-neutral-500 m-0">
           {members.length} member{members.length !== 1 ? 's' : ''}{teamFilter ? ' (filtered)' : ''} — {year}
         </p>
       </div>
       <a href={`/admin/dues/export?year=${year}`}
-         style="display: inline-flex; align-items: center; gap: 6px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); padding: 8px 16px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; text-decoration: none; border: 1px solid var(--color-neutral-200); white-space: nowrap; align-self: flex-start;">
+         class="inline-flex items-center gap-1.5 bg-neutral-100 text-neutral-700 px-4 py-2 rounded-md font-body text-[13px] font-medium no-underline border border-neutral-200 whitespace-nowrap self-start">
         ↓ Export CSV
       </a>
     </div>
 
     <!-- Filters -->
-    <form method="GET" style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap;">
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em;">Year</label>
+    <form method="GET" class="flex gap-3 items-end mb-5 flex-wrap">
+      <div class="flex flex-col gap-1">
+        <label class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.06em]">Year</label>
         <select name="year"
-          style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+          class="px-3 py-2 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 bg-white">
           {yearOptions.map(y => <option value={y} selected={year === y}>{y}</option>)}
         </select>
       </div>
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label style="font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em;">Team</label>
+      <div class="flex flex-col gap-1">
+        <label class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.06em]">Team</label>
         <select name="team_id"
-          style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); background: white;">
+          class="px-3 py-2 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 bg-white">
           <option value="">All teams</option>
           {(teams ?? []).map((t: { id: string; name: string }) => (
             <option value={t.id} selected={teamFilter === t.id}>{t.name}</option>
@@ -252,69 +252,65 @@ const initialStateJSON = JSON.stringify(initialStateObj)
         </select>
       </div>
       <button type="submit"
-        style="padding: 8px 16px; background-color: var(--color-neutral-800); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer;">
+        class="px-4 py-2 bg-neutral-800 text-white border-none rounded-md font-body text-sm font-medium cursor-pointer">
         Apply
       </button>
     </form>
 
     <!-- Pending banner -->
     {totalPending > 0 && (
-      <div style="background: #fffbeb; border: 1px solid #fcd34d; border-radius: var(--radius-lg); padding: 12px 20px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px;">
-        <span style="font-size: 16px;">⏳</span>
-        <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: #92400e; margin: 0;">
+      <div class="bg-[#fffbeb] border border-[#fcd34d] rounded-lg px-5 py-3 mb-4 flex items-center gap-2.5">
+        <span class="text-base">⏳</span>
+        <p class="font-body text-sm font-semibold text-[#92400e] m-0">
           {totalPending} pending submission{totalPending !== 1 ? 's' : ''} — cells with an amber dot are awaiting approval. Check the box to approve, or leave unchecked to keep pending.
         </p>
       </div>
     )}
 
     <!-- Legend / filter bar -->
-    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap;">
-      <button type="button" id="pill-all" class="status-pill active" onclick="duesFilter('all')"
-        style="display:flex; align-items:center; gap:8px;">
-        <span style="font-family: var(--font-body); font-size: 12px;">All members</span>
+    <div class="flex gap-2 items-center mb-4 flex-wrap">
+      <button type="button" id="pill-all" class="status-pill active flex items-center gap-2" onclick="duesFilter('all')">
+        <span class="font-body text-xs">All members</span>
       </button>
 
-      <button type="button" id="pill-paid" class="status-pill" onclick="duesFilter('paid')"
-        style="display:flex; align-items:center; gap:8px;">
-        <div style="width:16px; height:16px; border-radius:3px; background:var(--color-success-600); flex-shrink:0;"></div>
-        <span style="font-family: var(--font-body); font-size: 12px;">Fully paid</span>
+      <button type="button" id="pill-paid" class="status-pill flex items-center gap-2" onclick="duesFilter('paid')">
+        <div class="w-4 h-4 rounded-0.75 bg-success-600 shrink-0"></div>
+        <span class="font-body text-xs">Fully paid</span>
       </button>
 
-      <button type="button" id="pill-pending" class="status-pill" onclick="duesFilter('pending')"
-        style="display:flex; align-items:center; gap:8px;">
-        <div style="position:relative; width:16px; height:16px; border-radius:3px; background:white; border:2px solid var(--color-neutral-300); flex-shrink:0;">
-          <div style="position:absolute; top:-3px; right:-3px; width:7px; height:7px; background:#f59e0b; border-radius:50%; border:1px solid white;"></div>
+      <button type="button" id="pill-pending" class="status-pill flex items-center gap-2" onclick="duesFilter('pending')">
+        <div class="relative w-4 h-4 rounded-0.75 bg-white border-2 border-neutral-300 shrink-0">
+          <div class="absolute top-[-3px] right-[-3px] w-1.75 h-1.75 bg-[#f59e0b] rounded-full border border-white"></div>
         </div>
-        <span style="font-family: var(--font-body); font-size: 12px;">Has pending</span>
+        <span class="font-body text-xs">Has pending</span>
       </button>
 
-      <button type="button" id="pill-behind" class="status-pill" onclick="duesFilter('behind')"
-        style="display:flex; align-items:center; gap:8px;">
-        <div style="width:16px; height:16px; border-radius:3px; background:white; border:2px solid var(--color-neutral-300); flex-shrink:0;"></div>
-        <span style="font-family: var(--font-body); font-size: 12px;">Behind</span>
+      <button type="button" id="pill-behind" class="status-pill flex items-center gap-2" onclick="duesFilter('behind')">
+        <div class="w-4 h-4 rounded-0.75 bg-white border-2 border-neutral-300 shrink-0"></div>
+        <span class="font-body text-xs">Behind</span>
       </button>
 
-      <div style="display:flex; align-items:center; gap:8px; padding: 6px 14px; margin-left: 8px; border-left: 1px solid var(--color-neutral-200);">
-        <div style="width:16px; height:16px; border-radius:3px; background:white; border:2px solid var(--color-neutral-200); opacity:0.4; flex-shrink:0;"></div>
-        <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400);">N/A = before join date</span>
+      <div class="flex items-center gap-2 py-1.5 px-3.5 ml-2 border-l border-neutral-200">
+        <div class="w-4 h-4 rounded-0.75 bg-white border-2 border-neutral-200 opacity-40 shrink-0"></div>
+        <span class="font-body text-xs text-neutral-400">N/A = before join date</span>
       </div>
     </div>
 
     <!-- Matrix table -->
     {members.length > 0 ? (
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: auto; margin-bottom: 80px;">
-        <table style="border-collapse: collapse; min-width: 940px; width: 100%;">
+      <div class="bg-white border border-neutral-200 rounded-lg overflow-auto mb-20">
+        <table class="border-collapse min-w-235 w-full">
           <thead>
-            <tr style="background-color: var(--color-neutral-50); border-bottom: 2px solid var(--color-neutral-200);">
-              <th class="sticky-col" style="padding: 12px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em; position: sticky; left: 0; background: var(--color-neutral-50); min-width: 200px; z-index: 2; border-right: 1px solid var(--color-neutral-200);">
+            <tr class="bg-neutral-50 border-b-2 border-neutral-200">
+              <th class="sticky-col px-4 py-3 text-left font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em] sticky left-0 bg-neutral-50 min-w-50 z-[2] border-r border-neutral-200">
                 Member
               </th>
               {months.map(m => (
-                <th style="padding: 10px 0; text-align: center; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.06em; width: 56px;">
+                <th class="py-2.5 px-0 text-center font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.06em] w-14">
                   {m}
                 </th>
               ))}
-              <th style="padding: 10px 16px; text-align: center; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap;">
+              <th class="px-4 py-2.5 text-center font-body text-[11px] font-semibold text-neutral-600 uppercase tracking-[0.08em] whitespace-nowrap">
                 Paid / Due
               </th>
             </tr>
@@ -335,10 +331,10 @@ const initialStateJSON = JSON.stringify(initialStateObj)
                 <tr
                   data-compliance={complianceBucket}
                   data-has-pending={hasPending ? 'true' : 'false'}
-                  style="border-top: 1px solid var(--color-neutral-100);">
-                  <td class="sticky-col" style="padding: 10px 16px; position: sticky; left: 0; background: white; z-index: 1; border-right: 1px solid var(--color-neutral-100);">
+                  class="border-t border-neutral-100">
+                  <td class="sticky-col px-4 py-2.5 sticky left-0 bg-white z-[1] border-r border-neutral-100">
                     <a href={`/admin/members/${member.id}?tab=dues`}
-                       style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none;">
+                       class="font-body text-[13px] font-semibold text-brand-navy no-underline">
                       {member.full_name}
                     </a>
                   </td>
@@ -354,7 +350,7 @@ const initialStateJSON = JSON.stringify(initialStateObj)
                     const isFuture = year === currentYear && month > new Date().getMonth() + 1
 
                     return (
-                      <td style="padding: 8px 0; text-align: center; vertical-align: middle;">
+                      <td class="py-2 px-0 text-center align-middle">
                         <div class="cell-wrap">
                           <input
                             type="checkbox"
@@ -378,7 +374,7 @@ const initialStateJSON = JSON.stringify(initialStateObj)
                       </td>
                     )
                   })}
-                  <td style="padding: 10px 16px; text-align: center;">
+                  <td class="px-4 py-2.5 text-center">
                     <Badge variant={complianceVariant(paid, expected)}>
                       {paid}/{expected}
                     </Badge>
@@ -390,8 +386,8 @@ const initialStateJSON = JSON.stringify(initialStateObj)
         </table>
       </div>
     ) : (
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 48px; text-align: center;">
-        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+      <div class="bg-white border border-neutral-200 rounded-lg p-12 text-center">
+        <p class="font-body text-sm text-neutral-500 m-0">
           No active members found{teamFilter ? ' for this team' : ''}.
         </p>
       </div>
@@ -400,14 +396,14 @@ const initialStateJSON = JSON.stringify(initialStateObj)
 
   <!-- Floating save bar -->
   <div id="save-bar">
-    <p id="save-label" style="font-family: var(--font-body); font-size: 14px; margin: 0;"></p>
-    <div style="display: flex; gap: 10px;">
+    <p id="save-label" class="font-body text-sm m-0"></p>
+    <div class="flex gap-2.5">
       <button id="btn-discard"
-        style="padding: 8px 20px; background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; cursor: pointer;">
+        class="px-5 py-2 bg-[rgba(255,255,255,0.15)] text-white border border-[rgba(255,255,255,0.3)] rounded-md font-body text-sm font-medium cursor-pointer">
         Discard
       </button>
       <button id="btn-save"
-        style="padding: 8px 24px; background: white; color: var(--color-brand-navy); border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 700; cursor: pointer;">
+        class="py-2 px-6 bg-white text-brand-navy border-none rounded-md font-body text-sm font-bold cursor-pointer">
         Save changes
       </button>
     </div>

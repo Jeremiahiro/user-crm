@@ -101,56 +101,83 @@ const saved = Astro.url.searchParams.get('saved') === '1'
 ---
 
 <DashboardLayout title={position.title as string}>
-  <div id="pos-root" data-pos-id={id} data-pos-title={position.title as string} style="max-width: 720px;">
+  <div id="pos-root" data-pos-id={id} data-pos-title={position.title as string}
+    x-data="{
+      modalOpen: false,
+      posId: '',
+      posTitle: '',
+      loading: false,
+      error: '',
+      init() {
+        this.posId = this.$el.dataset.posId;
+        this.posTitle = this.$el.dataset.posTitle;
+      },
+      openModal() {
+        this.modalOpen = true;
+        this.error = '';
+      },
+      async doAction() {
+        this.loading = true;
+        var res = await fetch('/api/positions/' + this.posId, { method: 'DELETE' });
+        if (res.ok) {
+          window.location.href = '/admin/positions';
+        } else {
+          var e = await res.json();
+          this.error = e.error || 'Failed to delete';
+          this.loading = false;
+        }
+      }
+    }"
+    class="max-w-180">
     <Breadcrumb crumbs={[{ label: 'Positions', href: '/admin/positions' }, { label: position.title as string }]} />
 
     <!-- Header -->
-    <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; gap: 16px;">
+    <div class="flex items-start justify-between mb-7 gap-4">
       <div>
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+        <div class="flex items-center gap-2.5 mb-1">
           {(position.order_of_precedence as number | null) && (
-            <span style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--color-brand-navy); color: white; font-family: var(--font-heading); font-size: 14px; font-weight: 700; flex-shrink: 0;">
+            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-brand-navy text-white font-heading text-sm font-bold shrink-0">
               {position.order_of_precedence}
             </span>
           )}
-          <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">
+          <h1 class="font-heading text-2xl font-bold text-brand-navy m-0">
             {position.title}
           </h1>
         </div>
         {(position.description as string | null) && (
-          <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">{position.description}</p>
+          <p class="font-body text-sm text-neutral-500 m-0">{position.description}</p>
         )}
       </div>
       <a href={`/admin/positions/${id}/assign`}
-         style="flex-shrink: 0; padding: 8px 16px; background-color: var(--color-brand-gold); color: var(--color-brand-navy); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap;">
+         class="shrink-0 px-4 py-2 bg-brand-gold text-brand-navy rounded-md font-body text-[13px] font-semibold no-underline whitespace-nowrap">
         Assign holder
       </a>
     </div>
 
     <!-- Saved banner -->
     {saved && (
-      <div style="background-color: #f0fdf4; border: 1px solid #86efac; border-radius: var(--radius-md); padding: 10px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: #166534;">
+      <div class="bg-[#f0fdf4] border border-[#86efac] rounded-md px-4 py-2.5 mb-5 font-body text-sm text-[#166534]">
         Changes saved.
       </div>
     )}
 
     <!-- Current holder -->
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 20px;">
-      <h2 style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 14px;">Current holder</h2>
+    <div class="bg-white border border-neutral-200 rounded-lg px-6 py-5 mb-5">
+      <h2 class="font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mt-0 mb-3.5">Current holder</h2>
       {currentHolder ? (
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--color-brand-gold); color: var(--color-brand-navy); display: flex; align-items: center; justify-content: center; font-family: var(--font-body); font-size: 14px; font-weight: 700; flex-shrink: 0; overflow: hidden;">
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div class="w-11 h-11 rounded-full bg-brand-gold text-brand-navy flex items-center justify-center font-body text-sm font-bold shrink-0 overflow-hidden">
               {currentHolder.profile_photo_url
-                ? <img src={currentHolder.profile_photo_url} alt={currentHolder.full_name} width={44} height={44} style="width:100%;height:100%;object-fit:cover;" />
+                ? <img src={currentHolder.profile_photo_url} alt={currentHolder.full_name} width={44} height={44} class="w-full h-full object-cover" />
                 : getInitials(currentHolder.full_name)}
             </div>
             <div>
               <a href={`/admin/members/${currentHolder.id}`}
-                 style="font-family: var(--font-body); font-size: 15px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none; display: block;">
+                 class="font-body text-[15px] font-semibold text-brand-navy no-underline block">
                 {currentHolder.full_name}
               </a>
-              <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 2px 0 0;">
+              <p class="font-body text-xs text-neutral-500 mt-0.5 mb-0">
                 Since {fmtDate(activeTenure!.term_start)}
               </p>
             </div>
@@ -158,25 +185,25 @@ const saved = Astro.url.searchParams.get('saved') === '1'
           <Badge variant="success">Current</Badge>
         </div>
       ) : (
-        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">
-          Vacant — <a href={`/admin/positions/${id}/assign`} style="color: var(--color-brand-navy);">assign a holder →</a>
+        <p class="font-body text-sm text-neutral-400 m-0">
+          Vacant — <a href={`/admin/positions/${id}/assign`} class="text-brand-navy">assign a holder →</a>
         </p>
       )}
     </div>
 
     <!-- Edit form -->
     {admin && (
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px;">
-        <h2 style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px;">Edit position</h2>
+      <div class="bg-white border border-neutral-200 rounded-lg p-6 mb-5">
+        <h2 class="font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mt-0 mb-4">Edit position</h2>
 
         {editGlobalError && (
-          <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 10px 14px; margin-bottom: 16px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+          <div class="bg-danger-50 border border-danger-200 rounded-md px-3.5 py-2.5 mb-4 font-body text-sm text-danger-700">
             {editGlobalError}
           </div>
         )}
 
-        <form method="POST" style="display: flex; flex-direction: column; gap: 16px;">
-          <div style="display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: end;">
+        <form method="POST" class="flex flex-col gap-4">
+          <div class="grid grid-cols-[1fr_auto] gap-4 items-end">
             <Input
               label="Title *"
               name="title"
@@ -184,26 +211,26 @@ const saved = Astro.url.searchParams.get('saved') === '1'
               error={editErrors.title}
               required
             />
-            <div style="display: flex; flex-direction: column; gap: 4px; width: 100px;">
-              <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Order</label>
+            <div class="flex flex-col gap-1 w-25">
+              <label class="font-body text-[13px] font-medium text-neutral-700">Order</label>
               <input
                 type="number"
                 name="order_of_precedence"
                 value={(position.order_of_precedence as number | null) ?? ''}
                 min="1"
                 placeholder="—"
-                style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); width: 100%; box-sizing: border-box;"
+                class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 w-full box-border"
               />
             </div>
           </div>
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Description</label>
+          <div class="flex flex-col gap-1">
+            <label class="font-body text-[13px] font-medium text-neutral-700">Description</label>
             <textarea name="description" rows={2} placeholder="Optional — describe this position's responsibilities…"
-              style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; resize: vertical;">{(position.description as string | null) ?? ''}</textarea>
+              class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm resize-y">{(position.description as string | null) ?? ''}</textarea>
           </div>
           <div>
             <button type="submit"
-              style="padding: 8px 18px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+              class="px-4.5 py-2 bg-brand-navy text-white border-none rounded-md font-body text-[13px] font-semibold cursor-pointer">
               Save changes
             </button>
           </div>
@@ -212,47 +239,47 @@ const saved = Astro.url.searchParams.get('saved') === '1'
     )}
 
     <!-- Tenure history -->
-    <div style="margin-bottom: 20px;">
-      <h2 style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px;">Tenure history</h2>
+    <div class="mb-5">
+      <h2 class="font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mt-0 mb-3">Tenure history</h2>
 
       {tenures.length > 0 ? (
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
-          <table style="width: 100%; border-collapse: collapse;">
+        <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+          <table class="w-full border-collapse">
             <thead>
-              <tr style="background-color: var(--color-neutral-50);">
-                <th style="padding: 10px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em;">Member</th>
-                <th style="padding: 10px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em;">From</th>
-                <th style="padding: 10px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em;">To</th>
-                <th style="padding: 10px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em;">Elected by</th>
+              <tr class="bg-neutral-50">
+                <th class="px-4 py-2.5 text-left font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.06em]">Member</th>
+                <th class="px-4 py-2.5 text-left font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.06em]">From</th>
+                <th class="px-4 py-2.5 text-left font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.06em]">To</th>
+                <th class="px-4 py-2.5 text-left font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.06em]">Elected by</th>
               </tr>
             </thead>
             <tbody>
               {tenures.map((t, i) => {
                 const person = peopleMap.get(t.person_id)
                 return (
-                  <tr style={`border-top: ${i > 0 ? '1px solid var(--color-neutral-100)' : 'none'}; ${!t.term_end ? 'background: var(--color-neutral-50);' : ''}`}>
-                    <td style="padding: 12px 16px;">
+                  <tr class={`${i > 0 ? 'border-t border-neutral-100' : ''} ${!t.term_end ? 'bg-neutral-50' : ''}`}>
+                    <td class="px-4 py-3">
                       {person ? (
-                        <div style="display: flex; align-items: center; gap: 8px;">
+                        <div class="flex items-center gap-2">
                           <a href={`/admin/members/${person.id}`}
-                             style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none;">
+                             class="font-body text-sm font-medium text-brand-navy no-underline">
                             {person.full_name}
                           </a>
                           {!t.term_end && <Badge variant="success">Current</Badge>}
                         </div>
                       ) : (
-                        <span style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400);">Unknown</span>
+                        <span class="font-body text-sm text-neutral-400">Unknown</span>
                       )}
                     </td>
-                    <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">{fmtDate(t.term_start)}</td>
-                    <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500);">{fmtDate(t.term_end)}</td>
-                    <td style="padding: 12px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">{(t.elected_by ?? '').replace(/_/g, ' ') || '—'}</td>
+                    <td class="px-4 py-3 font-body text-[13px] text-neutral-700">{fmtDate(t.term_start)}</td>
+                    <td class="px-4 py-3 font-body text-[13px] text-neutral-500">{fmtDate(t.term_end)}</td>
+                    <td class="px-4 py-3 font-body text-[13px] text-neutral-600">{(t.elected_by ?? '').replace(/_/g, ' ') || '—'}</td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
-          <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); padding: 10px 16px; margin: 0; border-top: 1px solid var(--color-neutral-100);">
+          <p class="font-body text-xs text-neutral-400 px-4 py-2.5 m-0 border-t border-neutral-100">
             Tenure records are permanent and cannot be deleted.
           </p>
         </div>
@@ -263,49 +290,48 @@ const saved = Astro.url.searchParams.get('saved') === '1'
 
     <!-- Danger zone -->
     {admin && (
-      <div style="border: 1px solid var(--color-danger-200); border-radius: var(--radius-lg); overflow: hidden;">
-        <div style="background: var(--color-danger-50); padding: 12px 20px; border-bottom: 1px solid var(--color-danger-200);">
-          <h2 style="font-family: var(--font-heading); font-size: 12px; font-weight: 600; color: var(--color-danger-700); margin: 0; text-transform: uppercase; letter-spacing: 0.06em;">Danger zone</h2>
+      <div class="border border-danger-200 rounded-lg overflow-hidden">
+        <div class="bg-danger-50 px-5 py-3 border-b border-danger-200">
+          <h2 class="font-heading text-xs font-semibold text-danger-700 m-0 uppercase tracking-[0.06em]">Danger zone</h2>
         </div>
-        <div style="background: white; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px;">
+        <div class="bg-white px-6 py-4.5 flex items-center justify-between gap-6">
           <div>
-            <p style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-neutral-800); margin: 0 0 2px;">Delete this position</p>
-            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0;">
+            <p class="font-body text-sm font-semibold text-neutral-800 m-0 mb-0.5">Delete this position</p>
+            <p class="font-body text-[13px] text-neutral-500 m-0">
               {canDelete
                 ? 'Permanently removes this position. Cannot be undone.'
                 : `Has ${totalTenures} tenure record${(totalTenures ?? 0) !== 1 ? 's' : ''} — cannot delete.`}
             </p>
           </div>
-          <button id="delete-pos-btn" disabled={!canDelete}
-            style={`flex-shrink: 0; padding: 8px 16px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; border: none; cursor: ${canDelete ? 'pointer' : 'not-allowed'};
-              background: ${canDelete ? 'var(--color-danger-600)' : 'var(--color-neutral-100)'};
-              color: ${canDelete ? 'white' : 'var(--color-neutral-400)'};`}>
+          <button
+            disabled={!canDelete}
+            @click="openModal()"
+            class={`shrink-0 px-4 py-2 rounded-md font-body text-[13px] font-semibold border-none ${canDelete ? 'cursor-pointer bg-danger-600 text-white' : 'cursor-not-allowed bg-neutral-100 text-neutral-400'}`}>
             Delete
           </button>
         </div>
       </div>
     )}
+
+    <!-- Confirmation Modal -->
+    <div x-show="modalOpen" @click.self="modalOpen = false" @keydown.escape.window="modalOpen = false"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(0,0,0,0.45)]">
+      <div class="bg-white rounded-lg px-8 py-7 max-w-105 w-[90%] shadow-[0_25px_50px_rgba(0,0,0,0.2)]">
+        <h3 class="font-heading text-[17px] font-bold text-brand-navy mt-0 mb-2.5">Delete position</h3>
+        <p class="font-body text-sm text-neutral-700 mt-0 mb-5 leading-[1.55]">
+          Permanently removes this position. This cannot be undone.
+        </p>
+        <p x-show="error" x-text="error" class="font-body text-[13px] text-danger-600 mt-0 mb-3.5"></p>
+        <div class="flex gap-2.5 justify-end">
+          <button @click="modalOpen = false" :disabled="loading"
+            class="px-4.5 py-2 bg-neutral-100 border border-neutral-200 rounded-md font-body text-sm font-medium cursor-pointer text-neutral-700">
+            Cancel
+          </button>
+          <button @click="doAction()" :disabled="loading" x-text="loading ? 'Deleting...' : 'Delete'"
+            class="px-4.5 py-2 bg-danger-600 text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
-
-  <script is:inline>
-    (function () {
-      var root = document.getElementById('pos-root')
-      var posId = root ? root.dataset.posId : ''
-      var posTitle = root ? root.dataset.posTitle : ''
-
-      var deleteBtn = document.getElementById('delete-pos-btn')
-      if (deleteBtn && !deleteBtn.disabled) {
-        deleteBtn.addEventListener('click', function () {
-          if (!confirm('Delete "' + posTitle + '"? This cannot be undone.')) return
-          deleteBtn.disabled = true
-          deleteBtn.textContent = 'Deleting…'
-          fetch('/api/positions/' + posId, { method: 'DELETE' })
-            .then(function (r) {
-              if (r.ok) { window.location.href = '/admin/positions' }
-              else { r.json().then(function (e) { alert(e.error || 'Failed to delete'); deleteBtn.disabled = false; deleteBtn.textContent = 'Delete' }) }
-            })
-        })
-      }
-    })()
-  </script>
 </DashboardLayout>

@@ -135,205 +135,239 @@ function pageUrl(param: string, p: number) {
 ---
 
 <DashboardLayout title={admin ? 'Praise Feed' : 'My Praise'}>
+  <div x-data="{
+    modalOpen: false,
+    itemId: '',
+    message: 'Archive this praise message? It will be hidden from the feed.',
+    loading: false,
+    error: '',
+    openModal(praiseId) {
+      this.itemId = praiseId;
+      this.modalOpen = true;
+      this.error = '';
+    },
+    async doAction() {
+      this.loading = true;
+      var res = await fetch('/api/praise/' + this.itemId, { method: 'DELETE' });
+      if (res.ok) {
+        var card = document.querySelector('[data-praise-id=\'' + this.itemId + '\']');
+        if (card) card.remove();
+        this.modalOpen = false;
+        this.loading = false;
+      } else {
+        this.error = 'Failed to archive.';
+        this.loading = false;
+      }
+    }
+  }">
 
-  <!-- Header -->
-  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
-    <div>
-      <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">
-        {admin ? 'Praise Feed' : 'My Praise'}
-      </h1>
-      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
-        {admin
-          ? `${feedCount} message${feedCount !== 1 ? 's' : ''}${selectedYear ? ` in ${selectedYear}` : ''}`
-          : `${receivedCount} received · ${givenCount} given${selectedYear ? ` in ${selectedYear}` : ''}`}
-      </p>
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+      <div>
+        <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">
+          {admin ? 'Praise Feed' : 'My Praise'}
+        </h1>
+        <p class="font-body text-sm text-neutral-500 m-0">
+          {admin
+            ? `${feedCount} message${feedCount !== 1 ? 's' : ''}${selectedYear ? ` in ${selectedYear}` : ''}`
+            : `${receivedCount} received · ${givenCount} given${selectedYear ? ` in ${selectedYear}` : ''}`}
+        </p>
+      </div>
+      {canGivePraise && (
+        <a href="/admin/praise/new"
+          class="py-2.5 px-4.5 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
+          + Give praise
+        </a>
+      )}
     </div>
-    {canGivePraise && (
-      <a href="/admin/praise/new"
-        style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
-        + Give praise
-      </a>
+
+    <!-- Year filter -->
+    {availableYears.length > 0 && (
+      <div class="mb-5">
+        <select onchange={`window.location.href='/admin/praise?year='+this.value`}
+          class="py-1.75 px-3 border border-neutral-300 rounded-md font-body text-sm bg-white text-neutral-700 cursor-pointer min-w-30">
+          <option value="all" selected={!selectedYear}>All years</option>
+          {availableYears.map(y => <option value={String(y)} selected={y === selectedYear}>{y}</option>)}
+        </select>
+      </div>
     )}
-  </div>
 
-  <!-- Year filter -->
-  {availableYears.length > 0 && (
-    <div style="margin-bottom: 20px;">
-      <select onchange={`window.location.href='/admin/praise?year='+this.value`}
-        style="padding: 7px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white; color: var(--color-neutral-700); cursor: pointer; min-width: 120px;">
-        <option value="all" selected={!selectedYear}>All years</option>
-        {availableYears.map(y => <option value={String(y)} selected={y === selectedYear}>{y}</option>)}
-      </select>
-    </div>
-  )}
-
-  <!-- ── Admin: single feed ─────────────────────────────────────────────── -->
-  {admin && (
-    <>
-      {feedRows.length === 0 ? (
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 48px; text-align: center;">
-          <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0 0 16px;">
-            No praise{selectedYear ? ` in ${selectedYear}` : ' yet'}.
-          </p>
-          <a href="/admin/praise/new"
-            style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
-            Give praise
-          </a>
-        </div>
-      ) : (
-        <>
-          <div style="display: flex; flex-direction: column; gap: 12px;">
-            {feedRows.map(p => {
-              const giverName     = p.given_by     ? (peopleMap.get(p.given_by)     ?? 'Admin') : 'Admin'
-              const recipientName = p.recipient_id ? (peopleMap.get(p.recipient_id) ?? 'Unknown') : 'Unknown'
-              return (
-                <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
-                  <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                      <span style="font-size: 18px;">⭐</span>
-                      <div>
-                        <p style="font-family: var(--font-body); font-size: 14px; margin: 0;">
-                          <strong style="color: var(--color-brand-navy);">{giverName}</strong>
-                          <span style="color: var(--color-neutral-500);"> praised </span>
-                          {p.recipient_id
-                            ? <a href={`/admin/members/${p.recipient_id}`} style="font-weight: 600; color: var(--color-brand-navy); text-decoration: none;">{recipientName}</a>
-                            : <strong>someone</strong>}
-                        </p>
-                        <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 2px 0 0;">{timeAgo(p.created_at)}</p>
-                      </div>
-                    </div>
-                    <button onclick={`archivePraise('${p.id}')`}
-                      style="padding: 4px 10px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); cursor: pointer;">
-                      Archive
-                    </button>
-                  </div>
-                  <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700); margin: 0; line-height: 1.6; border-left: 3px solid var(--color-brand-gold); padding-left: 12px;">{p.message}</p>
-                </div>
-              )
-            })}
+    <!-- ── Admin: single feed ─────────────────────────────────────────────── -->
+    {admin && (
+      <>
+        {feedRows.length === 0 ? (
+          <div class="bg-white border border-neutral-200 rounded-lg p-12 text-center">
+            <p class="font-body text-sm text-neutral-400 mb-4">
+              No praise{selectedYear ? ` in ${selectedYear}` : ' yet'}.
+            </p>
+            <a href="/admin/praise/new"
+              class="py-2.5 px-4.5 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
+              Give praise
+            </a>
           </div>
-          {feedTotalPages > 1 && (
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 20px;">
-              <span style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500);">Page {currentFeedPage} of {feedTotalPages}</span>
-              <div style="display: flex; gap: 6px;">
-                {currentFeedPage > 1 && <a href={pageUrl('fp', currentFeedPage - 1)} style="padding: 6px 14px; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); text-decoration: none;">← Prev</a>}
-                {currentFeedPage < feedTotalPages && <a href={pageUrl('fp', currentFeedPage + 1)} style="padding: 6px 14px; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); text-decoration: none;">Next →</a>}
+        ) : (
+          <>
+            <div class="flex flex-col gap-3">
+              {feedRows.map(p => {
+                const giverName     = p.given_by     ? (peopleMap.get(p.given_by)     ?? 'Admin') : 'Admin'
+                const recipientName = p.recipient_id ? (peopleMap.get(p.recipient_id) ?? 'Unknown') : 'Unknown'
+                return (
+                  <div data-praise-id={p.id} class="bg-white border border-neutral-200 rounded-lg py-5 px-6">
+                    <div class="flex items-start justify-between mb-2.5">
+                      <div class="flex items-center gap-2.5">
+                        <span class="text-lg">⭐</span>
+                        <div>
+                          <p class="font-body text-sm m-0">
+                            <strong class="text-brand-navy">{giverName}</strong>
+                            <span class="text-neutral-500"> praised </span>
+                            {p.recipient_id
+                              ? <a href={`/admin/members/${p.recipient_id}`} class="font-semibold text-brand-navy no-underline">{recipientName}</a>
+                              : <strong>someone</strong>}
+                          </p>
+                          <p class="font-body text-xs text-neutral-400 mt-0.5">{timeAgo(p.created_at)}</p>
+                        </div>
+                      </div>
+                      <button @click={`openModal('${p.id}')`}
+                        class="py-1 px-2.5 bg-neutral-100 border border-neutral-200 rounded-md font-body text-xs text-neutral-500 cursor-pointer">
+                        Archive
+                      </button>
+                    </div>
+                    <p class="font-body text-sm text-neutral-700 m-0 leading-[1.6] border-l-0.75 border-brand-gold pl-3">{p.message}</p>
+                  </div>
+                )
+              })}
+            </div>
+            {feedTotalPages > 1 && (
+              <div class="flex items-center justify-between mt-5">
+                <span class="font-body text-[13px] text-neutral-500">Page {currentFeedPage} of {feedTotalPages}</span>
+                <div class="flex gap-1.5">
+                  {currentFeedPage > 1 && <a href={pageUrl('fp', currentFeedPage - 1)} class="py-1.5 px-3.5 bg-white border border-neutral-200 rounded-md font-body text-[13px] text-neutral-700 no-underline">← Prev</a>}
+                  {currentFeedPage < feedTotalPages && <a href={pageUrl('fp', currentFeedPage + 1)} class="py-1.5 px-3.5 bg-white border border-neutral-200 rounded-md font-body text-[13px] text-neutral-700 no-underline">Next →</a>}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </>
+    )}
+
+    <!-- ── Member: side-by-side received / given ─────────────────────────── -->
+    {!admin && (
+      <div class="grid grid-cols-2 gap-5 items-start">
+
+        <!-- Received -->
+        <div>
+          <h2 class="font-heading text-sm font-bold text-neutral-600 uppercase tracking-[0.06em] mb-3">
+            ⭐ Received <span class="font-normal text-xs text-neutral-400 normal-case tracking-[0]">({receivedCount})</span>
+          </h2>
+          {receivedRows.length === 0 ? (
+            <div class="bg-neutral-50 border border-dashed border-neutral-200 rounded-lg py-8 px-4 text-center">
+              <p class="font-body text-[13px] text-neutral-400 m-0">
+                {selectedYear ? `No praise received in ${selectedYear}` : "You haven't received any praise yet"}
+              </p>
+            </div>
+          ) : (
+            <div class="flex flex-col gap-2.5">
+              {receivedRows.map(p => {
+                const giverName = p.given_by ? (peopleMap.get(p.given_by) ?? 'Admin') : 'Admin'
+                return (
+                  <div class="bg-white border border-neutral-200 rounded-lg py-3.5 px-4">
+                    <div class="flex items-center gap-1.5 mb-1.5">
+                      <span class="text-base">⭐</span>
+                      <span class="font-body text-[13px] font-semibold text-brand-navy">{giverName}</span>
+                      <span class="font-body text-[11px] text-neutral-400">· {timeAgo(p.created_at)}</span>
+                    </div>
+                    <p class="font-body text-[13px] text-neutral-700 m-0 leading-[1.6] border-l-0.75 border-brand-gold pl-2.5">{p.message}</p>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {receivedTotalPages > 1 && (
+            <div class="flex items-center justify-between mt-2.5">
+              <span class="font-body text-xs text-neutral-400">{recvPage}/{receivedTotalPages}</span>
+              <div class="flex gap-1">
+                {recvPage > 1 && <a href={pageUrl('rp', recvPage - 1)} class="py-1 px-2.5 border border-neutral-200 rounded-md text-xs font-body text-neutral-600 no-underline">←</a>}
+                {recvPage < receivedTotalPages && <a href={pageUrl('rp', recvPage + 1)} class="py-1 px-2.5 border border-neutral-200 rounded-md text-xs font-body text-neutral-600 no-underline">→</a>}
               </div>
             </div>
           )}
-        </>
-      )}
-    </>
-  )}
+        </div>
 
-  <!-- ── Member: side-by-side received / given ─────────────────────────── -->
-  {!admin && (
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
-
-      <!-- Received -->
-      <div>
-        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 12px;">
-          ⭐ Received <span style="font-weight: 400; font-size: 12px; color: var(--color-neutral-400); text-transform: none; letter-spacing: 0;">({receivedCount})</span>
-        </h2>
-        {receivedRows.length === 0 ? (
-          <div style="background: var(--color-neutral-50); border: 1px dashed var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px 16px; text-align: center;">
-            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">
-              {selectedYear ? `No praise received in ${selectedYear}` : "You haven't received any praise yet"}
-            </p>
-          </div>
-        ) : (
-          <div style="display: flex; flex-direction: column; gap: 10px;">
-            {receivedRows.map(p => {
-              const giverName = p.given_by ? (peopleMap.get(p.given_by) ?? 'Admin') : 'Admin'
-              return (
-                <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 14px 16px;">
-                  <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
-                    <span style="font-size: 16px;">⭐</span>
-                    <span style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-brand-navy);">{giverName}</span>
-                    <span style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400);">· {timeAgo(p.created_at)}</span>
-                  </div>
-                  <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); margin: 0; line-height: 1.6; border-left: 3px solid var(--color-brand-gold); padding-left: 10px;">{p.message}</p>
-                </div>
-              )
-            })}
-          </div>
-        )}
-        {receivedTotalPages > 1 && (
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;">
-            <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400);">{recvPage}/{receivedTotalPages}</span>
-            <div style="display: flex; gap: 4px;">
-              {recvPage > 1 && <a href={pageUrl('rp', recvPage - 1)} style="padding: 4px 10px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-size: 12px; font-family: var(--font-body); color: var(--color-neutral-600); text-decoration: none;">←</a>}
-              {recvPage < receivedTotalPages && <a href={pageUrl('rp', recvPage + 1)} style="padding: 4px 10px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-size: 12px; font-family: var(--font-body); color: var(--color-neutral-600); text-decoration: none;">→</a>}
+        <!-- Given -->
+        <div>
+          <h2 class="font-heading text-sm font-bold text-neutral-600 uppercase tracking-[0.06em] mb-3">
+            👏 Given <span class="font-normal text-xs text-neutral-400 normal-case tracking-[0]">({givenCount})</span>
+          </h2>
+          {givenRows.length === 0 ? (
+            <div class="bg-neutral-50 border border-dashed border-neutral-200 rounded-lg py-8 px-4 text-center">
+              <p class="font-body text-[13px] text-neutral-400 m-0">
+                {selectedYear ? `No praise given in ${selectedYear}` : "You haven't given any praise yet"}
+              </p>
+              {canGivePraise && (
+                <a href="/admin/praise/new"
+                  class="inline-block mt-2.5 py-1.5 px-3.5 bg-brand-navy text-white rounded-md font-body text-xs font-semibold no-underline">
+                  Give praise
+                </a>
+              )}
             </div>
-          </div>
-        )}
-      </div>
-
-      <!-- Given -->
-      <div>
-        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-600); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 12px;">
-          👏 Given <span style="font-weight: 400; font-size: 12px; color: var(--color-neutral-400); text-transform: none; letter-spacing: 0;">({givenCount})</span>
-        </h2>
-        {givenRows.length === 0 ? (
-          <div style="background: var(--color-neutral-50); border: 1px dashed var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px 16px; text-align: center;">
-            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">
-              {selectedYear ? `No praise given in ${selectedYear}` : "You haven't given any praise yet"}
-            </p>
-            {canGivePraise && (
-              <a href="/admin/praise/new"
-                style="display: inline-block; margin-top: 10px; padding: 6px 14px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; font-weight: 600; text-decoration: none;">
-                Give praise
-              </a>
-            )}
-          </div>
-        ) : (
-          <div style="display: flex; flex-direction: column; gap: 10px;">
-            {givenRows.map(p => {
-              const recipientName = p.recipient_id ? (peopleMap.get(p.recipient_id) ?? 'Someone') : 'Someone'
-              return (
-                <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 14px 16px;">
-                  <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
-                    <span style="font-size: 16px;">👏</span>
-                    <span style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-brand-navy);">
-                      {recipientName}
-                    </span>
-                    <span style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400);">· {timeAgo(p.created_at)}</span>
+          ) : (
+            <div class="flex flex-col gap-2.5">
+              {givenRows.map(p => {
+                const recipientName = p.recipient_id ? (peopleMap.get(p.recipient_id) ?? 'Someone') : 'Someone'
+                return (
+                  <div class="bg-white border border-neutral-200 rounded-lg py-3.5 px-4">
+                    <div class="flex items-center gap-1.5 mb-1.5">
+                      <span class="text-base">👏</span>
+                      <span class="font-body text-[13px] font-semibold text-brand-navy">
+                        {recipientName}
+                      </span>
+                      <span class="font-body text-[11px] text-neutral-400">· {timeAgo(p.created_at)}</span>
+                    </div>
+                    <p class="font-body text-[13px] text-neutral-700 m-0 leading-[1.6] border-l-0.75 border-neutral-200 pl-2.5">{p.message}</p>
                   </div>
-                  <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); margin: 0; line-height: 1.6; border-left: 3px solid var(--color-neutral-200); padding-left: 10px;">{p.message}</p>
-                </div>
-              )
-            })}
-          </div>
-        )}
-        {givenTotalPages > 1 && (
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;">
-            <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400);">{givenPage}/{givenTotalPages}</span>
-            <div style="display: flex; gap: 4px;">
-              {givenPage > 1 && <a href={pageUrl('gp', givenPage - 1)} style="padding: 4px 10px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-size: 12px; font-family: var(--font-body); color: var(--color-neutral-600); text-decoration: none;">←</a>}
-              {givenPage < givenTotalPages && <a href={pageUrl('gp', givenPage + 1)} style="padding: 4px 10px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-size: 12px; font-family: var(--font-body); color: var(--color-neutral-600); text-decoration: none;">→</a>}
+                )
+              })}
             </div>
-          </div>
-        )}
+          )}
+          {givenTotalPages > 1 && (
+            <div class="flex items-center justify-between mt-2.5">
+              <span class="font-body text-xs text-neutral-400">{givenPage}/{givenTotalPages}</span>
+              <div class="flex gap-1">
+                {givenPage > 1 && <a href={pageUrl('gp', givenPage - 1)} class="py-1 px-2.5 border border-neutral-200 rounded-md text-xs font-body text-neutral-600 no-underline">←</a>}
+                {givenPage < givenTotalPages && <a href={pageUrl('gp', givenPage + 1)} class="py-1 px-2.5 border border-neutral-200 rounded-md text-xs font-body text-neutral-600 no-underline">→</a>}
+              </div>
+            </div>
+          )}
+        </div>
+
       </div>
+    )}
 
+    <!-- ── No person_id fallback ─────────────────────────────────────────── -->
+    {!admin && !personId && (
+      <div class="bg-white border border-neutral-200 rounded-lg p-12 text-center">
+        <p class="font-body text-sm text-neutral-400 m-0">Your account isn't linked to a member profile yet. Please contact an admin.</p>
+      </div>
+    )}
+
+    <!-- Confirmation Modal -->
+    <div x-show="modalOpen" @click.self="modalOpen = false" @keydown.escape.window="modalOpen = false"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/45">
+      <div class="bg-white rounded-lg py-7 px-8 max-w-105 w-[90%] shadow-[0_25px_50px_rgba(0,0,0,0.2)]">
+        <h3 class="font-heading text-[17px] font-bold text-brand-navy mb-2.5">Archive praise</h3>
+        <p x-text="message" class="font-body text-sm text-neutral-700 mb-5 leading-[1.55]"></p>
+        <p x-show="error" x-text="error" class="font-body text-[13px] text-danger-600 mb-3.5"></p>
+        <div class="flex gap-2.5 justify-end">
+          <button @click="modalOpen = false" :disabled="loading"
+            class="py-2 px-4.5 bg-neutral-100 border border-neutral-200 rounded-md font-body text-sm font-medium cursor-pointer text-neutral-700">
+            Cancel
+          </button>
+          <button @click="doAction()" :disabled="loading" x-text="loading ? 'Archiving...' : 'Archive'"
+            class="py-2 px-4.5 bg-danger-600 text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">
+          </button>
+        </div>
+      </div>
     </div>
-  )}
-
-  <!-- ── No person_id fallback ─────────────────────────────────────────── -->
-  {!admin && !personId && (
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 48px; text-align: center;">
-      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">Your account isn't linked to a member profile yet. Please contact an admin.</p>
-    </div>
-  )}
-
+  </div>
 </DashboardLayout>
-
-<script>
-  async function archivePraise(id: string) {
-    if (!confirm('Archive this praise message?')) return
-    const res = await fetch(`/api/praise/${id}`, { method: 'DELETE' })
-    if (res.ok) window.location.reload()
-    else alert('Failed to archive.')
-  }
-  (window as unknown as Record<string, unknown>).archivePraise = archivePraise
-</script>

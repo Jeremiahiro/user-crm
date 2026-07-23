@@ -29,14 +29,13 @@ const { data: session } = await supabaseAdmin
 if (!session) return Astro.redirect('/admin/cmp/years')
 
 const programmeYearId = session.programme_year_id as string | null
-const programmeYear = (session as unknown as { cmp_programme_years: { id: string; name: string } | null }).cmp_programme_years
 
 // All active people — for mentor selector
 const { data: allPeople } = await supabaseAdmin
   .from('people')
   .select('id, full_name, person_types')
   .eq('is_archived', false)
-  .in('status', ['active', 'approved'])
+  .eq('status', 'active')
   .order('full_name', { ascending: true })
 
 // Mentees in this programme year
@@ -79,88 +78,87 @@ function formatDate(d: string | null) {
 <DashboardLayout title={`Attendance — ${session.title as string}`}>
   <Breadcrumb crumbs={[{ label: 'CMP', href: '/admin/cmp' }, { label: session.title as string, href: `/admin/cmp/sessions/${id}` }, { label: 'Attendance' }]} />
 
-  <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px;">
+  <div class="flex items-start justify-between mb-7">
     <div>
-      <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">
+      <h1 class="font-heading text-[22px] font-bold text-brand-navy mb-1">
         Mark Attendance
       </h1>
-      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+      <p class="font-body text-sm text-neutral-500 m-0">
         {session.title as string} · {formatDate(session.session_date as string | null)}
       </p>
     </div>
-    <div style="display: flex; align-items: center; gap: 10px;">
-      <div id="save-status" style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400);"></div>
+    <div class="flex items-center gap-2.5">
+      <div id="save-status" class="font-body text-[13px] text-neutral-400"></div>
       <a href={`/admin/cmp/sessions/${id}`}
-        style="padding: 8px 16px; background: white; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); text-decoration: none;">
+        class="px-4 py-2 bg-white border border-neutral-300 rounded-md font-body text-[13px] text-neutral-700 no-underline">
         Done
       </a>
     </div>
   </div>
 
   <!-- Legend -->
-  <div style="display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap;">
+  <div class="flex gap-4 mb-7 flex-wrap">
     {[
-      { label: 'Present', bg: 'var(--color-success-100)', color: 'var(--color-success-700)' },
-      { label: 'Absent',  bg: 'var(--color-neutral-100)', color: 'var(--color-neutral-600)' },
-      { label: 'Apology', bg: 'var(--color-warning-100)', color: 'var(--color-warning-700)' },
+      { label: 'Present', dotClass: 'bg-success-100', textClass: 'text-success-700' },
+      { label: 'Absent',  dotClass: 'bg-neutral-100',  textClass: 'text-neutral-600' },
+      { label: 'Apology', dotClass: 'bg-warning-100',  textClass: 'text-warning-700' },
     ].map(item => (
-      <div style="display: flex; align-items: center; gap: 6px;">
-        <span style={`display: inline-block; width: 12px; height: 12px; border-radius: 3px; background-color: ${item.bg};`}></span>
-        <span style={`font-family: var(--font-body); font-size: 13px; color: ${item.color};`}>{item.label}</span>
+      <div class="flex items-center gap-1.5">
+        <span class={`inline-block w-3 h-3 rounded-0.75 ${item.dotClass}`}></span>
+        <span class={`font-body text-[13px] ${item.textClass}`}>{item.label}</span>
       </div>
     ))}
   </div>
 
   <!-- ── Mentors ─────────────────────────────────────────────────────────── -->
-  <div style="margin-bottom: 28px;">
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-      <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-500); margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">
+  <div class="mb-7">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-heading text-sm font-bold text-neutral-500 m-0 uppercase tracking-[0.05em]">
         Mentors (<span id="mentor-count">{mentorAtt.size}</span>)
       </h2>
-      <div style="display: flex; gap: 8px; align-items: center;">
-        <select id="mentor-select" style="padding: 7px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); background: white; max-width: 240px;">
+      <div class="flex gap-2 items-center">
+        <select id="mentor-select" class="px-3 py-1.75 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-700 bg-white max-w-60">
           <option value="">— Select a mentor —</option>
           {peopleRows.filter(p => !mentorIdsOnList.has(p.id as string)).map(p => (
             <option value={p.id as string}>{p.full_name as string}</option>
           ))}
         </select>
         <button id="add-mentor-btn"
-          style="padding: 7px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+          class="px-4 py-1.75 bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
           Add
         </button>
       </div>
     </div>
 
-    <div id="mentor-list" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+    <div id="mentor-list" class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
       {mentorAtt.size === 0 && (
-        <div id="mentor-empty" style="padding: 20px; text-align: center;">
-          <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No mentors added yet. Use the selector above.</p>
+        <div id="mentor-empty" class="p-5 text-center">
+          <p class="font-body text-[13px] text-neutral-400 m-0">No mentors added yet. Use the selector above.</p>
         </div>
       )}
       {Array.from(mentorAtt.entries()).map(([personId, att], i) => {
         const person = peopleRows.find(p => p.id === personId)
         return (
-          <div class="att-row mentor-row" id={`mentor-row-${personId}`}
-            style={`display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}`}
+          <div class={`att-row mentor-row flex items-center justify-between px-5 py-3.5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}
+            id={`mentor-row-${personId}`}
             data-att-id={att.id}
             data-person-id={personId}>
-            <p style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-800); margin: 0;">
+            <p class="font-body text-sm font-medium text-neutral-800 m-0">
               {person?.full_name ?? 'Unknown'}
             </p>
-            <div style="display: flex; gap: 6px; align-items: center;">
+            <div class="flex gap-1.5 items-center">
               {(['present', 'absent', 'apology'] as const).map(s => (
                 <button
-                  class={`att-btn${att.status === s ? ' active' : ''}`}
+                  class={`att-btn${att.status === s ? ' active' : ''} px-3.5 py-1.5 border-[1.5px] rounded-md font-body text-[13px] font-medium cursor-pointer ${s === 'present' ? 'border-success-300' : s === 'apology' ? 'border-warning-300' : 'border-neutral-300'} ${att.status === s ? (s === 'present' ? 'bg-success-100 text-success-700' : s === 'apology' ? 'bg-warning-100 text-warning-700' : 'bg-neutral-200 text-neutral-700') : 'bg-white text-neutral-600'}`}
                   data-status={s}
                   data-session-id={id}
                   data-person-id={personId}
-                  data-role="mentor"
-                  style={`padding: 6px 14px; border: 1.5px solid ${s === 'present' ? 'var(--color-success-300)' : s === 'apology' ? 'var(--color-warning-300)' : 'var(--color-neutral-300)'}; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; background: ${att.status === s ? (s === 'present' ? 'var(--color-success-100)' : s === 'apology' ? 'var(--color-warning-100)' : 'var(--color-neutral-200)') : 'white'}; color: ${att.status === s ? (s === 'present' ? 'var(--color-success-700)' : s === 'apology' ? 'var(--color-warning-700)' : 'var(--color-neutral-700)') : 'var(--color-neutral-600)'};`}>
+                  data-role="mentor">
                   {s.charAt(0).toUpperCase() + s.slice(1)}
                 </button>
               ))}
-              <button class="remove-btn" data-att-id={att.id} data-row-id={`mentor-row-${personId}`}
-                style="margin-left: 8px; padding: 4px 8px; border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); background: white; color: var(--color-danger-500); font-family: var(--font-body); font-size: 12px; cursor: pointer;">
+              <button class="remove-btn ml-2 px-2 py-1 border border-danger-200 rounded-md bg-white text-danger-500 font-body text-xs cursor-pointer"
+                data-att-id={att.id} data-row-id={`mentor-row-${personId}`}>
                 ✕
               </button>
             </div>
@@ -172,34 +170,33 @@ function formatDate(d: string | null) {
 
   <!-- ── Mentees ────────────────────────────────────────────────────────── -->
   {menteeRows.length > 0 && (
-    <div style="margin-bottom: 28px;">
-      <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-500); margin: 0 0 12px; text-transform: uppercase; letter-spacing: 0.05em;">
+    <div class="mb-7">
+      <h2 class="font-heading text-sm font-bold text-neutral-500 mb-3 uppercase tracking-[0.05em]">
         Mentees ({menteeRows.length})
       </h2>
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+      <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
         {menteeRows.map((mentee, i) => {
           const att = menteeAtt.get(mentee.id as string)
           return (
-            <div style={`display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}`}
+            <div class={`flex items-center justify-between px-5 py-3.5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}
               data-mentee-id={mentee.id as string}
               data-att-id={att?.id ?? ''}>
               <div>
-                <p style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-800); margin: 0 0 2px;">{mentee.full_name as string}</p>
+                <p class="font-body text-sm font-medium text-neutral-800 mb-0.5">{mentee.full_name as string}</p>
                 {(mentee.school || mentee.year_group) && (
-                  <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">
+                  <p class="font-body text-xs text-neutral-400 m-0">
                     {[mentee.school, mentee.year_group].filter(Boolean).join(' · ')}
                   </p>
                 )}
               </div>
-              <div style="display: flex; gap: 6px;" class="status-buttons">
+              <div class="status-buttons flex gap-1.5">
                 {(['present', 'absent', 'apology'] as const).map(s => (
                   <button
-                    class={`att-btn${att?.status === s ? ' active' : ''}`}
+                    class={`att-btn${att?.status === s ? ' active' : ''} px-3.5 py-1.5 border-[1.5px] rounded-md font-body text-[13px] font-medium cursor-pointer ${s === 'present' ? 'border-success-300' : s === 'apology' ? 'border-warning-300' : 'border-neutral-300'} ${att?.status === s ? (s === 'present' ? 'bg-success-100 text-success-700' : s === 'apology' ? 'bg-warning-100 text-warning-700' : 'bg-neutral-200 text-neutral-700') : 'bg-white text-neutral-600'}`}
                     data-status={s}
                     data-session-id={id}
                     data-mentee-id={mentee.id as string}
-                    data-role="mentee"
-                    style={`padding: 6px 14px; border: 1.5px solid ${s === 'present' ? 'var(--color-success-300)' : s === 'apology' ? 'var(--color-warning-300)' : 'var(--color-neutral-300)'}; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; background: ${att?.status === s ? (s === 'present' ? 'var(--color-success-100)' : s === 'apology' ? 'var(--color-warning-100)' : 'var(--color-neutral-200)') : 'white'}; color: ${att?.status === s ? (s === 'present' ? 'var(--color-success-700)' : s === 'apology' ? 'var(--color-warning-700)' : 'var(--color-neutral-700)') : 'var(--color-neutral-600)'};`}>
+                    data-role="mentee">
                     {s.charAt(0).toUpperCase() + s.slice(1)}
                   </button>
                 ))}
@@ -212,34 +209,34 @@ function formatDate(d: string | null) {
   )}
 
   <!-- ── Parents ────────────────────────────────────────────────────────── -->
-  <div style="margin-bottom: 28px;">
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-      <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-500); margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">
+  <div class="mb-7">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-heading text-sm font-bold text-neutral-500 m-0 uppercase tracking-[0.05em]">
         Parents (<span id="parent-count">{parentRows.length}</span>)
       </h2>
-      <div style="display: flex; gap: 8px; align-items: center;">
+      <div class="flex gap-2 items-center">
         <input id="parent-name-input" type="text" placeholder="Parent name"
-          style="padding: 7px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; width: 200px;" />
+          class="px-3 py-1.75 border border-neutral-300 rounded-md font-body text-[13px] w-50" />
         <button id="add-parent-btn"
-          style="padding: 7px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+          class="px-4 py-1.75 bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
           Add
         </button>
       </div>
     </div>
-    <div id="parent-list" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+    <div id="parent-list" class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
       {parentRows.length === 0 && (
-        <div id="parent-empty" style="padding: 20px; text-align: center;">
-          <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No parents recorded yet.</p>
+        <div id="parent-empty" class="p-5 text-center">
+          <p class="font-body text-[13px] text-neutral-400 m-0">No parents recorded yet.</p>
         </div>
       )}
       {parentRows.map((a, i) => (
-        <div class="visitor-row" id={`parent-row-${a.id}`}
-          style={`display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}`}>
-          <p style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-800); margin: 0;">{a.visitor_name ?? '—'}</p>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <span style="font-family: var(--font-body); font-size: 13px; color: var(--color-success-600);">Present</span>
-            <button class="remove-btn" data-att-id={a.id} data-row-id={`parent-row-${a.id}`}
-              style="padding: 4px 8px; border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); background: white; color: var(--color-danger-500); font-family: var(--font-body); font-size: 12px; cursor: pointer;">
+        <div class={`visitor-row flex items-center justify-between px-5 py-3.5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}
+          id={`parent-row-${a.id}`}>
+          <p class="font-body text-sm font-medium text-neutral-800 m-0">{a.visitor_name ?? '—'}</p>
+          <div class="flex gap-2 items-center">
+            <span class="font-body text-[13px] text-success-600">Present</span>
+            <button class="remove-btn px-2 py-1 border border-danger-200 rounded-md bg-white text-danger-500 font-body text-xs cursor-pointer"
+              data-att-id={a.id} data-row-id={`parent-row-${a.id}`}>
               ✕
             </button>
           </div>
@@ -249,34 +246,34 @@ function formatDate(d: string | null) {
   </div>
 
   <!-- ── Visitors ───────────────────────────────────────────────────────── -->
-  <div style="margin-bottom: 28px;">
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-      <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-500); margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">
+  <div class="mb-7">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-heading text-sm font-bold text-neutral-500 m-0 uppercase tracking-[0.05em]">
         Visitors (<span id="visitor-count">{visitorRows.length}</span>)
       </h2>
-      <div style="display: flex; gap: 8px; align-items: center;">
+      <div class="flex gap-2 items-center">
         <input id="visitor-name-input" type="text" placeholder="Visitor name"
-          style="padding: 7px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; width: 200px;" />
+          class="px-3 py-1.75 border border-neutral-300 rounded-md font-body text-[13px] w-50" />
         <button id="add-visitor-btn"
-          style="padding: 7px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+          class="px-4 py-1.75 bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
           Add
         </button>
       </div>
     </div>
-    <div id="visitor-list" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+    <div id="visitor-list" class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
       {visitorRows.length === 0 && (
-        <div id="visitor-empty" style="padding: 20px; text-align: center;">
-          <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); margin: 0;">No visitors recorded yet.</p>
+        <div id="visitor-empty" class="p-5 text-center">
+          <p class="font-body text-[13px] text-neutral-400 m-0">No visitors recorded yet.</p>
         </div>
       )}
       {visitorRows.map((a, i) => (
-        <div class="visitor-row" id={`visitor-row-${a.id}`}
-          style={`display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; ${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}`}>
-          <p style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-800); margin: 0;">{a.visitor_name ?? '—'}</p>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <span style="font-family: var(--font-body); font-size: 13px; color: var(--color-success-600);">Present</span>
-            <button class="remove-btn" data-att-id={a.id} data-row-id={`visitor-row-${a.id}`}
-              style="padding: 4px 8px; border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); background: white; color: var(--color-danger-500); font-family: var(--font-body); font-size: 12px; cursor: pointer;">
+        <div class={`visitor-row flex items-center justify-between px-5 py-3.5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}
+          id={`visitor-row-${a.id}`}>
+          <p class="font-body text-sm font-medium text-neutral-800 m-0">{a.visitor_name ?? '—'}</p>
+          <div class="flex gap-2 items-center">
+            <span class="font-body text-[13px] text-success-600">Present</span>
+            <button class="remove-btn px-2 py-1 border border-danger-200 rounded-md bg-white text-danger-500 font-body text-xs cursor-pointer"
+              data-att-id={a.id} data-row-id={`visitor-row-${a.id}`}>
               ✕
             </button>
           </div>
@@ -286,9 +283,9 @@ function formatDate(d: string | null) {
   </div>
 
   {menteeRows.length === 0 && (
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; text-align: center; margin-bottom: 24px;">
-      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0 0 8px;">No mentees are assigned to this programme year.</p>
-      <a href="/admin/mentees/new" style="font-family: var(--font-body); font-size: 13px; color: var(--color-brand-navy); text-decoration: underline;">Add mentees →</a>
+    <div class="bg-white border border-neutral-200 rounded-lg p-8 text-center mb-6">
+      <p class="font-body text-sm text-neutral-400 mb-2">No mentees are assigned to this programme year.</p>
+      <a href="/admin/mentees/new" class="font-body text-[13px] text-brand-navy underline">Add mentees →</a>
     </div>
   )}
 </DashboardLayout>

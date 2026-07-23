@@ -10,8 +10,8 @@ import { z } from 'zod'
 // These match the schemas in src/pages/api/* exactly.
 // If you change a schema in the route, update it here too.
 
-const PERSON_STATUSES = ['applicant', 'pending_review', 'approved', 'active', 'inactive', 'alumni', 'left'] as const
-const PERSON_TYPES = ['member', 'mentor', 'volunteer', 'alumni', 'parent', 'trustee'] as const
+const PERSON_STATUSES = ['applicant', 'pending_review', 'active', 'suspended', 'inactive'] as const
+const PERSON_TYPES = ['member', 'mentor', 'volunteer', 'parent', 'trustee'] as const
 
 const CreateMemberSchema = z.object({
   full_name: z.string().min(1, 'Name is required').max(200),

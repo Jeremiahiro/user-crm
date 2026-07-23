@@ -87,77 +87,89 @@ const STATUS_BORDER: Record<string, string> = {
   rejected: 'var(--color-danger-100)',
 }
 const d = doc as any
+const uploaderName = JSON.stringify(d.uploader?.full_name ?? '')
 ---
 
+<style>
+  @media (max-width: 700px) {
+    .doc-grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+  [x-cloak] { display: none !important; }
+  .search-result:hover { background: var(--color-neutral-50); }
+</style>
+
 <DashboardLayout title={d.title}>
-  <div style="max-width: 900px;">
+  <div class="max-w-225">
     <Breadcrumb crumbs={[{ label: 'Documents', href: '/admin/documents' }, { label: d.title }]} />
 
     <!-- Header -->
-    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;">
-      <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">{d.title}</h1>
-      <span style={`display: inline-block; padding: 3px 12px; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 12px; font-weight: 600; background-color: ${STATUS_BG[d.status] ?? 'var(--color-neutral-100)'}; color: ${STATUS_COLOR[d.status] ?? 'var(--color-neutral-700)'}; border: 1px solid ${STATUS_BORDER[d.status] ?? 'var(--color-neutral-200)'};`}>
+    <div class="flex items-center gap-3 mb-6 flex-wrap">
+      <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0">{d.title}</h1>
+      <span class="inline-block py-0.75 px-3 rounded-full font-body text-xs font-semibold"
+        style={`background-color: ${STATUS_BG[d.status] ?? 'var(--color-neutral-100)'}; color: ${STATUS_COLOR[d.status] ?? 'var(--color-neutral-700)'}; border: 1px solid ${STATUS_BORDER[d.status] ?? 'var(--color-neutral-200)'};`}>
         {d.status.charAt(0).toUpperCase() + d.status.slice(1)}
       </span>
     </div>
 
     <!-- Two-column layout -->
-    <div style="display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start;">
+    <div class="doc-grid grid [grid-template-columns:1fr_340px] gap-6 items-start">
 
       <!-- Left: document info card -->
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 28px; display: flex; flex-direction: column; gap: 16px;">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div class="bg-white border border-neutral-200 rounded-lg p-7 flex flex-col gap-4">
+        <div class="grid grid-cols-2 gap-4">
           <div>
-            <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px;">Document Type</p>
-            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); margin: 0;">{d.document_type?.name ?? '—'}</p>
+            <p class="font-body text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1">Document Type</p>
+            <p class="font-body text-sm text-neutral-800 m-0">{d.document_type?.name ?? '—'}</p>
           </div>
           <div>
-            <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px;">Uploaded</p>
-            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); margin: 0;">{fmt(d.created_at)}</p>
+            <p class="font-body text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1">Uploaded</p>
+            <p class="font-body text-sm text-neutral-800 m-0">{fmt(d.created_at)}</p>
           </div>
           {d.issued_by && (
             <div>
-              <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px;">Issued by</p>
-              <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); margin: 0;">{d.issued_by}</p>
+              <p class="font-body text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1">Issued by</p>
+              <p class="font-body text-sm text-neutral-800 m-0">{d.issued_by}</p>
             </div>
           )}
           {d.expiry_date && (
             <div>
-              <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px;">Expiry date</p>
-              <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); margin: 0;">{fmt(d.expiry_date)}</p>
+              <p class="font-body text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1">Expiry date</p>
+              <p class="font-body text-sm text-neutral-800 m-0">{fmt(d.expiry_date)}</p>
             </div>
           )}
         </div>
 
         {d.training && (
-          <div style="padding-top: 4px; border-top: 1px solid var(--color-neutral-100);">
-            <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px;">Linked Training</p>
+          <div class="pt-1 border-t border-neutral-100">
+            <p class="font-body text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1">Linked Training</p>
             <a href={`/admin/trainings/${d.training.id}`}
-              style="font-family: var(--font-body); font-size: 14px; color: var(--color-brand-navy); text-decoration: none; font-weight: 500;">
+              class="font-body text-sm text-brand-navy no-underline font-medium">
               {d.training.title}
             </a>
           </div>
         )}
 
-        <div style="padding-top: 4px; border-top: 1px solid var(--color-neutral-100);">
-          <p style="font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-400); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 6px;">Uploaded by</p>
+        <div class="pt-1 border-t border-neutral-100">
+          <p class="font-body text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Uploaded by</p>
           {d.uploader ? (
             <div>
               <a href={`/admin/members/${d.uploader.id}`}
-                style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none;">
+                class="font-body text-sm font-medium text-brand-navy no-underline">
                 {d.uploader.full_name}
               </a>
-              <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 2px 0 0;">{d.uploader.email}</p>
+              <p class="font-body text-xs text-neutral-400 mt-0.5">{d.uploader.email}</p>
             </div>
           ) : (
-            <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">—</p>
+            <p class="font-body text-sm text-neutral-400 m-0">—</p>
           )}
         </div>
 
         {viewUrl && (
-          <div style="padding-top: 8px;">
+          <div class="pt-2">
             <a href={viewUrl} target="_blank" rel="noopener noreferrer"
-              style="display: inline-block; padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+              class="inline-block py-2.5 px-4.5 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
               View file &#8599;
             </a>
           </div>
@@ -165,49 +177,49 @@ const d = doc as any
       </div>
 
       <!-- Right: review panel -->
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; display: flex; flex-direction: column; gap: 16px;">
-        <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">Review</h2>
+      <div class="bg-white border border-neutral-200 rounded-lg p-6 flex flex-col gap-4">
+        <h2 class="font-heading text-[15px] font-bold text-neutral-800 m-0">Review</h2>
 
         {d.status === 'approved' && (
-          <div style="background-color: var(--color-success-50); border: 1px solid var(--color-success-100); border-radius: var(--radius-md); padding: 14px 16px;">
-            <p style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-success-700); margin: 0 0 4px;">Approved</p>
-            {d.reviewer && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-success-700); margin: 0 0 2px;">by {d.reviewer.full_name}</p>}
-            {d.reviewed_at && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-success-700); margin: 0 0 6px;">{fmt(d.reviewed_at)}</p>}
-            {d.reviewer_notes && <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-success-700); margin: 0; white-space: pre-wrap;">{d.reviewer_notes}</p>}
+          <div class="bg-success-50 border border-success-100 rounded-md py-3.5 px-4">
+            <p class="font-body text-[13px] font-semibold text-success-700 mb-1">Approved</p>
+            {d.reviewer && <p class="font-body text-xs text-success-700 mb-0.5">by {d.reviewer.full_name}</p>}
+            {d.reviewed_at && <p class="font-body text-xs text-success-700 mb-1.5">{fmt(d.reviewed_at)}</p>}
+            {d.reviewer_notes && <p class="font-body text-[13px] text-success-700 m-0 whitespace-pre-wrap">{d.reviewer_notes}</p>}
           </div>
         )}
 
         {d.status === 'rejected' && (
-          <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-100); border-radius: var(--radius-md); padding: 14px 16px;">
-            <p style="font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--color-danger-700); margin: 0 0 4px;">Rejected</p>
-            {d.reviewer && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-700); margin: 0 0 2px;">by {d.reviewer.full_name}</p>}
-            {d.reviewed_at && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-700); margin: 0 0 6px;">{fmt(d.reviewed_at)}</p>}
-            {d.reviewer_notes && <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-danger-700); margin: 0; white-space: pre-wrap;">{d.reviewer_notes}</p>}
+          <div class="bg-danger-50 border border-danger-100 rounded-md py-3.5 px-4">
+            <p class="font-body text-[13px] font-semibold text-danger-700 mb-1">Rejected</p>
+            {d.reviewer && <p class="font-body text-xs text-danger-700 mb-0.5">by {d.reviewer.full_name}</p>}
+            {d.reviewed_at && <p class="font-body text-xs text-danger-700 mb-1.5">{fmt(d.reviewed_at)}</p>}
+            {d.reviewer_notes && <p class="font-body text-[13px] text-danger-700 m-0 whitespace-pre-wrap">{d.reviewer_notes}</p>}
           </div>
         )}
 
         {d.status === 'pending' && canReviewDoc && (
-          <form method="POST" style="display: flex; flex-direction: column; gap: 14px;">
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <label for="reviewerNotes" style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Notes (required to reject)</label>
+          <form method="POST" class="flex flex-col gap-3.5">
+            <div class="flex flex-col gap-1">
+              <label for="reviewerNotes" class="font-body text-[13px] font-medium text-neutral-700">Notes (required to reject)</label>
               <textarea id="reviewerNotes" name="reviewer_notes" rows={4}
                 placeholder="Optional notes for the member..."
-                style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); resize: vertical;"></textarea>
+                class="py-2.5 px-3 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 resize-y"></textarea>
             </div>
 
             {actionError && (
-              <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 10px 14px; font-family: var(--font-body); font-size: 13px; color: var(--color-danger-700);">
+              <div class="bg-danger-50 border border-danger-200 rounded-md py-2.5 px-3.5 font-body text-[13px] text-danger-700">
                 {actionError}
               </div>
             )}
 
-            <div style="display: flex; gap: 8px;">
+            <div class="flex gap-2">
               <button type="submit" name="action" value="approve"
-                style="flex: 1; padding: 10px 0; background-color: var(--color-success-700); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+                class="flex-1 py-2.5 bg-success-700 text-white border-0 rounded-md font-body text-sm font-semibold cursor-pointer">
                 Approve
               </button>
               <button type="submit" name="action" value="reject" id="rejectBtn"
-                style="flex: 1; padding: 10px 0; background-color: var(--color-danger-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+                class="flex-1 py-2.5 bg-danger-600 text-white border-0 rounded-md font-body text-sm font-semibold cursor-pointer">
                 Reject
               </button>
             </div>
@@ -215,132 +227,128 @@ const d = doc as any
         )}
 
         {d.status === 'pending' && !canReviewDoc && (
-          <div style="background-color: var(--color-neutral-50); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); padding: 14px 16px;">
-            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); margin: 0;">Awaiting review by an admin or team lead.</p>
+          <div class="bg-neutral-50 border border-neutral-200 rounded-md py-3.5 px-4">
+            <p class="font-body text-[13px] text-neutral-600 m-0">Awaiting review by an admin or team lead.</p>
           </div>
         )}
       </div>
 
       {/* Assigned to — admin only */}
       {admin && (
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; margin-top: 16px; display: flex; flex-direction: column; gap: 12px;">
+        <div class="bg-white border border-neutral-200 rounded-lg p-6 mt-4 flex flex-col gap-3"
+          x-data={`{
+            search: ${uploaderName},
+            personId: '',
+            selectedLabel: '',
+            results: [],
+            open: false,
+            confirmOpen: false,
+            _timer: null,
+            onInput() {
+              this.personId = ''
+              this.selectedLabel = ''
+              if (this.search.trim().length < 3) { this.open = false; return }
+              clearTimeout(this._timer)
+              this._timer = setTimeout(async () => {
+                try {
+                  const r = await fetch('/api/people/search?q=' + encodeURIComponent(this.search.trim()))
+                  const j = await r.json()
+                  this.results = j.data ?? []
+                  this.open = true
+                } catch(e) { this.open = false }
+              }, 250)
+            },
+            onFocus() {
+              if (this.search.trim().length >= 3) this.onInput()
+            },
+            select(p) {
+              this.personId = p.id
+              this.search = p.full_name
+              this.selectedLabel = p.full_name + ' (' + p.email + ')'
+              this.open = false
+            },
+            trySubmit() {
+              if (!this.personId) return
+              this.confirmOpen = true
+            },
+            doReassign() {
+              this.confirmOpen = false
+              this.$refs.form.submit()
+            }
+          }`}>
           <div>
-            <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 4px;">Assigned to</h2>
-            <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">Change who this document belongs to.</p>
+            <h2 class="font-heading text-[15px] font-bold text-neutral-800 mb-1">Assigned to</h2>
+            <p class="font-body text-xs text-neutral-400 m-0">Change who this document belongs to.</p>
           </div>
 
           {actionError && (
-            <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 10px 14px; font-family: var(--font-body); font-size: 13px; color: var(--color-danger-700);">
+            <div class="bg-danger-50 border border-danger-200 rounded-md py-2.5 px-3.5 font-body text-[13px] text-danger-700">
               {actionError}
             </div>
           )}
 
-          <form method="POST" id="reassignForm" style="display: flex; flex-direction: column; gap: 10px;">
+          <form method="POST" id="reassignForm" x-ref="form" class="flex flex-col gap-2.5">
             <input type="hidden" name="action" value="reassign" />
-            <input type="hidden" name="person_id" id="reassignPersonId" value="" />
+            <input type="hidden" name="person_id" :value="personId" />
 
-            <div style="position: relative;">
-              <input id="reassignSearch" type="text" placeholder="Search by name or email…" autocomplete="off"
-                value={d.uploader?.full_name ?? ''}
-                style="width: 100%; padding: 9px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-800); box-sizing: border-box;" />
-              <div id="reassignDropdown"
-                style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid var(--color-neutral-300); border-top: none; border-radius: 0 0 var(--radius-md) var(--radius-md); max-height: 200px; overflow-y: auto; z-index: 200; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+            <div class="relative">
+              <input type="text" x-model="search"
+                @input="onInput()"
+                @focus="onFocus()"
+                @blur="setTimeout(() => { open = false }, 150)"
+                placeholder="Search by name or email…"
+                autocomplete="off"
+                class="w-full py-2.25 px-3 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-800 box-border" />
+              <div x-show="open"
+                class="absolute top-full left-0 right-0 bg-white border border-neutral-300 border-t-0 rounded-t-none rounded-b-md max-h-50 overflow-y-auto z-[200] shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
+                <template x-if="results.length === 0">
+                  <div x-text="search.trim().length < 3 ? 'Type at least 3 characters…' : 'No results'"
+                    class="py-2.5 px-3.5 text-[13px] text-neutral-400 font-body"></div>
+                </template>
+                <template x-for="p in results" :key="p.id">
+                  <div class="search-result py-2.5 px-3.5 cursor-pointer font-body text-[13px]" @mousedown.prevent="select(p)">
+                    <span x-text="p.full_name" class="font-medium text-neutral-800"></span>
+                    <span x-text="p.email" class="text-xs text-neutral-400 ml-2"></span>
+                  </div>
+                </template>
               </div>
             </div>
 
-            <div id="reassignSelected" style="display: none; background: var(--color-neutral-50); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); padding: 10px 12px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+            <div x-show="personId"
+              class="bg-neutral-50 border border-neutral-200 rounded-md py-2.5 px-3 font-body text-[13px] text-neutral-700"
+              style="display:none">
+              Will assign to: <span x-text="selectedLabel"></span>
             </div>
 
-            <button type="submit" id="reassignBtn" disabled
-              style="padding: 9px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer; opacity: 0.4; transition: opacity .15s;">
+            <button type="button" @click="trySubmit()"
+              :disabled="!personId"
+              :style="personId ? 'opacity:1; cursor:pointer;' : 'opacity:0.4; cursor:not-allowed;'"
+              class="py-2.25 px-4 bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold transition-opacity duration-150">
               Reassign document
             </button>
           </form>
+
+          <!-- Reassign confirm modal -->
+          <div x-show="confirmOpen" x-cloak @click="confirmOpen = false"
+            class="fixed inset-0 bg-black/45 z-[1000] flex items-center justify-center">
+            <div @click.stop class="bg-white rounded-lg py-7 px-8 max-w-95 w-[90%] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
+              <p class="font-body text-sm font-semibold text-neutral-800 mb-1.5">Reassign document?</p>
+              <p class="font-body text-[13px] text-neutral-600 mb-1 leading-normal">Assign this document to:</p>
+              <p x-text="selectedLabel" class="font-body text-[13px] font-semibold text-neutral-800 mb-5"></p>
+              <div class="flex gap-2.5 justify-end">
+                <button @click="confirmOpen = false"
+                  class="py-2 px-4 bg-neutral-100 border border-neutral-200 rounded-md font-body text-[13px] font-medium cursor-pointer text-neutral-700">
+                  Cancel
+                </button>
+                <button @click="doReassign()"
+                  class="py-2 px-4 bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
   </div>
 </DashboardLayout>
-
-<style>
-  @media (max-width: 700px) {
-    div[style*="grid-template-columns: 1fr 340px"] {
-      grid-template-columns: 1fr !important;
-    }
-  }
-</style>
-
-<script is:inline>
-  var reassignSearch = document.getElementById('reassignSearch')
-  if (reassignSearch) {
-    var reassignDropdown = document.getElementById('reassignDropdown')
-    var reassignPersonId = document.getElementById('reassignPersonId')
-    var reassignSelected = document.getElementById('reassignSelected')
-    var reassignBtn = document.getElementById('reassignBtn')
-    var reassignDebounce
-
-    function renderReassignDropdown(people) {
-      reassignDropdown.innerHTML = ''
-      if (!people || !people.length) {
-        var empty = document.createElement('div')
-        empty.textContent = reassignSearch.value.trim().length < 3 ? 'Type at least 3 characters…' : 'No results'
-        empty.style.cssText = 'padding: 10px 14px; font-size: 13px; color: var(--color-neutral-400); font-family: var(--font-body);'
-        reassignDropdown.appendChild(empty)
-      } else {
-        people.forEach(function(p) {
-          var el = document.createElement('div')
-          el.style.cssText = 'padding: 10px 14px; cursor: pointer; font-family: var(--font-body); font-size: 13px;'
-          el.innerHTML = '<span style="font-weight:500;color:var(--color-neutral-800);">' + p.full_name + '</span>' +
-            '<span style="font-size:12px;color:var(--color-neutral-400);margin-left:8px;">' + p.email + '</span>'
-          el.addEventListener('mouseenter', function() { el.style.background = 'var(--color-neutral-50)' })
-          el.addEventListener('mouseleave', function() { el.style.background = '' })
-          el.addEventListener('mousedown', function(e) {
-            e.preventDefault()
-            reassignPersonId.value = p.id
-            reassignSearch.value = p.full_name
-            reassignDropdown.style.display = 'none'
-            reassignSelected.textContent = 'Will assign to: ' + p.full_name + ' (' + p.email + ')'
-            reassignSelected.style.display = 'block'
-            reassignBtn.disabled = false
-            reassignBtn.style.opacity = '1'
-          })
-          reassignDropdown.appendChild(el)
-        })
-      }
-      reassignDropdown.style.display = 'block'
-    }
-
-    reassignSearch.addEventListener('input', function() {
-      clearTimeout(reassignDebounce)
-      reassignPersonId.value = ''
-      reassignSelected.style.display = 'none'
-      reassignBtn.disabled = true
-      reassignBtn.style.opacity = '0.4'
-      if (reassignSearch.value.trim().length < 3) { reassignDropdown.style.display = 'none'; return }
-      reassignDebounce = setTimeout(async function() {
-        try {
-          var res = await fetch('/api/people/search?q=' + encodeURIComponent(reassignSearch.value.trim()))
-          var json = await res.json()
-          renderReassignDropdown(json.data ?? [])
-        } catch (e) { reassignDropdown.style.display = 'none' }
-      }, 250)
-    })
-
-    reassignSearch.addEventListener('focus', function() {
-      if (reassignSearch.value.trim().length >= 3) {
-        fetch('/api/people/search?q=' + encodeURIComponent(reassignSearch.value.trim()))
-          .then(function(r) { return r.json() })
-          .then(function(j) { renderReassignDropdown(j.data ?? []) })
-      }
-    })
-
-    reassignSearch.addEventListener('blur', function() {
-      setTimeout(function() { reassignDropdown.style.display = 'none' }, 150)
-    })
-
-    document.getElementById('reassignForm').addEventListener('submit', function(e) {
-      if (!reassignPersonId.value) { e.preventDefault(); return }
-      if (!confirm('Reassign this document to the selected person?')) e.preventDefault()
-    })
-  }
-</script>

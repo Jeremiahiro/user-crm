@@ -94,64 +94,64 @@ const DOC_TYPE_LABELS: Record<string, string> = {
 ---
 
 <PublicLayout title="Upload Document — 100BMOL">
-  <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background-color: var(--color-brand-navy); padding: 24px; box-sizing: border-box;">
-    <div style="width: 100%; max-width: 480px; background: white; border-radius: var(--radius-xl); padding: 48px 40px; box-shadow: var(--shadow-xl);">
+  <div class="min-h-screen flex items-center justify-center bg-brand-navy p-6 box-border">
+    <div class="w-full max-w-120 bg-white rounded-xl py-12 px-10 shadow-xl">
       <!-- Logo -->
-      <p style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px; letter-spacing: -0.3px;">
-        100BM<span style="color: var(--color-brand-gold);">OL</span>
+      <p class="font-heading text-[22px] font-bold text-brand-navy m-0 mb-6 tracking-[-0.3px]">
+        100BM<span class="text-brand-gold">OL</span>
       </p>
 
       {submitted ? (
         <div>
-          <div style="width: 48px; height: 48px; border-radius: var(--radius-full); background-color: var(--color-success-100); display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-            <span style="font-size: 24px;">✓</span>
+          <div class="w-12 h-12 rounded-full bg-success-100 flex items-center justify-center mb-4">
+            <span class="text-2xl">✓</span>
           </div>
-          <h1 style="font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 8px;">
+          <h1 class="font-heading text-[20px] font-bold text-brand-navy m-0 mb-2">
             Document submitted
           </h1>
-          <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-600); margin: 0; line-height: 1.6;">
+          <p class="font-body text-sm text-neutral-600 m-0 leading-[1.6]">
             Thank you. Your document has been received. A member of the team will review it and confirm receipt.
           </p>
         </div>
       ) : (
         <div>
-          <h1 style="font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 8px;">
+          <h1 class="font-heading text-[20px] font-bold text-brand-navy m-0 mb-2">
             Submit your {DOC_TYPE_LABELS[doc.type as string] ?? 'document'}
           </h1>
           {doc.description && (
-            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0 0 24px;">{doc.description}</p>
+            <p class="font-body text-[13px] text-neutral-500 m-0 mb-6">{doc.description}</p>
           )}
-          {!doc.description && <div style="margin-bottom: 24px;"></div>}
+          {!doc.description && <div class="mb-6"></div>}
 
           {errorMsg && (
-            <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 10px 14px; margin-bottom: 20px; font-family: var(--font-body); font-size: 13px; color: var(--color-danger-700);">
+            <div class="bg-danger-50 border border-danger-200 rounded-md py-2.5 px-3.5 mb-5 font-body text-[13px] text-danger-700">
               {errorMsg}
             </div>
           )}
 
-          <form method="POST" style="display: flex; flex-direction: column; gap: 16px;">
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Your email address *</label>
+          <form method="POST" class="flex flex-col gap-4">
+            <div class="flex flex-col gap-1">
+              <label class="font-body text-[13px] font-medium text-neutral-700">Your email address *</label>
               <input type="email" name="email" required placeholder="your@email.com"
-                style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800);" />
+                class="py-2.5 px-3 border border-neutral-300 rounded-md font-body text-sm text-neutral-800" />
             </div>
 
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Google Drive link *</label>
+            <div class="flex flex-col gap-1">
+              <label class="font-body text-[13px] font-medium text-neutral-700">Google Drive link *</label>
               <input type="url" name="drive_url" required placeholder="https://drive.google.com/file/d/..."
-                style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800);" />
-              <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">
+                class="py-2.5 px-3 border border-neutral-300 rounded-md font-body text-sm text-neutral-800" />
+              <p class="font-body text-xs text-neutral-400 m-0">
                 Upload your document to Google Drive and paste the sharing link here.
               </p>
             </div>
 
             <button type="submit"
-              style="padding: 12px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer; width: 100%;">
+              class="py-3 px-5 bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer w-full">
               Submit document
             </button>
           </form>
 
-          <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 20px 0 0; line-height: 1.6; text-align: center;">
+          <p class="font-body text-xs text-neutral-400 mt-5 mx-0 mb-0 leading-[1.6] text-center">
             This link is unique to you. If you received it in error, please ignore it.
           </p>
         </div>

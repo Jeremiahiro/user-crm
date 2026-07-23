@@ -91,102 +91,102 @@ let logoSuccess = ''
 
 <DashboardLayout title="Settings">
   <div>
-    <div style="margin-bottom: 28px;">
-      <h1 style="font-family: var(--font-heading); font-size: 26px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Organisation Settings</h1>
-      <p style="color: var(--color-neutral-500); font-size: 14px; margin: 0;">Configure chapter-wide defaults. Changes take effect immediately.</p>
+    <div class="mb-7">
+      <h1 class="font-heading text-[26px] font-bold text-brand-navy mt-0 mb-1">Organisation Settings</h1>
+      <p class="text-neutral-500 text-sm m-0">Configure chapter-wide defaults. Changes take effect immediately.</p>
     </div>
 
     {successMessage && (
-      <div style="background-color: #f0fdf4; border: 1px solid #86efac; border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; color: #166534; font-size: 14px; font-family: var(--font-body);">
+      <div class="bg-success-50 border border-success-400 rounded-md py-3 px-4 mb-5 text-success-800 text-sm font-body">
         {successMessage}
       </div>
     )}
     {errorMessage && (
-      <div style="background-color: #fef2f2; border: 1px solid #fca5a5; border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; color: #991b1b; font-size: 14px; font-family: var(--font-body);">
+      <div class="bg-danger-50 border border-danger-400 rounded-md py-3 px-4 mb-5 text-danger-800 text-sm font-body">
         {errorMessage}
       </div>
     )}
 
     <!-- Two-column layout: main settings left, sidebar right -->
-    <div style="display: grid; grid-template-columns: 1fr 300px; gap: 24px; align-items: start;">
+    <div class="grid [grid-template-columns:1fr_300px] gap-6 items-start">
 
       <!-- ── Left column: editable settings ── -->
-      <div style="display: flex; flex-direction: column; gap: 20px;">
+      <div class="flex flex-col gap-5">
 
         <!-- Logo -->
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
-          <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Organisation Logo</h2>
-          <p style="color: var(--color-neutral-500); font-size: 13px; margin: 0 0 16px;">Shown in the portal header. PNG, JPG, SVG or WebP, max 5 MB.</p>
+        <div class="bg-white border border-neutral-200 rounded-lg p-6">
+          <h2 class="font-heading text-[15px] font-bold text-brand-navy mt-0 mb-1">Organisation Logo</h2>
+          <p class="text-neutral-500 text-[13px] mb-4">Shown in the portal header. PNG, JPG, SVG or WebP, max 5 MB.</p>
 
           {logoUrl && (
-            <div style="margin-bottom: 14px; display: flex; align-items: center; gap: 12px;">
-              <img src={logoUrl} alt="Organisation logo" style="max-height: 40px; max-width: 160px; object-fit: contain; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); padding: 6px;" />
-              <span style="font-size: 12px; color: var(--color-neutral-400);">Current logo</span>
+            <div class="mb-3.5 flex items-center gap-3">
+              <img src={logoUrl} alt="Organisation logo" class="max-h-10 max-w-40 object-contain border border-neutral-200 rounded-md p-1.5" />
+              <span class="text-xs text-neutral-400">Current logo</span>
             </div>
           )}
 
-          <div id="logo-error" style={`display:${logoError ? 'block' : 'none'}; background:#fef2f2; border:1px solid #fca5a5; border-radius:var(--radius-md); padding:8px 12px; margin-bottom:10px; color:#991b1b; font-size:13px;`}>{logoError}</div>
-          <div id="logo-success" style={`display:${logoSuccess ? 'block' : 'none'}; background:#f0fdf4; border:1px solid #86efac; border-radius:var(--radius-md); padding:8px 12px; margin-bottom:10px; color:#166534; font-size:13px;`}>{logoSuccess}</div>
+          <div id="logo-error" class="bg-danger-50 border border-danger-200 rounded-md px-3 py-2 mb-2.5 text-danger-800 text-[13px]" style={`display:${logoError ? 'block' : 'none'};`}>{logoError}</div>
+          <div id="logo-success" class="bg-success-50 border border-success-200 rounded-md px-3 py-2 mb-2.5 text-success-800 text-[13px]" style={`display:${logoSuccess ? 'block' : 'none'};`}>{logoSuccess}</div>
 
-          <form id="logo-form" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <form id="logo-form" class="flex items-center gap-2.5 flex-wrap">
             <input type="file" name="logo" id="logo-file" accept="image/png,image/jpeg,image/svg+xml,image/webp"
-              style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);" />
+              class="font-body text-[13px] text-neutral-700" />
             <button type="submit" id="logo-btn"
-              style="padding: 7px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
+              class="py-1.75 px-4 bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
               Upload
             </button>
           </form>
         </div>
 
-        <form method="POST" style="display: contents;">
+        <form method="POST" class="contents">
 
           <!-- DBS Compliance -->
-          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
-            <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">DBS Compliance</h2>
-            <p style="color: var(--color-neutral-500); font-size: 13px; margin: 0 0 20px;">Controls how DBS certificate validity and expiry warnings are calculated.</p>
+          <div class="bg-white border border-neutral-200 rounded-lg p-6">
+            <h2 class="font-heading text-[15px] font-bold text-brand-navy mt-0 mb-1">DBS Compliance</h2>
+            <p class="text-neutral-500 text-[13px] mb-5">Controls how DBS certificate validity and expiry warnings are calculated.</p>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="grid grid-cols-2 gap-5">
               <div>
-                <label for="dbs_validity_years" style="display: block; font-size: 13px; font-weight: 600; color: var(--color-neutral-800); margin-bottom: 4px;">Validity (years)</label>
-                <p style="font-size: 12px; color: var(--color-neutral-500); margin: 0 0 8px;">How long a certificate is valid from its clearance date.</p>
+                <label for="dbs_validity_years" class="block text-[13px] font-semibold text-neutral-800 mb-1">Validity (years)</label>
+                <p class="text-xs text-neutral-500 mb-2">How long a certificate is valid from its clearance date.</p>
                 <input id="dbs_validity_years" name="dbs_validity_years" type="number" min="1" max="10" value={dbsValidityYears} required
-                  style="width: 100px; padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-size: 14px; font-family: var(--font-body);" />
+                  class="w-25 py-2 px-3 border border-neutral-300 rounded-md text-sm font-body" />
               </div>
               <div>
-                <label for="dbs_warn_days" style="display: block; font-size: 13px; font-weight: 600; color: var(--color-neutral-800); margin-bottom: 4px;">Warning window (days)</label>
-                <p style="font-size: 12px; color: var(--color-neutral-500); margin: 0 0 8px;">Days before expiry to flag a certificate as "expiring soon".</p>
+                <label for="dbs_warn_days" class="block text-[13px] font-semibold text-neutral-800 mb-1">Warning window (days)</label>
+                <p class="text-xs text-neutral-500 mb-2">Days before expiry to flag a certificate as "expiring soon".</p>
                 <input id="dbs_warn_days" name="dbs_warn_days" type="number" min="7" max="365" value={dbsWarnDays} required
-                  style="width: 100px; padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-size: 14px; font-family: var(--font-body);" />
+                  class="w-25 py-2 px-3 border border-neutral-300 rounded-md text-sm font-body" />
               </div>
             </div>
             {lastUpdated && (
-              <p style="font-size: 12px; color: var(--color-neutral-400); margin: 16px 0 0;">Last updated {lastUpdated}</p>
+              <p class="text-xs text-neutral-400 mt-4">Last updated {lastUpdated}</p>
             )}
           </div>
 
           <!-- Member Permissions -->
-          <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
-            <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Member Permissions</h2>
-            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0 0 20px;">Control what members and team leads can do in the portal.</p>
+          <div class="bg-white border border-neutral-200 rounded-lg p-6">
+            <h2 class="font-heading text-[15px] font-bold text-brand-navy mt-0 mb-1">Member Permissions</h2>
+            <p class="font-body text-[13px] text-neutral-500 mb-5">Control what members and team leads can do in the portal.</p>
 
-            <div style="display: flex; flex-direction: column; gap: 16px;">
-              <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer; padding: 14px; background: var(--color-neutral-50); border-radius: var(--radius-md); border: 1px solid var(--color-neutral-200);">
+            <div class="flex flex-col gap-4">
+              <label class="flex items-start gap-3 cursor-pointer p-3.5 bg-neutral-50 rounded-md border border-neutral-200">
                 <input type="hidden" name="allow_member_praise" value="false" />
                 <input type="checkbox" name="allow_member_praise" value="true" checked={allowMemberPraise}
-                  style="width: 16px; height: 16px; margin-top: 2px; accent-color: var(--color-brand-navy); flex-shrink: 0;" />
+                  class="w-4 h-4 mt-0.5 accent-brand-navy shrink-0" />
                 <div>
-                  <span style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-neutral-800); display: block;">Members can give praise</span>
-                  <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); display: block; margin-top: 2px;">When off, only admins can give praise.</span>
+                  <span class="font-body text-sm font-semibold text-neutral-800 block">Members can give praise</span>
+                  <span class="font-body text-xs text-neutral-500 block mt-0.5">When off, only admins can give praise.</span>
                 </div>
               </label>
 
-              <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer; padding: 14px; background: var(--color-neutral-50); border-radius: var(--radius-md); border: 1px solid var(--color-neutral-200);">
+              <label class="flex items-start gap-3 cursor-pointer p-3.5 bg-neutral-50 rounded-md border border-neutral-200">
                 <input type="hidden" name="allow_teamlead_remove_member" value="false" />
                 <input type="checkbox" name="allow_teamlead_remove_member" value="true" checked={allowTeamleadRemoveMember}
-                  style="width: 16px; height: 16px; margin-top: 2px; accent-color: var(--color-brand-navy); flex-shrink: 0;" />
+                  class="w-4 h-4 mt-0.5 accent-brand-navy shrink-0" />
                 <div>
-                  <span style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-neutral-800); display: block;">Team leads can remove members</span>
-                  <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); display: block; margin-top: 2px;">Admins can always remove regardless of this setting.</span>
+                  <span class="font-body text-sm font-semibold text-neutral-800 block">Team leads can remove members</span>
+                  <span class="font-body text-xs text-neutral-500 block mt-0.5">Admins can always remove regardless of this setting.</span>
                 </div>
               </label>
             </div>
@@ -194,7 +194,7 @@ let logoSuccess = ''
 
           <div>
             <button type="submit"
-              style="padding: 10px 24px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-size: 14px; font-weight: 600; font-family: var(--font-body); cursor: pointer;">
+              class="py-2.5 px-6 bg-brand-navy text-white border-0 rounded-md text-sm font-semibold font-body cursor-pointer">
               Save settings
             </button>
           </div>
@@ -203,42 +203,47 @@ let logoSuccess = ''
       </div>
 
       <!-- ── Right sidebar ── -->
-      <div style="display: flex; flex-direction: column; gap: 16px; position: sticky; top: 80px;">
+      <div class="flex flex-col gap-4 sticky top-20">
 
         <!-- Data Management -->
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px;">
-          <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px; text-transform: uppercase; letter-spacing: 0.04em;">Data Management</h2>
-          <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0 0 14px;">Manage lookup tables and reference data.</p>
-          <div style="display: flex; flex-direction: column; gap: 2px;">
-            <a href="/admin/document-types"
-              style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: var(--radius-md); text-decoration: none; color: var(--color-neutral-800); font-family: var(--font-body); font-size: 13px; font-weight: 500;">
-              <span>Document Types</span>
-              <span style="color: var(--color-neutral-400); font-size: 12px;">→</span>
+        <div class="bg-white border border-neutral-200 rounded-lg p-5">
+          <h2 class="font-heading text-sm font-bold text-brand-navy mt-0 mb-1 uppercase tracking-[0.04em]">Data Management</h2>
+          <p class="font-body text-xs text-neutral-500 mb-3.5">Manage lookup tables and reference data.</p>
+          <div class="flex flex-col gap-0.5">
+            <a href="/admin/pillars"
+              class="flex items-center justify-between py-2.5 px-3 rounded-md no-underline text-neutral-800 font-body text-[13px] font-medium hover:bg-neutral-50">
+              <span>Pillars</span>
+              <span class="text-neutral-400 text-xs">→</span>
             </a>
             <a href="/admin/roles"
-              style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: var(--radius-md); text-decoration: none; color: var(--color-neutral-800); font-family: var(--font-body); font-size: 13px; font-weight: 500;">
+              class="flex items-center justify-between py-2.5 px-3 rounded-md no-underline text-neutral-800 font-body text-[13px] font-medium hover:bg-neutral-50">
               <span>Roles</span>
-              <span style="color: var(--color-neutral-400); font-size: 12px;">→</span>
+              <span class="text-neutral-400 text-xs">→</span>
             </a>
             <a href="/admin/positions"
-              style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: var(--radius-md); text-decoration: none; color: var(--color-neutral-800); font-family: var(--font-body); font-size: 13px; font-weight: 500;">
+              class="flex items-center justify-between py-2.5 px-3 rounded-md no-underline text-neutral-800 font-body text-[13px] font-medium hover:bg-neutral-50">
               <span>Elected Positions</span>
-              <span style="color: var(--color-neutral-400); font-size: 12px;">→</span>
+              <span class="text-neutral-400 text-xs">→</span>
+            </a>
+            <a href="/admin/document-types"
+              class="flex items-center justify-between py-2.5 px-3 rounded-md no-underline text-neutral-800 font-body text-[13px] font-medium hover:bg-neutral-50">
+              <span>Document Types</span>
+              <span class="text-neutral-400 text-xs">→</span>
             </a>
             <a href="/admin/email-templates"
-              style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: var(--radius-md); text-decoration: none; color: var(--color-neutral-800); font-family: var(--font-body); font-size: 13px; font-weight: 500;">
+              class="flex items-center justify-between py-2.5 px-3 rounded-md no-underline text-neutral-800 font-body text-[13px] font-medium hover:bg-neutral-50">
               <span>Email Templates</span>
-              <span style="color: var(--color-neutral-400); font-size: 12px;">→</span>
+              <span class="text-neutral-400 text-xs">→</span>
             </a>
           </div>
         </div>
 
         <!-- Audit log -->
-        <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px;">
-          <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px; text-transform: uppercase; letter-spacing: 0.04em;">Logs & History</h2>
-          <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-500); margin: 0 0 14px;">Track all changes made in the portal.</p>
+        <div class="bg-white border border-neutral-200 rounded-lg p-5">
+          <h2 class="font-heading text-sm font-bold text-brand-navy mt-0 mb-1 uppercase tracking-[0.04em]">Logs & History</h2>
+          <p class="font-body text-xs text-neutral-500 mb-3.5">Track all changes made in the portal.</p>
           <a href="/admin/audit"
-            style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); text-decoration: none; color: var(--color-neutral-700); font-family: var(--font-body); font-size: 13px; font-weight: 500; background: var(--color-neutral-50);">
+            class="inline-flex items-center gap-1.5 py-2 px-3.5 border border-neutral-200 rounded-md no-underline text-neutral-700 font-body text-[13px] font-medium bg-neutral-50">
             View Audit Log →
           </a>
         </div>

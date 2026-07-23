@@ -56,31 +56,31 @@ if (Astro.request.method === 'POST') {
 ---
 
 <DashboardLayout title="New Mentee">
-  <div style="max-width: 680px;">
+  <div class="max-w-170">
     <Breadcrumb crumbs={[{ label: 'Mentees', href: '/admin/mentees' }, { label: 'New Mentee' }]} />
-    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">New Mentee</h1>
+    <h1 class="font-heading text-[22px] font-bold text-brand-navy mb-6">New Mentee</h1>
 
     {globalError && (
-      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+      <div class="bg-danger-50 border border-danger-200 rounded-md px-4 py-3 mb-5 font-body text-sm text-danger-700">
         {globalError}
       </div>
     )}
 
-    <form method="POST" style="display: flex; flex-direction: column; gap: 24px;">
+    <form method="POST" class="flex flex-col gap-6">
 
       <!-- Personal details -->
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 28px;">
-        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 20px; text-transform: uppercase; letter-spacing: 0.05em;">Mentee details</h2>
-        <div style="display: flex; flex-direction: column; gap: 16px;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div class="bg-white border border-neutral-200 rounded-lg p-7">
+        <h2 class="font-heading text-sm font-bold text-neutral-800 mb-5 uppercase tracking-wider">Mentee details</h2>
+        <div class="flex flex-col gap-4">
+          <div class="grid grid-cols-2 gap-4">
             <Input label="Full name *" name="full_name" value={values.full_name} error={errors.full_name} required />
             <Input label="Email *" name="email" type="email" value={values.email} error={errors.email} required />
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="grid grid-cols-2 gap-4">
             <Input label="Phone" name="phone" type="tel" value={values.phone} error={errors.phone} />
             <Input label="Date of birth" name="date_of_birth" type="date" value={values.date_of_birth} error={errors.date_of_birth} />
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="grid grid-cols-2 gap-4">
             <Input label="School" name="school" value={values.school} error={errors.school} />
             <Input label="Year group" name="year_group" value={values.year_group} error={errors.year_group} placeholder="e.g. Year 10" />
           </div>
@@ -88,11 +88,11 @@ if (Astro.request.method === 'POST') {
       </div>
 
       <!-- Parent/guardian -->
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 28px;">
-        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 20px; text-transform: uppercase; letter-spacing: 0.05em;">Parent / Guardian</h2>
-        <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="bg-white border border-neutral-200 rounded-lg p-7">
+        <h2 class="font-heading text-sm font-bold text-neutral-800 mb-5 uppercase tracking-wider">Parent / Guardian</h2>
+        <div class="flex flex-col gap-4">
           <Input label="Name" name="parent_guardian_name" value={values.parent_guardian_name} error={errors.parent_guardian_name} />
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="grid grid-cols-2 gap-4">
             <Input label="Email" name="parent_guardian_email" type="email" value={values.parent_guardian_email} error={errors.parent_guardian_email} />
             <Input label="Phone" name="parent_guardian_phone" type="tel" value={values.parent_guardian_phone} error={errors.parent_guardian_phone} />
           </div>
@@ -100,24 +100,24 @@ if (Astro.request.method === 'POST') {
       </div>
 
       <!-- Programme assignment -->
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 28px;">
-        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 20px; text-transform: uppercase; letter-spacing: 0.05em;">Programme</h2>
-        <div style="display: flex; flex-direction: column; gap: 16px;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Mentor</label>
+      <div class="bg-white border border-neutral-200 rounded-lg p-7">
+        <h2 class="font-heading text-sm font-bold text-neutral-800 mb-5 uppercase tracking-wider">Programme</h2>
+        <div class="flex flex-col gap-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1">
+              <label class="font-body text-[13px] font-medium text-neutral-700">Mentor</label>
               <select name="mentor_id"
-                style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
+                class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm bg-white">
                 <option value="">— Unassigned —</option>
                 {(members ?? []).map(m => (
                   <option value={m.id} selected={values.mentor_id === m.id}>{m.full_name}</option>
                 ))}
               </select>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Programme year</label>
+            <div class="flex flex-col gap-1">
+              <label class="font-body text-[13px] font-medium text-neutral-700">Programme year</label>
               <select name="programme_year_id"
-                style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
+                class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm bg-white">
                 <option value="">— None —</option>
                 {(programmeYears ?? []).map(py => (
                   <option value={py.id} selected={values.programme_year_id === py.id}>{py.name as string}</option>
@@ -125,19 +125,19 @@ if (Astro.request.method === 'POST') {
               </select>
             </div>
           </div>
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Notes</label>
+          <div class="flex flex-col gap-1">
+            <label class="font-body text-[13px] font-medium text-neutral-700">Notes</label>
             <textarea name="notes" rows={3} placeholder="Any notes about this mentee…"
-              style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; resize: vertical;">{values.notes ?? ''}</textarea>
+              class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm resize-y">{values.notes ?? ''}</textarea>
           </div>
         </div>
       </div>
 
-      <div style="display: flex; gap: 12px;">
-        <button type="submit" style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+      <div class="flex gap-3">
+        <button type="submit" class="px-5 py-2.5 bg-brand-navy text-white border-0 rounded-md font-body text-sm font-semibold cursor-pointer">
           Create mentee
         </button>
-        <a href="/admin/mentees" style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+        <a href="/admin/mentees" class="px-5 py-2.5 bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">
           Cancel
         </a>
       </div>

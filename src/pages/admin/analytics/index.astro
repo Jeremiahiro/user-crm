@@ -13,8 +13,8 @@ const [
   { data: duesAll },
   { data: dbsAll },
   { data: participationByPillar },
-  { data: pillars },
-  { data: teams },
+  ,  // pillars — fetched but not used directly (labels come from participation join)
+  ,  // teams — fetched but not used directly (names come from participation join)
   { data: membersByJoinMonth },
   { data: participationByTeam },
 ] = await Promise.all([
@@ -76,22 +76,16 @@ const [
 
 const STATUS_LABELS: Record<string, string> = {
   active: 'Active',
-  approved: 'Approved',
   pending_review: 'Pending Review',
   applicant: 'Applicant',
   inactive: 'Inactive',
-  alumni: 'Alumni',
-  left: 'Left',
 }
 
 const STATUS_COLORS: Record<string, string> = {
   active: 'var(--color-success-500)',
-  approved: 'var(--color-info-500)',
   pending_review: 'var(--color-warning-500)',
   applicant: 'var(--color-neutral-400)',
   inactive: 'var(--color-neutral-400)',
-  alumni: 'var(--color-neutral-500)',
-  left: 'var(--color-danger-500)',
 }
 
 const memberRows = allMembers ?? []
@@ -213,41 +207,41 @@ function pct(n: number, total: number) {
 ---
 
 <DashboardLayout title="Analytics">
-  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px;">
+  <div class="flex items-center justify-between mb-7">
     <div>
-      <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Analytics</h1>
-      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">Organisation-wide metrics for {currentYear}</p>
+      <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Analytics</h1>
+      <p class="font-body text-sm text-neutral-500 m-0">Organisation-wide metrics for {currentYear}</p>
     </div>
   </div>
 
   <!-- ── Top row: 4 summary cards ── -->
-  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+  <div class="grid grid-cols-4 gap-4 mb-6">
 
     <!-- Total members -->
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
-      <p style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px;">Total members</p>
-      <p style="font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">{totalMembers}</p>
+    <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6">
+      <p class="font-body text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Total members</p>
+      <p class="font-heading text-[32px] font-bold text-brand-navy m-0">{totalMembers}</p>
     </div>
 
     <!-- Active members -->
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
-      <p style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px;">Active</p>
-      <p style="font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: var(--color-success-600); margin: 0;">{statusCounts['active'] ?? 0}</p>
-      <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 4px 0 0;">{pct(statusCounts['active'] ?? 0, totalMembers)}% of total</p>
+    <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6">
+      <p class="font-body text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Active</p>
+      <p class="font-heading text-[32px] font-bold text-success-600 m-0">{statusCounts['active'] ?? 0}</p>
+      <p class="font-body text-xs text-neutral-400 mt-1">{pct(statusCounts['active'] ?? 0, totalMembers)}% of total</p>
     </div>
 
     <!-- Dues compliance -->
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
-      <p style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px;">Dues compliance {currentYear}</p>
-      <p style="font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: {duesCompliance >= 80 ? 'var(--color-success-600)' : duesCompliance >= 50 ? 'var(--color-warning-600)' : 'var(--color-danger-600)'}; margin: 0;">{duesCompliance}%</p>
-      <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 4px 0 0;">{duesPaidIds.size} / {activeMembers.length} active paid</p>
+    <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6">
+      <p class="font-body text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Dues compliance {currentYear}</p>
+      <p class={`font-heading text-[32px] font-bold m-0 ${duesCompliance >= 80 ? 'text-success-600' : duesCompliance >= 50 ? 'text-warning-600' : 'text-danger-600'}`}>{duesCompliance}%</p>
+      <p class="font-body text-xs text-neutral-400 mt-1">{duesPaidIds.size} / {activeMembers.length} active paid</p>
     </div>
 
     <!-- DBS valid -->
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 20px 24px;">
-      <p style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px;">DBS valid</p>
-      <p style="font-family: var(--font-heading); font-size: 32px; font-weight: 700; color: var(--color-success-600); margin: 0;">{dbsValidCount}</p>
-      <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 4px 0 0;">
+    <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6">
+      <p class="font-body text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">DBS valid</p>
+      <p class="font-heading text-[32px] font-bold text-success-600 m-0">{dbsValidCount}</p>
+      <p class="font-body text-xs text-neutral-400 mt-1">
         {dbsExpiredCount > 0 ? `${dbsExpiredCount} expired · ` : ''}{dbsExpiringSoonCount > 0 ? `${dbsExpiringSoonCount} expiring soon · ` : ''}{dbsMissingCount} missing
       </p>
     </div>
@@ -255,22 +249,22 @@ function pct(n: number, total: number) {
   </div>
 
   <!-- ── Main grid ── -->
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+  <div class="grid grid-cols-2 gap-6 mb-6">
 
     <!-- Member status breakdown -->
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
-      <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 20px;">Member status breakdown</h2>
-      <div style="display: flex; flex-direction: column; gap: 12px;">
+    <div class="bg-white border border-neutral-200 rounded-lg p-6">
+      <h2 class="font-heading text-[15px] font-bold text-neutral-800 mb-5">Member status breakdown</h2>
+      <div class="flex flex-col gap-3">
         {Object.entries(STATUS_LABELS).filter(([s]) => statusCounts[s]).map(([status, label]) => {
           const count = statusCounts[status] ?? 0
           const barPct = pct(count, totalMembers)
           return (
             <div>
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                <span style={`font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);`}>{label}</span>
-                <span style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-800);">{count} <span style="font-weight: 400; color: var(--color-neutral-400);">({barPct}%)</span></span>
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-body text-[13px] font-medium text-neutral-700">{label}</span>
+                <span class="font-heading text-[13px] font-semibold text-neutral-800">{count} <span class="font-normal text-neutral-400">({barPct}%)</span></span>
               </div>
-              <div style="height: 8px; background-color: var(--color-neutral-100); border-radius: var(--radius-full); overflow: hidden;">
+              <div class="h-2 bg-neutral-100 rounded-full overflow-hidden">
                 <div style={`height: 100%; width: ${barPct}%; background-color: ${STATUS_COLORS[status] ?? 'var(--color-neutral-400)'}; border-radius: var(--radius-full); transition: width 0.3s;`}></div>
               </div>
             </div>
@@ -280,9 +274,9 @@ function pct(n: number, total: number) {
     </div>
 
     <!-- DBS status breakdown -->
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
-      <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 20px;">DBS status (active members)</h2>
-      <div style="display: flex; flex-direction: column; gap: 16px;">
+    <div class="bg-white border border-neutral-200 rounded-lg p-6">
+      <h2 class="font-heading text-[15px] font-bold text-neutral-800 mb-5">DBS status (active members)</h2>
+      <div class="flex flex-col gap-4">
         {[
           { label: 'Valid (>60 days remaining)', count: dbsValidCount, color: 'var(--color-success-500)' },
           { label: 'Expiring within 60 days', count: dbsExpiringSoonCount, color: 'var(--color-warning-500)' },
@@ -292,27 +286,27 @@ function pct(n: number, total: number) {
           const barPct = pct(row.count, activeMembers.length)
           return (
             <div>
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                <span style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">{row.label}</span>
-                <span style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-800);">{row.count}</span>
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-body text-[13px] font-medium text-neutral-700">{row.label}</span>
+                <span class="font-heading text-[13px] font-semibold text-neutral-800">{row.count}</span>
               </div>
-              <div style="height: 8px; background-color: var(--color-neutral-100); border-radius: var(--radius-full); overflow: hidden;">
+              <div class="h-2 bg-neutral-100 rounded-full overflow-hidden">
                 <div style={`height: 100%; width: ${barPct}%; background-color: ${row.color}; border-radius: var(--radius-full);`}></div>
               </div>
             </div>
           )
         })}
       </div>
-      <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--color-neutral-100); display: flex; gap: 12px;">
+      <div class="mt-5 pt-4 border-t border-neutral-100 flex gap-3">
         {dbsExpiredCount > 0 && (
           <a href="/admin/dbs?filter=expired"
-            style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-600); text-decoration: none; font-weight: 500;">
+            class="font-body text-xs text-danger-600 no-underline font-medium">
             View expired →
           </a>
         )}
         {dbsExpiringSoonCount > 0 && (
           <a href="/admin/dbs?filter=expiring"
-            style="font-family: var(--font-body); font-size: 12px; color: var(--color-warning-600); text-decoration: none; font-weight: 500;">
+            class="font-body text-xs text-warning-600 no-underline font-medium">
             View expiring soon →
           </a>
         )}
@@ -322,26 +316,26 @@ function pct(n: number, total: number) {
   </div>
 
   <!-- ── Second row ── -->
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+  <div class="grid grid-cols-2 gap-6 mb-6">
 
     <!-- Pillar participation -->
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
-      <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 4px;">Participation by pillar</h2>
-      <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0 0 20px;">Logged participation events</p>
+    <div class="bg-white border border-neutral-200 rounded-lg p-6">
+      <h2 class="font-heading text-[15px] font-bold text-neutral-800 mb-1">Participation by pillar</h2>
+      <p class="font-body text-xs text-neutral-400 mb-5">Logged participation events</p>
       {pillarBreakdown.length === 0 ? (
-        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400);">No participation events with pillars logged.</p>
+        <p class="font-body text-sm text-neutral-400">No participation events with pillars logged.</p>
       ) : (
-        <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div class="flex flex-col gap-2.5">
           {pillarBreakdown.map(row => {
-            const maxCount = pillarBreakdown[0].count
+            const maxCount = pillarBreakdown[0]?.count ?? 0
             const barPct = maxCount > 0 ? Math.round((row.count / maxCount) * 100) : 0
             return (
               <div>
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                  <span style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">{row.name}</span>
-                  <span style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-800);">{row.count}</span>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="font-body text-[13px] text-neutral-700">{row.name}</span>
+                  <span class="font-heading text-[13px] font-semibold text-neutral-800">{row.count}</span>
                 </div>
-                <div style="height: 8px; background-color: var(--color-neutral-100); border-radius: var(--radius-full); overflow: hidden;">
+                <div class="h-2 bg-neutral-100 rounded-full overflow-hidden">
                   <div style={`height: 100%; width: ${barPct}%; background-color: var(--color-brand-gold); border-radius: var(--radius-full);`}></div>
                 </div>
               </div>
@@ -352,23 +346,23 @@ function pct(n: number, total: number) {
     </div>
 
     <!-- Team participation -->
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px;">
-      <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 4px;">Participation by team</h2>
-      <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0 0 20px;">Top 8 teams by logged events</p>
+    <div class="bg-white border border-neutral-200 rounded-lg p-6">
+      <h2 class="font-heading text-[15px] font-bold text-neutral-800 mb-1">Participation by team</h2>
+      <p class="font-body text-xs text-neutral-400 mb-5">Top 8 teams by logged events</p>
       {teamBreakdown.length === 0 ? (
-        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400);">No participation events with teams logged.</p>
+        <p class="font-body text-sm text-neutral-400">No participation events with teams logged.</p>
       ) : (
-        <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div class="flex flex-col gap-2.5">
           {teamBreakdown.map(row => {
-            const maxCount = teamBreakdown[0].count
+            const maxCount = teamBreakdown[0]?.count ?? 0
             const barPct = maxCount > 0 ? Math.round((row.count / maxCount) * 100) : 0
             return (
               <div>
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                  <span style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">{row.name}</span>
-                  <span style="font-family: var(--font-heading); font-size: 13px; font-weight: 600; color: var(--color-neutral-800);">{row.count}</span>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="font-body text-[13px] text-neutral-700">{row.name}</span>
+                  <span class="font-heading text-[13px] font-semibold text-neutral-800">{row.count}</span>
                 </div>
-                <div style="height: 8px; background-color: var(--color-neutral-100); border-radius: var(--radius-full); overflow: hidden;">
+                <div class="h-2 bg-neutral-100 rounded-full overflow-hidden">
                   <div style={`height: 100%; width: ${barPct}%; background-color: var(--color-brand-navy); border-radius: var(--radius-full);`}></div>
                 </div>
               </div>
@@ -381,21 +375,21 @@ function pct(n: number, total: number) {
   </div>
 
   <!-- ── Membership growth ── -->
-  <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px;">
-    <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0 0 4px;">Membership growth</h2>
-    <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0 0 24px;">New members joined by year (last 8 years)</p>
+  <div class="bg-white border border-neutral-200 rounded-lg p-6 mb-6">
+    <h2 class="font-heading text-[15px] font-bold text-neutral-800 mb-1">Membership growth</h2>
+    <p class="font-body text-xs text-neutral-400 mb-6">New members joined by year (last 8 years)</p>
     {growthYears.length === 0 ? (
-      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400);">No join date data available.</p>
+      <p class="font-body text-sm text-neutral-400">No join date data available.</p>
     ) : (
-      <div style="display: flex; align-items: flex-end; gap: 16px; height: 140px;">
+      <div class="flex items-end gap-4 h-35">
         {growthYears.map(year => {
           const count = joinYearCounts[year] ?? 0
           const barH = maxGrowth > 0 ? Math.round((count / maxGrowth) * 120) : 0
           return (
-            <div style="display: flex; flex-direction: column; align-items: center; flex: 1; gap: 6px;">
-              <span style="font-family: var(--font-heading); font-size: 11px; font-weight: 600; color: var(--color-neutral-600);">{count}</span>
+            <div class="flex flex-col items-center flex-1 gap-1.5">
+              <span class="font-heading text-[11px] font-semibold text-neutral-600">{count}</span>
               <div style={`width: 100%; height: ${barH}px; min-height: 4px; background-color: ${year === currentYear ? 'var(--color-brand-gold)' : 'var(--color-brand-navy)'}; border-radius: var(--radius-md) var(--radius-md) 0 0;`}></div>
-              <span style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400);">{year}</span>
+              <span class="font-body text-[11px] text-neutral-400">{year}</span>
             </div>
           )
         })}
@@ -404,26 +398,26 @@ function pct(n: number, total: number) {
   </div>
 
   <!-- ── Member type breakdown table ── -->
-  <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
-    <div style="padding: 20px 24px; border-bottom: 1px solid var(--color-neutral-200);">
-      <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">Member type breakdown</h2>
+  <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+    <div class="py-5 px-6 border-b border-neutral-200">
+      <h2 class="font-heading text-[15px] font-bold text-neutral-800 m-0">Member type breakdown</h2>
     </div>
-    <table style="width: 100%; border-collapse: collapse;">
-      <thead style="background-color: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+    <table class="w-full border-collapse">
+      <thead class="bg-neutral-50 border-b border-neutral-200">
         <tr>
-          <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 24px; text-transform: uppercase; letter-spacing: 0.05em;">Type</th>
-          <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: right; padding: 10px 24px; text-transform: uppercase; letter-spacing: 0.05em;">Count</th>
-          <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: right; padding: 10px 24px; text-transform: uppercase; letter-spacing: 0.05em;">% of total</th>
+          <th class="font-body text-xs font-semibold text-neutral-500 text-left py-2.5 px-6 uppercase tracking-wider">Type</th>
+          <th class="font-body text-xs font-semibold text-neutral-500 text-right py-2.5 px-6 uppercase tracking-wider">Count</th>
+          <th class="font-body text-xs font-semibold text-neutral-500 text-right py-2.5 px-6 uppercase tracking-wider">% of total</th>
         </tr>
       </thead>
       <tbody>
         {Object.entries(memberTypeCounts)
           .sort(([, a], [, b]) => b - a)
           .map(([type, count], i) => (
-            <tr style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
-              <td style="padding: 12px 24px; font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); text-transform: capitalize;">{type.replace(/_/g, ' ')}</td>
-              <td style="padding: 12px 24px; font-family: var(--font-heading); font-size: 14px; font-weight: 600; color: var(--color-neutral-700); text-align: right;">{count}</td>
-              <td style="padding: 12px 24px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); text-align: right;">{pct(count, totalMembers)}%</td>
+            <tr class={i > 0 ? 'border-t border-neutral-100' : ''}>
+              <td class="py-3 px-6 font-body text-sm text-neutral-800 capitalize">{type.replace(/_/g, ' ')}</td>
+              <td class="py-3 px-6 font-heading text-sm font-semibold text-neutral-700 text-right">{count}</td>
+              <td class="py-3 px-6 font-body text-[13px] text-neutral-500 text-right">{pct(count, totalMembers)}%</td>
             </tr>
           ))
         }

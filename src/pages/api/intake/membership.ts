@@ -27,9 +27,13 @@ const IntakeSchema = z.object({
   instagram_url:      z.string().url().optional(),
   facebook_url:       z.string().url().optional(),
 
-  // Interest form responses
-  pillar_interest:    z.string().optional(),
-  committee_interest: z.string().optional(),
+  // Interest form responses — multi-select, stored as comma-joined string
+  pillar_interest:    z.union([z.string(), z.array(z.string())]).optional().transform(v =>
+    Array.isArray(v) ? v.join(', ') : v
+  ),
+  committee_interest: z.union([z.string(), z.array(z.string())]).optional().transform(v =>
+    Array.isArray(v) ? v.join(', ') : v
+  ),
   why_join:           z.string().optional(),
   skills_qualities:   z.string().optional(),
   referral_source:    z.string().optional(),
@@ -130,8 +134,9 @@ export const POST: APIRoute = async ({ request }) => {
         ...fields,
         status: 'applicant',
         source: 'google_form',
-        person_types: ['member'],
+        person_types: [],
         intake_status: 'in_progress',
+        applied_at: new Date().toISOString(),
       })
       .select('id')
       .single()

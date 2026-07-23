@@ -45,7 +45,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
     .from('people')
     .select('id, full_name, email, status, profile_photo_url')
     .or(`full_name.ilike.%${q}%,email.ilike.%${q}%`)
-    .in('status', ['active', 'approved'])
+    .eq('status', 'active')
     .order('full_name')
     .limit(10)
 

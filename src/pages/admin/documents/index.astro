@@ -67,54 +67,44 @@ function fmt(d: string | null) {
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-const STATUS_BG: Record<string, string> = {
-  pending: 'var(--color-warning-50)',
-  approved: 'var(--color-success-50)',
-  rejected: 'var(--color-danger-50)',
-}
-const STATUS_COLOR: Record<string, string> = {
-  pending: 'var(--color-warning-700)',
-  approved: 'var(--color-success-700)',
-  rejected: 'var(--color-danger-700)',
-}
-const STATUS_BORDER: Record<string, string> = {
-  pending: 'var(--color-warning-300)',
-  approved: 'var(--color-success-100)',
-  rejected: 'var(--color-danger-100)',
+const STATUS_CLASSES: Record<string, string> = {
+  pending: 'bg-warning-50 text-warning-700 border border-warning-300',
+  approved: 'bg-success-50 text-success-700 border border-success-100',
+  rejected: 'bg-danger-50 text-danger-700 border border-danger-100',
 }
 ---
 
 <DashboardLayout title="Documents">
-  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+  <div class="flex items-center justify-between mb-6">
     <div>
-      <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Documents</h1>
-      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">{totalCount ?? 0} document{(totalCount ?? 0) !== 1 ? 's' : ''}</p>
+      <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Documents</h1>
+      <p class="font-body text-sm text-neutral-500 m-0">{totalCount ?? 0} document{(totalCount ?? 0) !== 1 ? 's' : ''}</p>
     </div>
     <a href="/admin/documents/upload"
-      style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+      class="px-4.5 py-2.5 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
       + Upload Document
     </a>
   </div>
 
   {(admin || isLead) && pendingDocs.length > 0 && (
-    <div style="background-color: var(--color-warning-50); border: 1px solid var(--color-warning-300); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 24px;">
-      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-        <span style="font-size: 16px; color: var(--color-warning-700);">&#9888;</span>
-        <h2 style="font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--color-warning-800); margin: 0;">
+    <div class="bg-warning-50 border border-warning-300 rounded-lg px-5 py-4 mb-6">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-base text-warning-700">&#9888;</span>
+        <h2 class="font-heading text-[15px] font-bold text-warning-800 m-0">
           {pendingDocs.length} document{pendingDocs.length !== 1 ? 's' : ''} awaiting review
         </h2>
       </div>
-      <table style="width: 100%; border-collapse: collapse;">
+      <table class="w-full border-collapse">
         <tbody>
           {pendingDocs.map((d: any) => (
             <tr>
-              <td style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-warning-800); padding: 6px 8px;">{d.title}</td>
-              <td style="font-family: var(--font-body); font-size: 12px; color: var(--color-warning-700); padding: 6px 8px;">{personMap.get(d.person_id) ?? '—'}</td>
-              <td style="font-family: var(--font-body); font-size: 12px; color: var(--color-warning-700); padding: 6px 8px;">{(d.document_type as any)?.name ?? '—'}</td>
-              <td style="font-family: var(--font-body); font-size: 12px; color: var(--color-warning-700); padding: 6px 8px;">{fmt(d.created_at)}</td>
-              <td style="padding: 6px 8px; text-align: right;">
+              <td class="font-body text-[13px] font-medium text-warning-800 px-2 py-1.5">{d.title}</td>
+              <td class="font-body text-xs text-warning-700 px-2 py-1.5">{personMap.get(d.person_id) ?? '—'}</td>
+              <td class="font-body text-xs text-warning-700 px-2 py-1.5">{(d.document_type as any)?.name ?? '—'}</td>
+              <td class="font-body text-xs text-warning-700 px-2 py-1.5">{fmt(d.created_at)}</td>
+              <td class="px-2 py-1.5 text-right">
                 <a href={`/admin/documents/${d.id}`}
-                  style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-warning-800); text-decoration: underline;">
+                  class="font-body text-xs font-semibold text-warning-800 underline">
                   Review &#8594;
                 </a>
               </td>
@@ -126,7 +116,7 @@ const STATUS_BORDER: Record<string, string> = {
   )}
 
   <!-- Status filter pills -->
-  <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+  <div class="flex gap-2 mb-5 flex-wrap">
     {[
       { label: 'All', value: '' },
       { label: 'Pending', value: 'pending' },
@@ -137,7 +127,7 @@ const STATUS_BORDER: Record<string, string> = {
       return (
         <a
           href={value ? `/admin/documents?status=${value}` : '/admin/documents'}
-          style={`padding: 6px 16px; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 13px; font-weight: ${active ? '600' : '400'}; text-decoration: none; border: 1px solid ${active ? 'var(--color-brand-navy)' : 'var(--color-neutral-200)'}; background-color: ${active ? 'var(--color-brand-navy)' : 'white'}; color: ${active ? 'white' : 'var(--color-neutral-600)'};`}
+          class={`px-4 py-1.5 rounded-full font-body text-[13px] no-underline border ${active ? 'font-semibold border-brand-navy bg-brand-navy text-white' : 'font-normal border-neutral-200 bg-white text-neutral-600'}`}
         >
           {label}
         </a>
@@ -146,56 +136,55 @@ const STATUS_BORDER: Record<string, string> = {
   </div>
 
   <!-- Documents table -->
-  <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
+  <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
     {docs.length === 0 ? (
-      <div style="padding: 48px; text-align: center;">
-        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0 0 16px;">No documents found.</p>
+      <div class="p-12 text-center">
+        <p class="font-body text-sm text-neutral-400 mb-4 mt-0 mx-0">No documents found.</p>
         <a href="/admin/documents/upload"
-          style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+          class="px-4.5 py-2.5 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
           Upload first document
         </a>
       </div>
     ) : (
-      <table style="width: 100%; border-collapse: collapse;">
-        <thead style="background-color: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+      <table class="w-full border-collapse">
+        <thead class="bg-neutral-50 border-b border-neutral-200">
           <tr>
             {(admin || isLead) && (
-              <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Member</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Member</th>
             )}
-            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Document</th>
-            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Type</th>
-            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
-            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Uploaded</th>
-            <th style="padding: 10px 16px;"></th>
+            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Document</th>
+            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Type</th>
+            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Status</th>
+            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Uploaded</th>
+            <th class="px-4 py-2.5"></th>
           </tr>
         </thead>
         <tbody>
           {docs.map((doc: any, i: number) => {
-            const bg = STATUS_BG[doc.status] ?? 'var(--color-neutral-100)'
-            const color = STATUS_COLOR[doc.status] ?? 'var(--color-neutral-700)'
-            const border = STATUS_BORDER[doc.status] ?? 'var(--color-neutral-200)'
             return (
-              <tr style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
+              <tr class={i > 0 ? 'border-t border-neutral-100' : ''}>
                 {(admin || isLead) && (
-                  <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700);">
+                  <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">
                     {personMap.get(doc.person_id) ?? '—'}
                   </td>
                 )}
-                <td style="padding: 14px 16px;">
-                  <span style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-800);">{doc.title}</span>
+                <td class="px-4 py-3.5">
+                  <span class="font-body text-sm font-medium text-neutral-800">{doc.title}</span>
                 </td>
-                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">
+                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600">
                   {(doc.document_type as any)?.name ?? '—'}
                 </td>
-                <td style="padding: 14px 16px;">
-                  <span style={`display: inline-block; padding: 2px 10px; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 12px; font-weight: 600; background-color: ${bg}; color: ${color}; border: 1px solid ${border};`}>
+                <td class="px-4 py-3.5">
+                  <span
+                    class={`inline-block py-0.5 px-2.5 rounded-full font-body text-xs font-semibold ${STATUS_CLASSES[doc.status] ?? 'bg-neutral-100 text-neutral-700 border border-neutral-200'}`}
+                  >
                     {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
                   </span>
                 </td>
-                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">{fmt(doc.created_at)}</td>
-                <td style="padding: 14px 16px; text-align: right;">
+                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600">{fmt(doc.created_at)}</td>
+                <td class="px-4 py-3.5 text-right">
                   <a href={`/admin/documents/${doc.id}`}
-                    style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-brand-navy); text-decoration: none;">
+                    class="font-body text-[13px] font-medium text-brand-navy no-underline">
                     {(admin || isLead) ? 'Review' : 'View'} &#8594;
                   </a>
                 </td>

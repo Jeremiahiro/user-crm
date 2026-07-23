@@ -135,34 +135,25 @@ function daysLabel(row: MemberRow): string {
 <DashboardLayout title="DBS Status">
   <div>
     <!-- Header -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; flex-wrap: wrap; gap: 12px;">
+    <div class="flex justify-between items-start mb-7 flex-wrap gap-3">
       <div>
-        <h1 style="font-family: var(--font-heading); font-size: 28px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 6px;">
+        <h1 class="font-heading text-[28px] font-bold text-brand-navy mb-1.5">
           DBS Status Board
         </h1>
-        <p style="color: var(--color-neutral-600); font-size: 15px; margin: 0;">
+        <p class="text-neutral-600 text-[15px] m-0">
           All members · validity {validityYears} yr · warning {warnDays} days
         </p>
       </div>
-      <div style="display: flex; gap: 8px;">
+      <div class="flex gap-2">
         <a
           href="/admin/dbs/export"
-          style="
-            padding: 8px 16px;
-            border: 1px solid var(--color-neutral-300);
-            border-radius: var(--radius-md);
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--color-neutral-700);
-            text-decoration: none;
-            background: white;
-          "
+          class="px-4 py-2 border border-neutral-300 rounded-md text-[13px] font-medium text-neutral-700 no-underline bg-white"
         >Export CSV</a>
       </div>
     </div>
 
     <!-- Status filter tabs -->
-    <div style="display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--color-neutral-200); padding-bottom: 0;">
+    <div class="flex gap-1 mb-5 border-b border-neutral-200 pb-0">
       {(['all', 'expired', 'expiring_soon', 'missing', 'valid'] as const).map(tab => {
         const labels: Record<string, string> = {
           all: 'All', expired: 'Expired', expiring_soon: 'Expiring soon', missing: 'No record', valid: 'Valid',
@@ -171,74 +162,52 @@ function daysLabel(row: MemberRow): string {
         return (
           <a
             href={`/admin/dbs${tab === 'all' ? '' : `?status=${tab}`}`}
-            style={`
-              padding: 8px 14px;
-              font-size: 13px;
-              font-weight: ${active ? '600' : '500'};
-              font-family: var(--font-body);
-              text-decoration: none;
-              border-bottom: 2px solid ${active ? 'var(--color-brand-navy)' : 'transparent'};
-              color: ${active ? 'var(--color-brand-navy)' : 'var(--color-neutral-600)'};
-              white-space: nowrap;
-              margin-bottom: -1px;
-            `}
+            class={`py-2 px-3.5 text-[13px] font-body no-underline border-b-2 whitespace-nowrap -mb-px ${active ? 'font-semibold border-b-brand-navy text-brand-navy' : 'font-medium border-b-transparent text-neutral-600'}`}
           >
             {labels[tab]}
-            <span style={`
-              display: inline-flex;
-              align-items: center;
-              justify-content: center;
-              width: 20px;
-              height: 18px;
-              border-radius: 9px;
-              font-size: 11px;
-              font-weight: 600;
-              margin-left: 6px;
-              background-color: ${active ? 'var(--color-brand-navy)' : 'var(--color-neutral-200)'};
-              color: ${active ? 'white' : 'var(--color-neutral-600)'};
-            `}>{counts[tab]}</span>
+            <span class={`inline-flex items-center justify-center w-5 h-4.5 rounded-2.25 text-[11px] font-semibold ml-1.5 ${active ? 'bg-brand-navy text-white' : 'bg-neutral-200 text-neutral-600'}`}>{counts[tab]}</span>
           </a>
         )
       })}
     </div>
 
     <!-- Table -->
-    <div style="background: white; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-lg); overflow: hidden;">
+    <div class="bg-white border border-neutral-300 rounded-lg overflow-hidden">
       {filtered.length === 0 ? (
-        <div style="padding: 48px 24px; text-align: center; color: var(--color-neutral-500); font-size: 14px;">
+        <div class="px-6 py-12 text-center text-neutral-500 text-sm">
           No members in this category.
         </div>
       ) : (
-        <table style="width: 100%; border-collapse: collapse; font-size: 14px; font-family: var(--font-body);">
+        <table class="w-full border-collapse font-body text-sm">
           <thead>
-            <tr style="background-color: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
-              <th style="text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.04em;">Name</th>
-              <th style="text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.04em;">Email</th>
-              <th style="text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.04em;">Clearance date</th>
-              <th style="text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.04em;">Expiry date</th>
-              <th style="text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.04em;">Status</th>
-              <th style="text-align: right; padding: 12px 16px; font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.04em;">Days</th>
+            <tr class="bg-neutral-50 border-b border-neutral-200">
+              <th class="text-left px-4 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-[0.04em]">Name</th>
+              <th class="text-left px-4 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-[0.04em]">Email</th>
+              <th class="text-left px-4 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-[0.04em]">Clearance date</th>
+              <th class="text-left px-4 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-[0.04em]">Expiry date</th>
+              <th class="text-left px-4 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-[0.04em]">Status</th>
+              <th class="text-right px-4 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-[0.04em]">Days</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((row, i) => {
               const badge = statusBadge(row.status)
               return (
-                <tr style={`border-bottom: ${i < filtered.length - 1 ? '1px solid var(--color-neutral-100)' : 'none'};`}>
-                  <td style="padding: 12px 16px; font-weight: 500; color: var(--color-neutral-900);">
-                    <a href={`/admin/members/${row.id}`} style="color: inherit; text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                <tr class={i < filtered.length - 1 ? 'border-b border-neutral-100' : ''}>
+                  <td class="px-4 py-3 font-medium text-neutral-900">
+                    <a href={`/admin/members/${row.id}`} class="text-inherit no-underline hover:underline">
                       {row.full_name}
                     </a>
                   </td>
-                  <td style="padding: 12px 16px; color: var(--color-neutral-600);">{row.email}</td>
-                  <td style="padding: 12px 16px; color: var(--color-neutral-600);">{fmtDate(row.clearance_date)}</td>
-                  <td style="padding: 12px 16px; color: var(--color-neutral-600);">{fmtDate(row.expiry_date)}</td>
-                  <td style="padding: 12px 16px;">
-                    <span style={`display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; background-color: ${badge.bg}; color: ${badge.color};`}>
+                  <td class="px-4 py-3 text-neutral-600">{row.email}</td>
+                  <td class="px-4 py-3 text-neutral-600">{fmtDate(row.clearance_date)}</td>
+                  <td class="px-4 py-3 text-neutral-600">{fmtDate(row.expiry_date)}</td>
+                  <td class="px-4 py-3">
+                    <span class="inline-block py-0.5 px-2.5 rounded-lg text-xs font-semibold" style={`background-color: ${badge.bg}; color: ${badge.color};`}>
                       {badge.label}
                     </span>
                   </td>
-                  <td style={`padding: 12px 16px; text-align: right; font-size: 13px; font-weight: 500; color: ${row.days_remaining !== null && row.days_remaining < 0 ? '#991b1b' : row.days_remaining !== null && row.days_remaining <= warnDays ? '#92400e' : 'var(--color-neutral-600)'};`}>
+                  <td class="py-3 px-4 text-right text-[13px] font-medium" style={`color: ${row.days_remaining !== null && row.days_remaining < 0 ? '#991b1b' : row.days_remaining !== null && row.days_remaining <= warnDays ? '#92400e' : 'var(--color-neutral-600)'};`}>
                     {daysLabel(row)}
                   </td>
                 </tr>

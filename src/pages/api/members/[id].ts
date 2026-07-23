@@ -20,8 +20,8 @@ const UpdateMemberSchema = z.object({
   date_of_birth: z.string().optional().nullable(),
   gender: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
-  person_types: z.array(z.enum(['member', 'mentor', 'volunteer', 'alumni', 'parent', 'trustee'])).optional(),
-  status: z.enum(['applicant', 'pending_review', 'approved', 'active', 'suspended', 'inactive', 'alumni', 'left']).optional(),
+  person_types: z.array(z.enum(['member', 'mentor', 'volunteer', 'parent', 'trustee'])).optional(),
+  status: z.enum(['applicant', 'pending_review', 'active', 'suspended', 'inactive']).optional(),
   date_joined: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 })

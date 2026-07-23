@@ -38,27 +38,28 @@ if (onBehalfOf && onBehalfOf !== (Astro.locals.user?.person_id ?? '')) {
 ---
 
 <DashboardLayout title="Upload Document">
-  <div style="max-width: 600px;">
+  <div class="max-w-150">
     <Breadcrumb crumbs={[{ label: 'Documents', href: '/admin/documents' }, { label: 'Upload Document' }]} />
-    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Upload Document</h1>
-    <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0 0 24px;">
+    <h1 class="font-heading text-[22px] font-bold text-brand-navy mb-1">Upload Document</h1>
+    <p class="font-body text-sm text-neutral-500 mb-6">
       {onBehalfOfName ? `Uploading on behalf of ${onBehalfOfName}.` : 'Upload a document to your profile for review.'}
     </p>
 
-    <form id="uploadForm" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+    <form id="uploadForm" class="bg-white border border-neutral-200 rounded-lg p-8 flex flex-col gap-5">
 
       <!-- Person (admins/leads only) -->
       {canAssignToOthers && (
-        <div style="display: flex; flex-direction: column; gap: 4px;">
-          <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">
-            Person <span style="color: var(--color-neutral-400); font-weight: 400;">(leave blank to upload as yourself)</span>
+        <div class="flex flex-col gap-1">
+          <label class="font-body text-[13px] font-medium text-neutral-700">
+            Person <span class="text-neutral-400 font-normal">(leave blank to upload as yourself)</span>
           </label>
-          <div style="position: relative;">
+          <div class="relative">
             <input id="personSearch" type="text" placeholder="Search by name or email…" autocomplete="off"
               value={onBehalfOfName}
-              style="width: 100%; padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); box-sizing: border-box;" />
+              class="w-full py-2.5 px-3 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 box-border" />
             <div id="personDropdown"
-              style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid var(--color-neutral-300); border-top: none; border-radius: 0 0 var(--radius-md) var(--radius-md); max-height: 220px; overflow-y: auto; z-index: 200; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+              style="display: none;"
+              class="absolute top-full left-0 right-0 bg-white border border-neutral-300 border-t-0 rounded-b-md max-h-55 overflow-y-auto z-[200] shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
             </div>
           </div>
           <input type="hidden" id="personIdInput" value={onBehalfOf} />
@@ -66,10 +67,10 @@ if (onBehalfOf && onBehalfOf !== (Astro.locals.user?.person_id ?? '')) {
       )}
 
       <!-- Document type -->
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label for="docTypeSelect" style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Document type *</label>
+      <div class="flex flex-col gap-1">
+        <label for="docTypeSelect" class="font-body text-[13px] font-medium text-neutral-700">Document type *</label>
         <select id="docTypeSelect" required
-          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white; color: var(--color-neutral-800);">
+          class="py-2.5 px-3 border border-neutral-300 rounded-md font-body text-sm bg-white text-neutral-800">
           <option value="">Select type</option>
           {safeDocTypes.map((dt: any) => (
             <option value={dt.id}>{dt.name}</option>
@@ -78,58 +79,59 @@ if (onBehalfOf && onBehalfOf !== (Astro.locals.user?.person_id ?? '')) {
       </div>
 
       <!-- Title -->
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label for="titleInput" style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Title *</label>
+      <div class="flex flex-col gap-1">
+        <label for="titleInput" class="font-body text-[13px] font-medium text-neutral-700">Title *</label>
         <input id="titleInput" type="text" required placeholder="e.g. Enhanced DBS Certificate"
-          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800);" />
+          class="py-2.5 px-3 border border-neutral-300 rounded-md font-body text-sm text-neutral-800" />
       </div>
 
       <!-- Issued by (conditional) -->
-      <div id="issuedByRow" style="display: none; flex-direction: column; gap: 4px;">
-        <label for="issuedByInput" style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Issued by</label>
+      <div id="issuedByRow" style="display: none;" class="flex-col gap-1">
+        <label for="issuedByInput" class="font-body text-[13px] font-medium text-neutral-700">Issued by</label>
         <input id="issuedByInput" type="text" placeholder="e.g. DBS Update Service"
-          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800);" />
+          class="py-2.5 px-3 border border-neutral-300 rounded-md font-body text-sm text-neutral-800" />
       </div>
 
       <!-- Expiry date (conditional) -->
-      <div id="expiryRow" style="display: none; flex-direction: column; gap: 4px;">
-        <label for="expiryInput" style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Expiry date</label>
+      <div id="expiryRow" style="display: none;" class="flex-col gap-1">
+        <label for="expiryInput" class="font-body text-[13px] font-medium text-neutral-700">Expiry date</label>
         <input id="expiryInput" type="date"
-          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800);" />
+          class="py-2.5 px-3 border border-neutral-300 rounded-md font-body text-sm text-neutral-800" />
       </div>
 
       <!-- Training link (conditional, searchable) -->
-      <div id="trainingRow" style="display: none; flex-direction: column; gap: 4px;">
-        <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Linked training (optional)</label>
-        <div style="position: relative;">
+      <div id="trainingRow" style="display: none;" class="flex-col gap-1">
+        <label class="font-body text-[13px] font-medium text-neutral-700">Linked training (optional)</label>
+        <div class="relative">
           <input id="trainingSearch" type="text" placeholder="Search trainings…" autocomplete="off"
-            style="width: 100%; padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); box-sizing: border-box;" />
+            class="w-full py-2.5 px-3 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 box-border" />
           <div id="trainingDropdown"
-            style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid var(--color-neutral-300); border-top: none; border-radius: 0 0 var(--radius-md) var(--radius-md); max-height: 220px; overflow-y: auto; z-index: 200; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+            style="display: none;"
+            class="absolute top-full left-0 right-0 bg-white border border-neutral-300 border-t-0 rounded-b-md max-h-55 overflow-y-auto z-[200] shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
           </div>
         </div>
         <input type="hidden" id="trainingIdInput" value={preselectedTrainingId} />
       </div>
 
       <!-- File input -->
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label for="fileInput" style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">File *</label>
+      <div class="flex flex-col gap-1">
+        <label for="fileInput" class="font-body text-[13px] font-medium text-neutral-700">File *</label>
         <input id="fileInput" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" required
-          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700); background: white;" />
-        <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">Max 10MB — PDF, JPEG, PNG, WebP</p>
+          class="py-2.5 px-3 border border-neutral-300 rounded-md font-body text-sm text-neutral-700 bg-white" />
+        <p class="font-body text-xs text-neutral-400 m-0">Max 10MB — PDF, JPEG, PNG, WebP</p>
       </div>
 
       <!-- Error -->
-      <div id="uploadError" style="display: none; background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);"></div>
+      <div id="uploadError" style="display: none;" class="bg-danger-50 border border-danger-200 rounded-md px-4 py-3 font-body text-sm text-danger-700"></div>
 
       <!-- Actions -->
-      <div style="display: flex; gap: 12px; padding-top: 8px;">
+      <div class="flex gap-3 pt-2">
         <button type="submit" id="submitBtn"
-          style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          class="py-2.5 px-5 bg-brand-navy text-white border-0 rounded-md font-body text-sm font-semibold cursor-pointer">
           Upload
         </button>
         <a href="/admin/documents"
-          style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+          class="py-2.5 px-5 bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">
           Cancel
         </a>
       </div>

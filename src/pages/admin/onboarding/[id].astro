@@ -1,486 +1,724 @@
 ---
 import DashboardLayout from '@/layouts/DashboardLayout.astro'
-import Breadcrumb from '@/components/ui/Breadcrumb.astro'
-import Badge from '@/components/ui/Badge.astro'
 import { supabaseAdmin } from '@/lib/supabase'
-import { formatDate, statusVariant } from '@/lib/utils'
 
 if (!Astro.locals.user) return Astro.redirect('/login')
 
 const { id } = Astro.params
-const currentYear = new Date().getFullYear()
 
 const [
   { data: person },
-  { data: checklist },
-  { data: dbs },
-  { data: dues },
-  { data: documents },
+  { data: checklistItems },
+  { data: timelineRaw },
   { data: teams },
-  { data: notesRaw },
 ] = await Promise.all([
-  supabaseAdmin.from('people').select('id, full_name, email, status, applied_at, date_joined, phone, address, date_of_birth, notes').eq('id', id ?? '').single(),
-  supabaseAdmin.from('onboarding_checklists').select('*').eq('person_id', id ?? '').maybeSingle(),
-  supabaseAdmin.from('dbs_records').select('id, expiry_date, created_at').eq('person_id', id ?? '').eq('is_archived', false).order('created_at', { ascending: false }).limit(1),
-  supabaseAdmin.from('dues').select('id, year, month, paid_at').eq('person_id', id ?? '').eq('year', currentYear).not('paid_at', 'is', null).limit(1),
-  supabaseAdmin.from('documents').select('id, document_type, drive_url, created_at').eq('person_id', id ?? '').eq('upload_status', 'matched').order('created_at', { ascending: false }).limit(3),
-  supabaseAdmin.from('person_teams').select('team_id, joined_at, teams(name)').eq('person_id', id ?? ''),
-  supabaseAdmin.from('onboarding_notes').select('id, note, created_at, author_id').eq('person_id', id ?? '').order('created_at', { ascending: false }),
+  supabaseAdmin
+    .from('people')
+    .select('id, full_name, email, status, applied_at, date_joined, phone, address, date_of_birth, cancellation_type, cancellation_reason, why_join, pillar_interest, committee_interest, skills_qualities, dbs_consent, dues_consent, referral_source')
+    .eq('id', id ?? '')
+    .single(),
+  supabaseAdmin
+    .from('onboarding_checklist_items')
+    .select('item_key, stage, completed_at, completed_by_id')
+    .eq('person_id', id ?? ''),
+  supabaseAdmin
+    .from('onboarding_timeline')
+    .select('id, event_type, from_stage, to_stage, item_key, item_label, completed, note, author_id, created_at')
+    .eq('person_id', id ?? '')
+    .order('created_at', { ascending: false })
+    .limit(150),
+  supabaseAdmin
+    .from('person_teams')
+    .select('team_id')
+    .eq('person_id', id ?? ''),
 ])
 
 if (!person) return Astro.redirect('/admin/onboarding')
 
-type ChecklistRow = { person_id: string; welcome_sent_at: string | null; dbs_completed_at: string | null; reference_checked_at: string | null; induction_done_at: string | null; agreement_signed_at: string | null; training_completed_at: string | null; completed_at: string | null; notes: string | null }
-type TeamRow = { team_id: string; joined_at: string | null; teams: { name: string } | null }
-type DbsRow = { id: string; expiry_date: string | null; created_at: string }
-type DuesRow = { id: string; year: number; month: number; paid_at: string | null }
-type DocRow = { id: string; document_type: string; drive_url: string | null; created_at: string }
-type NoteRow = { id: string; note: string; created_at: string; author_id: string | null }
+// Resolve author names for timeline + checklist completions
+const authorIds = [
+  ...new Set([
+    ...(timelineRaw ?? []).map((e: any) => e.author_id).filter(Boolean),
+    ...(checklistItems ?? []).map((c: any) => c.completed_by_id).filter(Boolean),
+  ])
+] as string[]
 
-const cl = checklist as ChecklistRow | null
-const teamRows = (teams ?? []) as unknown as TeamRow[]
-const dbsRow = dbs?.[0] as DbsRow | undefined
-const duesRow = dues?.[0] as DuesRow | undefined
-const docRows = (documents ?? []) as unknown as DocRow[]
-const noteRows = (notesRaw ?? []) as NoteRow[]
-
-// Resolve author names
-const authorIds = [...new Set(noteRows.map(n => n.author_id).filter(Boolean))] as string[]
 const { data: authorPeople } = authorIds.length > 0
   ? await supabaseAdmin.from('people').select('id, full_name').in('id', authorIds)
   : { data: [] }
-const authorMap = new Map((authorPeople ?? []).map(p => [p.id as string, p.full_name as string]))
 
-function profileComplete(): boolean {
-  return !!(person.full_name && person.email && person.phone && person.address && person.date_of_birth)
+const authorMap = new Map(((authorPeople ?? []) as any[]).map(p => [p.id, p.full_name]))
+
+// Build item state map
+const itemState: Record<string, { completed_at: string | null; completed_by: string | null }> = {}
+for (const item of (checklistItems ?? []) as any[]) {
+  itemState[item.item_key] = {
+    completed_at: item.completed_at ?? null,
+    completed_by: item.completed_by_id ? (authorMap.get(item.completed_by_id) ?? null) : null,
+  }
 }
+
+const CHECKLIST_ITEMS = {
+  interview:         { stage: 'in_progress', label: 'Interview' },
+  documentation:     { stage: 'in_progress', label: 'Documentation submitted' },
+  reference_check:   { stage: 'in_progress', label: 'Reference check' },
+  safeguarding:      { stage: 'in_training', label: 'Safeguarding' },
+  mentoring_100_way: { stage: 'in_training', label: 'Mentoring the 100 WAY' },
+  dbs_check:         { stage: 'in_training', label: 'DBS Check' },
+}
+
+const IN_PROGRESS_KEYS = ['interview', 'documentation', 'reference_check']
+const IN_TRAINING_KEYS = ['safeguarding', 'mentoring_100_way', 'dbs_check']
+
+const STAGE_LABELS: Record<string, string> = {
+  applicant:   'Applicant',
+  in_progress: 'In Progress',
+  in_training: 'In Training',
+  active:      'Activated',
+  cancelled:   'Cancelled',
+}
+
+const CANCELLATION_TYPE_LABELS: Record<string, string> = {
+  opted_out:           'Opted out voluntarily',
+  training_incomplete: 'Did not complete training',
+  eligibility:         'Eligibility / criteria not met',
+  no_response:         'No response',
+  other:               'Other',
+}
+
+const STAGE_ORDER = ['applicant', 'in_progress', 'in_training', 'active']
+
+const currentStatus = person.status as string
+const stageIndex = STAGE_ORDER.indexOf(currentStatus)
+const isCancelled = currentStatus === 'cancelled'
 
 const TRANSITIONS: Record<string, string> = {
-  applicant: 'Move to In Progress',
-  pending_review: 'Approve',
-  approved: 'Activate',
+  applicant:   'Move to In Progress',
+  in_progress: 'Move to In Training',
+  in_training: 'Activate',
+}
+const BACK: Record<string, string> = {
+  in_progress: 'Back to Applicant',
+  in_training: 'Back to In Progress',
 }
 
-const PREV_TRANSITIONS: Record<string, string> = {
-  pending_review: 'Move back to Applicant',
-  approved: 'Move back to In Progress',
+const nextAction  = TRANSITIONS[currentStatus]
+const prevAction  = BACK[currentStatus]
+
+const daysIn = Math.floor((Date.now() - new Date(person.applied_at ?? Date.now()).getTime()) / 86_400_000)
+
+function fmt(d: string | null) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+function fmtTime(d: string) {
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-const nextAction = TRANSITIONS[person.status as string]
-const prevAction = PREV_TRANSITIONS[person.status as string]
-const isCancelled = person.status === 'cancelled'
-
-// Build checklist items
-const CHECKLIST = [
-  {
-    id: 'profile_complete',
-    label: 'Profile complete',
-    description: 'Name, email, phone, address, and date of birth all filled in',
-    done: profileComplete(),
-    derived: true,
-    link: `/admin/members/${id}/edit`,
-  },
-  {
-    id: 'welcome_sent_at',
-    label: 'Welcome email sent',
-    description: 'Member has received a welcome email from the portal',
-    done: !!cl?.welcome_sent_at,
-    derived: false,
-    doneAt: cl?.welcome_sent_at,
-    link: `/admin/email/compose?person_id=${id}`,
-  },
-  {
-    id: 'dbs_submitted',
-    label: 'DBS certificate submitted',
-    description: dbsRow ? `Submitted — expires ${formatDate(dbsRow.expiry_date)}` : 'No DBS record on file',
-    done: !!dbsRow,
-    derived: true,
-    link: `/admin/members/${id}/dbs/new`,
-  },
-  {
-    id: 'dbs_completed_at',
-    label: 'DBS check cleared',
-    description: 'Admin has confirmed the DBS check has been fully verified and passed',
-    done: !!cl?.dbs_completed_at,
-    derived: false,
-    doneAt: cl?.dbs_completed_at,
-  },
-  {
-    id: 'reference_checked_at',
-    label: 'References verified',
-    description: 'Admin has verified the member\'s references',
-    done: !!cl?.reference_checked_at,
-    derived: false,
-    doneAt: cl?.reference_checked_at,
-  },
-  {
-    id: 'agreement_signed_at',
-    label: 'Membership agreement signed',
-    description: 'Signed membership agreement received and filed',
-    done: !!cl?.agreement_signed_at,
-    derived: false,
-    doneAt: cl?.agreement_signed_at,
-    link: `/admin/documents/new?person_id=${id}`,
-  },
-  {
-    id: 'document_uploaded',
-    label: 'Photo ID uploaded',
-    description: docRows.length > 0 ? `${docRows.length} document${docRows.length !== 1 ? 's' : ''} on file` : 'No documents uploaded yet',
-    done: docRows.length > 0,
-    derived: true,
-    link: `/admin/documents/new?person_id=${id}`,
-  },
-  {
-    id: 'induction_done_at',
-    label: 'Induction completed',
-    description: 'Member has attended the chapter induction session',
-    done: !!cl?.induction_done_at,
-    derived: false,
-    doneAt: cl?.induction_done_at,
-  },
-  {
-    id: 'team_assigned',
-    label: 'Team assigned',
-    description: teamRows.length > 0
-      ? teamRows.map(t => t.teams?.name).filter(Boolean).join(', ')
-      : 'Not assigned to any team',
-    done: teamRows.length > 0,
-    derived: true,
-    link: `/admin/members/${id}?tab=roles`,
-  },
-  {
-    id: 'dues_paid',
-    label: `${currentYear} dues paid`,
-    description: duesRow ? `Dues marked paid for ${currentYear}` : `No ${currentYear} dues record`,
-    done: !!duesRow,
-    derived: true,
-    link: `/admin/members/${id}?tab=dues`,
-  },
-  {
-    id: 'training_completed_at',
-    label: 'Training / Certification completed',
-    description: 'Member has completed required training or certification for the chapter',
-    done: !!cl?.training_completed_at,
-    derived: false,
-    doneAt: cl?.training_completed_at,
-  },
-]
-
-const doneCount = CHECKLIST.filter(c => c.done).length
-const progressPct = Math.round((doneCount / CHECKLIST.length) * 100)
+// Serialise data for Alpine
+const itemStateJson  = JSON.stringify(itemState)
+const timelineJson   = JSON.stringify(
+  (timelineRaw ?? []).map((e: any) => ({
+    id:         e.id,
+    event_type: e.event_type,
+    from_stage: e.from_stage,
+    to_stage:   e.to_stage,
+    item_key:   e.item_key,
+    item_label: e.item_label,
+    completed:  e.completed,
+    note:       e.note,
+    author:     e.author_id ? (authorMap.get(e.author_id) ?? 'Unknown') : null,
+    created_at: e.created_at,
+  }))
+)
+const authorName = Astro.locals.user.name ?? Astro.locals.user.email
 ---
 
 <DashboardLayout title={`Onboarding — ${person.full_name}`}>
-  <div style="max-width: 800px;">
-    <Breadcrumb crumbs={[{ label: 'Onboarding', href: '/admin/onboarding' }, { label: 'Application' }]} />
+  <div x-data={`(function(){
+    var STAGE_LABELS = ${JSON.stringify(STAGE_LABELS)};
+    var items = ${itemStateJson};
+    var events = ${timelineJson};
+    var personId = ${JSON.stringify(id)};
+    var authorName = ${JSON.stringify(authorName)};
+    var stageChecklistKeys = ${JSON.stringify(
+      currentStatus === 'in_progress' ? IN_PROGRESS_KEYS :
+      currentStatus === 'in_training' ? IN_TRAINING_KEYS :
+      []
+    )};
 
-    <!-- ── Header ── -->
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px;">
-      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
-        <div>
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
-            <h1 style="font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: var(--color-brand-navy); margin: 0;">{person.full_name}</h1>
-            <Badge variant={statusVariant(person.status as string)}>{(person.status as string).replace('_', ' ')}</Badge>
-          </div>
-          <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0 0 4px;">{person.email}</p>
-          {person.applied_at && (
-            <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">
-              Applied {formatDate(person.applied_at as string)}
-            </p>
-          )}
-        </div>
-        <div style="display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end;">
-          <a href={`/admin/members/${id}`}
-            style="padding: 8px 14px; background: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; text-decoration: none;">
-            Full profile
-          </a>
-          {prevAction && !isCancelled && (
-            <button id="btnRevert"
-              style="padding: 8px 14px; background: white; border: 1px solid var(--color-neutral-300); color: var(--color-neutral-600); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; cursor: pointer;">
-              {prevAction}
-            </button>
-          )}
-          {!isCancelled && person.status !== 'active' && (
-            <button id="btnCancel"
-              style="padding: 8px 14px; background: white; border: 1px solid var(--color-danger-300); color: var(--color-danger-600); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; cursor: pointer;">
-              Cancel application
-            </button>
-          )}
-          {nextAction && !isCancelled && (
-            <button id="btnAdvance"
-              style="padding: 8px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
-              {nextAction}
-            </button>
-          )}
-          {isCancelled && (
-            <button id="btnReactivate"
-              style="padding: 8px 16px; background-color: var(--color-success-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
-              Reinstate as Applicant
-            </button>
-          )}
-        </div>
-      </div>
+    return {
+      items: items,
+      events: events,
+      noteText: '',
+      noteLoading: false,
+      modal: { open: false, type: '' },
+      cancelForm: { type: '', reason: '' },
+      banner: { show: false, text: '', ok: true },
 
-      <!-- Progress bar -->
-      <div style="margin-top: 20px;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-          <span style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">Onboarding progress</span>
-          <span style="font-family: var(--font-heading); font-size: 13px; font-weight: 700; color: var(--color-neutral-700);">{doneCount}/{CHECKLIST.length} complete</span>
-        </div>
-        <div style="height: 8px; background-color: var(--color-neutral-100); border-radius: var(--radius-full); overflow: hidden;">
-          <div style={`height: 100%; width: ${progressPct}%; background-color: ${progressPct === 100 ? 'var(--color-success-500)' : 'var(--color-brand-gold)'}; border-radius: var(--radius-full); transition: width 0.3s;`}></div>
-        </div>
-      </div>
+      stageLabel(s) { return STAGE_LABELS[s] || s; },
+
+      get canAdvance() {
+        if (!stageChecklistKeys.length) return true;
+        var self = this;
+        return stageChecklistKeys.every(function(k) { return !!(self.items[k] && self.items[k].completed_at); });
+      },
+
+      async toggleItem(key) {
+        var current = !!(this.items[key] && this.items[key].completed_at);
+        var next = !current;
+        var res = await fetch('/api/onboarding/' + personId, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item_key: key, completed: next }),
+        });
+        if (res.ok) {
+          var now = new Date().toISOString();
+          if (!this.items[key]) this.items[key] = {};
+          this.items[key].completed_at = next ? now : null;
+          this.items[key].completed_by = next ? authorName : null;
+          var label = (${JSON.stringify(CHECKLIST_ITEMS)})[key]?.label || key;
+          this.events.unshift({ id: now, event_type: 'checklist', item_key: key, item_label: label, completed: next, author: authorName, note: null, created_at: now });
+        } else {
+          var d = await res.json();
+          this.banner = { show: true, text: d.error || 'Failed to update.', ok: false };
+        }
+      },
+
+      async addNote() {
+        if (!this.noteText.trim()) return;
+        this.noteLoading = true;
+        var res = await fetch('/api/onboarding/notes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ person_id: personId, note: this.noteText.trim() }),
+        });
+        this.noteLoading = false;
+        if (res.ok) {
+          var d = await res.json();
+          this.events.unshift({ id: d.data.id, event_type: 'note', note: this.noteText.trim(), author: authorName, created_at: d.data.created_at });
+          this.noteText = '';
+        } else {
+          this.banner = { show: true, text: 'Failed to save note.', ok: false };
+        }
+      },
+
+      async deleteNote(noteId) {
+        var res = await fetch('/api/onboarding/notes', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: noteId }),
+        });
+        if (res.ok) {
+          this.events = this.events.filter(function(e) { return e.id !== noteId; });
+        }
+      },
+
+      openAdvance() { this.modal = { open: true, type: 'advance' }; },
+      openRevert()  { this.modal = { open: true, type: 'revert' }; },
+      openCancel()  { this.cancelForm = { type: '', reason: '' }; this.modal = { open: true, type: 'cancel' }; },
+      openReinstate() { this.modal = { open: true, type: 'reinstate' }; },
+
+      async doAdvance(sendEmail) {
+        this.modal.open = false;
+        var res = await fetch('/api/onboarding/' + personId + '/advance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ send_email: sendEmail }),
+        });
+        var d = await res.json();
+        if (res.ok) { setTimeout(function() { window.location.reload(); }, 800); }
+        else { this.banner = { show: true, text: d.error || 'Failed.', ok: false }; }
+      },
+
+      async doRevert() {
+        this.modal.open = false;
+        var res = await fetch('/api/onboarding/' + personId + '/advance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ direction: 'back' }),
+        });
+        var d = await res.json();
+        if (res.ok) { setTimeout(function() { window.location.reload(); }, 800); }
+        else { this.banner = { show: true, text: d.error || 'Failed.', ok: false }; }
+      },
+
+      async doCancel() {
+        if (!this.cancelForm.type) return;
+        this.modal.open = false;
+        var res = await fetch('/api/onboarding/' + personId + '/advance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ direction: 'cancel', cancellation_type: this.cancelForm.type, reason: this.cancelForm.reason }),
+        });
+        var d = await res.json();
+        if (res.ok) { setTimeout(function() { window.location.reload(); }, 800); }
+        else { this.banner = { show: true, text: d.error || 'Failed.', ok: false }; }
+      },
+
+      async doReinstate() {
+        this.modal.open = false;
+        var res = await fetch('/api/onboarding/' + personId + '/advance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ direction: 'reinstate' }),
+        });
+        var d = await res.json();
+        if (res.ok) { setTimeout(function() { window.location.reload(); }, 800); }
+        else { this.banner = { show: true, text: d.error || 'Failed.', ok: false }; }
+      },
+
+      fmtDate(iso) {
+        if (!iso) return '—';
+        return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      },
+    };
+  })()`}>
+
+    <!-- Breadcrumb -->
+    <div class="mb-5">
+      <a href="/admin/onboarding" class="font-body text-[13px] text-neutral-500 no-underline">← Onboarding Pipeline</a>
     </div>
 
-    <!-- ── Status flash ── -->
-    <div id="statusBanner" style="display: none; padding: 14px 20px; border-radius: var(--radius-md); margin-bottom: 16px; font-family: var(--font-body); font-size: 14px;"></div>
+    <!-- Banner -->
+    <div x-show="banner.show" x-cloak
+      :class="banner.ok ? 'bg-success-50 border-success-200 text-success-800' : 'bg-danger-50 border-danger-200 text-danger-800'"
+      x-text="banner.text"
+      class="py-3 px-4.5 border rounded-md font-body text-sm mb-4">
+    </div>
 
-    <!-- ── Checklist ── -->
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 20px;">
-      <div style="padding: 16px 24px; border-bottom: 1px solid var(--color-neutral-100);">
-        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">Onboarding checklist</h2>
-      </div>
+    <!-- Two-column layout -->
+    <div class="grid gap-6 items-start grid-cols-[1fr_360px]">
 
-      {CHECKLIST.map((item, i) => (
-        <div style={`display: flex; align-items: flex-start; gap: 14px; padding: 14px 24px;${i > 0 ? ' border-top: 1px solid var(--color-neutral-100);' : ''}`}>
+      <!-- ── LEFT COLUMN ── -->
+      <div class="flex flex-col gap-5">
 
-          <!-- Toggle button (only for non-derived items) -->
-          {item.derived ? (
-            <div style={`width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; ${item.done ? 'background-color: var(--color-success-100); color: var(--color-success-600);' : 'background-color: var(--color-neutral-100); color: var(--color-neutral-300);'}`}>
-              {item.done ? '✓' : '○'}
-            </div>
-          ) : (
-            <button
-              data-field={item.id}
-              data-done={item.done ? 'true' : 'false'}
-              onclick={`toggleMilestone('${item.id}', ${item.done})`}
-              style={`width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; ${item.done ? 'background-color: var(--color-success-500); color: white;' : 'background-color: var(--color-neutral-200); color: var(--color-neutral-400);'}`}
-              title={item.done ? 'Click to unmark' : 'Click to mark complete'}>
-              {item.done ? '✓' : '○'}
-            </button>
-          )}
-
-          <div style="flex: 1; min-width: 0;">
-            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-              <span style={`font-family: var(--font-body); font-size: 14px; font-weight: 500; ${item.done ? 'color: var(--color-neutral-700);' : 'color: var(--color-neutral-800);'}`}>
-                {item.label}
-              </span>
-              {item.done && !item.derived && 'doneAt' in item && item.doneAt && (
-                <span style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400);">
-                  {formatDate(item.doneAt)}
+        <!-- Person card -->
+        <div class="bg-white border border-neutral-200 rounded-xl p-6">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0 mb-1">{person.full_name}</h1>
+              <p class="font-body text-sm text-neutral-500 m-0 mb-3">{person.email}</p>
+              <div class="flex items-center gap-2.5 flex-wrap">
+                <span class={`inline-block py-0.5 px-3 rounded-full font-body text-xs font-bold uppercase tracking-[0.04em]
+                  ${currentStatus === 'applicant'   ? 'bg-neutral-100 text-neutral-600' : ''}
+                  ${currentStatus === 'in_progress' ? 'bg-warning-50 text-warning-700 border border-warning-200' : ''}
+                  ${currentStatus === 'in_training' ? 'bg-info-50 text-info-700 border border-info-200' : ''}
+                  ${currentStatus === 'active'      ? 'bg-success-100 text-success-800' : ''}
+                  ${currentStatus === 'cancelled'   ? 'bg-danger-50 text-danger-700 border border-danger-200' : ''}
+                `}>
+                  {STAGE_LABELS[currentStatus] ?? currentStatus}
                 </span>
-              )}
-              {!item.derived && (
-                <span style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); font-style: italic;">manual</span>
+                <span class="font-body text-[13px] text-neutral-400">Applied {fmt(person.applied_at)}</span>
+                <span class={`font-body text-[13px] font-medium ${daysIn > 30 ? 'text-danger-600' : 'text-neutral-500'}`}>
+                  {daysIn} days in pipeline
+                </span>
+              </div>
+              {isCancelled && (
+                <div class="mt-3 py-2.5 px-3.5 bg-danger-50 border border-danger-200 rounded-md">
+                  <p class="font-body text-[13px] font-semibold text-danger-700 m-0 mb-0.5">
+                    {CANCELLATION_TYPE_LABELS[(person as any).cancellation_type] ?? 'Cancelled'}
+                  </p>
+                  {(person as any).cancellation_reason && (
+                    <p class="font-body text-[13px] text-danger-600 m-0">{(person as any).cancellation_reason}</p>
+                  )}
+                </div>
               )}
             </div>
-            <p style={`font-family: var(--font-body); font-size: 13px; margin: 2px 0 0; ${item.done ? 'color: var(--color-neutral-400);' : 'color: var(--color-neutral-500);'}`}>
-              {item.description}
-            </p>
-          </div>
-
-          {item.link && !item.done && (
-            <a href={item.link}
-              style="flex-shrink: 0; padding: 4px 10px; background: var(--color-neutral-100); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); text-decoration: none; white-space: nowrap;">
-              Fix →
+            <a href={`/admin/members/${id}`}
+              class="py-2 px-3.5 bg-neutral-100 rounded-md font-body text-[13px] font-medium text-neutral-600 no-underline whitespace-nowrap">
+              View profile
             </a>
-          )}
+          </div>
         </div>
-      ))}
-    </div>
 
-    <!-- ── Notes ── -->
-    <div id="pageData" data-person-id={id} style="display: none;"></div>
-    <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
-      <div style="padding: 16px 24px; border-bottom: 1px solid var(--color-neutral-100);">
-        <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-neutral-800); margin: 0;">Onboarding notes</h2>
-      </div>
+        <!-- Stage stepper -->
+        {!isCancelled && (
+          <div class="bg-white border border-neutral-200 rounded-xl py-5 px-6">
+            <div class="flex items-center">
+              {STAGE_ORDER.map((stage, i) => {
+                const past    = stageIndex > i
+                const current = stageIndex === i
+                return (
+                  <>
+                    <div class="flex flex-col items-center gap-1.5">
+                      <div class={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0
+                        ${past    ? 'bg-brand-navy text-white' : ''}
+                        ${current ? 'bg-brand-gold text-white shadow-[0_0_0_3px_rgba(201,168,76,0.2)]' : ''}
+                        ${!past && !current ? 'bg-neutral-100 text-neutral-400 border-2 border-neutral-200' : ''}
+                      `}>
+                        {past ? '✓' : i + 1}
+                      </div>
+                      <span class={`font-body text-[11px] whitespace-nowrap
+                        ${current        ? 'font-bold text-brand-navy'    : ''}
+                        ${past           ? 'text-neutral-600'              : ''}
+                        ${!past && !current ? 'text-neutral-400'           : ''}
+                      `}>
+                        {STAGE_LABELS[stage]}
+                      </span>
+                    </div>
+                    {i < STAGE_ORDER.length - 1 && (
+                      <div class={`flex-1 h-0.5 mb-4.5 ${i < stageIndex ? 'bg-brand-navy' : 'bg-neutral-200'}`}></div>
+                    )}
+                  </>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
-      <!-- Existing notes -->
-      <div id="notesList">
-        {noteRows.length === 0 ? (
-          <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-400); padding: 20px 24px; margin: 0;">No notes yet.</p>
-        ) : noteRows.map(n => (
-          <div data-note-id={n.id} style="padding: 14px 24px; border-bottom: 1px solid var(--color-neutral-100);">
-            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
-              <div style="flex: 1; min-width: 0;">
-                <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800); margin: 0 0 6px; white-space: pre-wrap; word-break: break-word;">{n.note}</p>
-                <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">
-                  {n.author_id ? authorMap.get(n.author_id) ?? 'Unknown' : 'System'} · {formatDate(n.created_at)}
+        <!-- ── CHECKLIST: In Training items (shown from in_training stage onwards) ── -->
+        {(['in_training', 'active', 'cancelled'] as string[]).includes(currentStatus) && (() => {
+          const keys = IN_TRAINING_KEYS
+          return (
+            <div class="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+              <div class="py-4 px-5 border-b border-neutral-100">
+                <h2 class="font-heading text-sm font-bold text-brand-navy m-0">In Training Checklist</h2>
+              </div>
+              <div>
+                {keys.map((key, i) => {
+                  const meta = CHECKLIST_ITEMS[key as keyof typeof CHECKLIST_ITEMS]
+                  return (
+                    <div class={`flex items-center gap-3.5 py-3.5 px-5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}>
+                      <button
+                        @click={`toggleItem('${key}')`}
+                        :class={`items['${key}']?.completed_at ? 'bg-success-500 border-success-500' : 'bg-white border-neutral-300'`}
+                        class="w-5.5 h-5.5 border-2 rounded-full flex items-center justify-center cursor-pointer shrink-0 transition-all duration-150 p-0"
+                        title={`Toggle ${meta.label}`}>
+                        <svg x-show={`items['${key}']?.completed_at`} style="display:none"
+                          class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      </button>
+                      <div class="flex-1">
+                        <p :class={`items['${key}']?.completed_at ? 'text-neutral-800' : 'text-neutral-500'`}
+                          class="font-body text-sm font-medium m-0 mb-0.5">
+                          {meta.label}
+                        </p>
+                        <p x-show={`items['${key}']?.completed_at`} style="display:none"
+                          x-text={`items['${key}']?.completed_at ? ('✓ ' + fmtDate(items['${key}'].completed_at) + (items['${key}'].completed_by ? ' · ' + items['${key}'].completed_by : '')) : ''`}
+                          class="font-body text-xs text-neutral-400 m-0">
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
+
+        <!-- ── CHECKLIST: In Progress items (shown from in_progress stage onwards) ── -->
+        {currentStatus !== 'applicant' && (() => {
+          const keys = IN_PROGRESS_KEYS
+          return (
+            <div class="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+              <div class="py-4 px-5 border-b border-neutral-100">
+                <h2 class="font-heading text-sm font-bold text-brand-navy m-0">In Progress Checklist</h2>
+              </div>
+              <div>
+                {keys.map((key, i) => {
+                  const meta = CHECKLIST_ITEMS[key as keyof typeof CHECKLIST_ITEMS]
+                  return (
+                    <div class={`flex items-center gap-3.5 py-3.5 px-5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}>
+                      <button
+                        @click={`toggleItem('${key}')`}
+                        :class={`items['${key}']?.completed_at ? 'bg-success-500 border-success-500' : 'bg-white border-neutral-300'`}
+                        class="w-5.5 h-5.5 border-2 rounded-full flex items-center justify-center cursor-pointer shrink-0 transition-all duration-150 p-0"
+                        title={`Toggle ${meta.label}`}>
+                        <svg x-show={`items['${key}']?.completed_at`} style="display:none"
+                          class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      </button>
+                      <div class="flex-1">
+                        <p :class={`items['${key}']?.completed_at ? 'text-neutral-800' : 'text-neutral-500'`}
+                          class="font-body text-sm font-medium m-0 mb-0.5">
+                          {meta.label}
+                        </p>
+                        <p x-show={`items['${key}']?.completed_at`} style="display:none"
+                          x-text={`items['${key}']?.completed_at ? ('✓ ' + fmtDate(items['${key}'].completed_at) + (items['${key}'].completed_by ? ' · ' + items['${key}'].completed_by : '')) : ''`}
+                          class="font-body text-xs text-neutral-400 m-0">
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
+
+        <!-- Application Details — always visible -->
+        <div class="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+          <div class="py-4 px-5 border-b border-neutral-100">
+            <h2 class="font-heading text-sm font-bold text-brand-navy m-0">Application Details</h2>
+          </div>
+          <div class="p-5 flex flex-col gap-4">
+            {([
+              { label: 'Phone',               value: (person as any).phone },
+              { label: 'Address',             value: (person as any).address },
+              { label: 'Date of birth',       value: fmt((person as any).date_of_birth) },
+              { label: 'Pillar interest',     value: (person as any).pillar_interest },
+              { label: 'Committee interest',  value: (person as any).committee_interest },
+              { label: 'Why join',            value: (person as any).why_join },
+              { label: 'Skills & qualities',  value: (person as any).skills_qualities },
+              { label: 'Referral source',     value: (person as any).referral_source },
+            ] as { label: string; value: string | null | undefined }[])
+              .filter(f => f.value)
+              .map(f => (
+                <div>
+                  <p class="font-body text-[11px] font-semibold uppercase tracking-[0.06em] text-neutral-400 m-0 mb-0.5">{f.label}</p>
+                  <p class="font-body text-sm text-neutral-800 m-0 whitespace-pre-wrap">{f.value}</p>
+                </div>
+              ))
+            }
+            {((person as any).dbs_consent !== null && (person as any).dbs_consent !== undefined) && (
+              <div>
+                <p class="font-body text-[11px] font-semibold uppercase tracking-[0.06em] text-neutral-400 m-0 mb-0.5">DBS consent</p>
+                <p class={`font-body text-sm font-medium m-0 ${(person as any).dbs_consent ? 'text-success-700' : 'text-danger-600'}`}>
+                  {(person as any).dbs_consent ? '✓ Consented' : '✗ Not consented'}
                 </p>
               </div>
+            )}
+            {((person as any).dues_consent !== null && (person as any).dues_consent !== undefined) && (
+              <div>
+                <p class="font-body text-[11px] font-semibold uppercase tracking-[0.06em] text-neutral-400 m-0 mb-0.5">Membership dues consent</p>
+                <p class={`font-body text-sm font-medium m-0 ${(person as any).dues_consent ? 'text-success-700' : 'text-danger-600'}`}>
+                  {(person as any).dues_consent ? '✓ Consented' : '✗ Not consented'}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── RIGHT SIDEBAR — TIMELINE ── -->
+      <div class="sticky top-5 flex flex-col gap-4">
+
+        <!-- Actions (hidden when no actions are available, e.g. active members) -->
+        {(nextAction || prevAction || isCancelled || (!isCancelled && currentStatus !== 'active')) && (
+        <div class="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+          <div class="py-3.5 px-5 border-b border-neutral-100">
+            <h2 class="font-heading text-sm font-bold text-brand-navy m-0">Actions</h2>
+          </div>
+          <div class="flex flex-col gap-2.5 p-4">
+            {nextAction && (
+              <div>
+                <button
+                  @click="canAdvance && openAdvance()"
+                  :disabled="!canAdvance"
+                  class="w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-lg border-none text-left transition-colors duration-150 font-body text-[13px] font-semibold"
+                  :class="canAdvance ? 'bg-brand-navy text-white cursor-pointer hover:bg-brand-navy/90' : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'">
+                  {nextAction}
+                  <svg class="w-3.5 h-3.5 shrink-0 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+                <p x-show="!canAdvance" style="display:none"
+                  class="font-body text-[11px] text-warning-700 mt-1.5 mb-0 mx-0">
+                  Complete all checklist items first
+                </p>
+              </div>
+            )}
+            {(prevAction || (!isCancelled && currentStatus !== 'active')) && (
+              <div class="flex gap-2">
+                {prevAction && (
+                  <button @click="openRevert()"
+                    class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-neutral-100 text-neutral-600 rounded-lg border border-neutral-200 cursor-pointer hover:bg-neutral-200 transition-colors duration-150 font-body text-[13px] font-medium whitespace-nowrap">
+                    Move back
+                  </button>
+                )}
+                {!isCancelled && currentStatus !== 'active' && (
+                  <button @click="openCancel()"
+                    class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-danger-50 text-danger-600 rounded-lg border border-danger-200 cursor-pointer hover:bg-danger-100 transition-colors duration-150 font-body text-[13px] font-medium whitespace-nowrap">
+                    Cancel
+                  </button>
+                )}
+              </div>
+            )}
+            {isCancelled && (
+              <button @click="openReinstate()"
+                class="w-full flex items-center justify-between gap-2 px-4 py-2.5 bg-brand-navy text-white rounded-lg border-none text-left cursor-pointer hover:bg-brand-navy/90 transition-colors duration-150 font-body text-[13px] font-semibold">
+                Reinstate applicant
+                <svg class="w-3.5 h-3.5 shrink-0 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            )}
+          </div>
+        </div>
+        )}
+
+        <div class="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+
+          <!-- Note input -->
+          <div class="p-5 border-b border-neutral-100">
+            <h2 class="font-heading text-sm font-bold text-brand-navy m-0 mb-3">Timeline</h2>
+            <textarea
+              x-model="noteText"
+              @keydown.meta.enter="addNote()"
+              rows="3"
+              placeholder="Add a note…"
+              class="w-full py-2.5 px-3 border border-neutral-200 rounded-md font-body text-[13px] text-neutral-800 resize-none box-border outline-none placeholder:text-neutral-400 focus:border-brand-navy transition-colors">
+            </textarea>
+            <div class="flex justify-end mt-2">
               <button
-                onclick={`deleteNote('${n.id}')`}
-                style="flex-shrink: 0; padding: 3px 8px; background: none; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); cursor: pointer;"
-                title="Delete note">
-                ✕
+                @click="addNote()"
+                :disabled="!noteText.trim() || noteLoading"
+                :class="noteText.trim() && !noteLoading
+                  ? 'bg-brand-navy text-white cursor-pointer'
+                  : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'"
+                class="py-2 px-4 border-none rounded-md font-body text-[13px] font-semibold transition-all duration-150">
+                <span x-text="noteLoading ? 'Saving…' : 'Add note'"></span>
               </button>
             </div>
           </div>
-        ))}
+
+          <!-- Event feed -->
+          <div class="max-h-135 overflow-y-auto">
+            <template x-if="events.length === 0">
+              <div class="py-10 text-center">
+                <p class="font-body text-[13px] text-neutral-300 m-0">No activity yet.</p>
+              </div>
+            </template>
+            <template x-for="(ev, i) in events" :key="ev.id">
+              <div class="relative pl-10 pr-5 py-4"
+                :class="i < events.length - 1 ? 'border-b border-neutral-50' : ''">
+
+                <!-- Timeline dot -->
+                <div
+                  :class="
+                    ev.event_type === 'stage_change' ? 'bg-brand-navy' :
+                    ev.event_type === 'checklist' && ev.completed ? 'bg-success-500' :
+                    ev.event_type === 'checklist' && !ev.completed ? 'bg-neutral-300' :
+                    'bg-neutral-400'"
+                  class="absolute left-4.5 top-5 w-2.5 h-2.5 rounded-full">
+                </div>
+                <!-- Connector line -->
+                <div x-show="i < events.length - 1"
+                  class="absolute left-5.5 top-7.5 -bottom-4 w-0.5 bg-neutral-100">
+                </div>
+
+                <!-- Content -->
+                <div class="flex items-start justify-between gap-2">
+                  <div class="flex-1 min-w-0">
+                    <template x-if="ev.event_type === 'stage_change'">
+                      <p class="font-body text-[13px] text-neutral-800 m-0 mb-0.5">
+                        <strong x-text="'Moved to ' + stageLabel(ev.to_stage)" class="font-semibold"></strong>
+                        <span x-text="' from ' + stageLabel(ev.from_stage)" class="text-neutral-500"></span>
+                      </p>
+                    </template>
+                    <template x-if="ev.event_type === 'checklist'">
+                      <p class="font-body text-[13px] text-neutral-800 m-0 mb-0.5">
+                        <strong x-text="ev.item_label" class="font-semibold"></strong>
+                        <span x-text="ev.completed ? ' marked complete' : ' unmarked'" class="text-neutral-500"></span>
+                      </p>
+                    </template>
+                    <template x-if="ev.event_type === 'note'">
+                      <p x-text="ev.note" class="font-body text-[13px] text-neutral-800 m-0 mb-0.5 wrap-break-word"></p>
+                    </template>
+                    <div class="flex items-center gap-1.5 mt-1">
+                      <span x-text="fmtDate(ev.created_at)" class="font-body text-[11px] text-neutral-400"></span>
+                      <template x-if="ev.author">
+                        <span class="font-body text-[11px] text-neutral-300">·</span>
+                      </template>
+                      <span x-show="ev.author" x-text="ev.author" class="font-body text-[11px] text-neutral-400"></span>
+                    </div>
+                  </div>
+                  <template x-if="ev.event_type === 'note'">
+                    <button @click="deleteNote(ev.id)"
+                      class="w-6 h-6 flex items-center justify-center bg-transparent border-none text-neutral-300 hover:text-danger-600 hover:bg-danger-50 rounded cursor-pointer shrink-0 transition-colors text-sm"
+                      title="Delete note">×</button>
+                  </template>
+                </div>
+
+              </div>
+            </template>
+          </div>
+
+        </div>
       </div>
 
-      <!-- Add new note -->
-      <div style="padding: 16px 24px; background: var(--color-neutral-50); border-top: 1px solid var(--color-neutral-100);">
-        <textarea id="newNoteField" rows={3}
-          style="width: 100%; padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; resize: vertical; box-sizing: border-box;"
-          placeholder="Add a note — e.g. contacted by phone, awaiting documents…"></textarea>
-        <button id="btnAddNote"
-          style="margin-top: 8px; padding: 8px 16px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
-          Add note
-        </button>
+    </div>
+
+    <!-- ── MODALS ── -->
+    <div x-show="modal.open" x-cloak
+      class="fixed inset-0 z-50 bg-black/45"
+      @keydown.escape.window="modal.open = false">
+      <div class="flex items-center justify-center w-full h-full" @click.self="modal.open = false">
+
+        <!-- Advance -->
+        <template x-if="modal.type === 'advance'">
+          <div class="bg-white rounded-xl p-7 max-w-105 w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
+            <h3 class="font-heading text-[17px] font-bold text-brand-navy m-0 mb-2">Advance stage</h3>
+            <p class="font-body text-sm text-neutral-600 m-0 mb-6">Send a status notification email to the applicant?</p>
+            <div class="flex gap-2 justify-end">
+              <button @click="modal.open = false" class="py-2.25 px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">Cancel</button>
+              <button @click="doAdvance(false)" class="py-2.25 px-4 bg-neutral-200 text-neutral-800 border-none rounded-md font-body text-sm font-medium cursor-pointer">No email</button>
+              <button @click="doAdvance(true)" class="py-2.25 px-4.5 bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">Send email</button>
+            </div>
+          </div>
+        </template>
+
+        <!-- Revert -->
+        <template x-if="modal.type === 'revert'">
+          <div class="bg-white rounded-xl p-7 max-w-95 w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
+            <h3 class="font-heading text-[17px] font-bold text-brand-navy m-0 mb-2">Move back a stage?</h3>
+            <p class="font-body text-sm text-neutral-600 m-0 mb-6">This will revert the applicant to the previous stage. Checklist items will remain as-is.</p>
+            <div class="flex gap-2 justify-end">
+              <button @click="modal.open = false" class="py-2.25 px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">Cancel</button>
+              <button @click="doRevert()" class="py-2.25 px-4.5 bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">Move back</button>
+            </div>
+          </div>
+        </template>
+
+        <!-- Cancel application -->
+        <template x-if="modal.type === 'cancel'">
+          <div class="bg-white rounded-xl p-7 max-w-110 w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
+            <h3 class="font-heading text-[17px] font-bold text-danger-700 m-0 mb-1.5">Cancel application</h3>
+            <p class="font-body text-sm text-neutral-600 m-0 mb-5">This applicant will be moved to Cancelled. You can reinstate them later if needed.</p>
+            <div class="mb-3.5">
+              <label class="block font-body text-[13px] font-semibold text-neutral-700 mb-1.5">
+                Reason <span class="text-danger-600">*</span>
+              </label>
+              <select x-model="cancelForm.type"
+                class="w-full py-2.25 px-3 border border-neutral-300 rounded-md font-body text-sm bg-white text-neutral-800">
+                <option value="" disabled>Select a reason…</option>
+                <option value="opted_out">Opted out voluntarily</option>
+                <option value="training_incomplete">Did not complete training</option>
+                <option value="eligibility">Eligibility / criteria not met</option>
+                <option value="no_response">No response / unresponsive</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="mb-6">
+              <label class="block font-body text-[13px] font-semibold text-neutral-700 mb-1.5">Notes (optional)</label>
+              <textarea x-model="cancelForm.reason" rows="2" placeholder="Any additional context…"
+                class="w-full py-2.25 px-3 border border-neutral-300 rounded-md font-body text-sm resize-y box-border"></textarea>
+            </div>
+            <div class="flex gap-2 justify-end">
+              <button @click="modal.open = false" class="py-2.25 px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">Back</button>
+              <button @click="doCancel()" :disabled="!cancelForm.type"
+                :class="cancelForm.type ? 'bg-danger-600 text-white cursor-pointer' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'"
+                class="py-2.25 px-5 border-none rounded-md font-body text-sm font-semibold">
+                Cancel application
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <!-- Reinstate -->
+        <template x-if="modal.type === 'reinstate'">
+          <div class="bg-white rounded-xl p-7 max-w-95 w-[calc(100%-48px)] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
+            <h3 class="font-heading text-[17px] font-bold text-brand-navy m-0 mb-2">Reinstate applicant?</h3>
+            <p class="font-body text-sm text-neutral-600 m-0 mb-6">This will move the applicant back to Applicant status and clear the cancellation record.</p>
+            <div class="flex gap-2 justify-end">
+              <button @click="modal.open = false" class="py-2.25 px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">Cancel</button>
+              <button @click="doReinstate()" class="py-2.25 px-4.5 bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">Reinstate</button>
+            </div>
+          </div>
+        </template>
+
       </div>
     </div>
+
   </div>
 </DashboardLayout>
-
-<script is:inline>
-  const personId = document.getElementById('pageData').dataset.personId
-  const banner = document.getElementById('statusBanner')
-
-  function showBanner(message, type) {
-    if (!banner) return
-    banner.textContent = message
-    banner.style.display = 'block'
-    banner.style.backgroundColor = type === 'success' ? 'var(--color-success-50)' : 'var(--color-danger-50)'
-    banner.style.border = `1px solid ${type === 'success' ? 'var(--color-success-200)' : 'var(--color-danger-200)'}`
-    banner.style.color = type === 'success' ? 'var(--color-success-700)' : 'var(--color-danger-700)'
-    setTimeout(() => { if (banner) banner.style.display = 'none' }, 5000)
-  }
-
-  // ─── Toggle milestone ─────────────────────────────────────────────────────
-
-  async function toggleMilestone(field, currentlyDone) {
-    const res = await fetch(`/api/onboarding/${personId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ field, completed: !currentlyDone }),
-    })
-    const data = await res.json()
-    if (res.ok) {
-      window.location.reload()
-    } else {
-      showBanner(`Failed to update: ${data.error ?? 'Unknown error'}`, 'error')
-    }
-  }
-
-  window.toggleMilestone = toggleMilestone
-
-  // ─── Add note ─────────────────────────────────────────────────────────────
-
-  document.getElementById('btnAddNote')?.addEventListener('click', async () => {
-    const textarea = document.getElementById('newNoteField')
-    const note = textarea.value.trim()
-    if (!note) return
-    const btn = document.getElementById('btnAddNote')
-    btn.disabled = true
-    btn.textContent = 'Saving…'
-    const res = await fetch('/api/onboarding/notes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ person_id: personId, note }),
-    })
-    if (res.ok) {
-      textarea.value = ''
-      window.location.reload()
-    } else {
-      const data = await res.json()
-      showBanner(`Failed to add note: ${data.error ?? 'Unknown error'}`, 'error')
-      btn.disabled = false
-      btn.textContent = 'Add note'
-    }
-  })
-
-  // ─── Delete note ──────────────────────────────────────────────────────────
-
-  async function deleteNote(noteId) {
-    if (!confirm('Delete this note?')) return
-    const res = await fetch('/api/onboarding/notes', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: noteId }),
-    })
-    if (res.ok) {
-      const el = document.querySelector(`[data-note-id="${noteId}"]`)
-      if (el) el.remove()
-    } else {
-      showBanner('Failed to delete note.', 'error')
-    }
-  }
-
-  window.deleteNote = deleteNote
-
-  // ─── Advance forward ──────────────────────────────────────────────────────
-
-  document.getElementById('btnAdvance')?.addEventListener('click', async () => {
-    const sendEmail = confirm('Send a status email to the member?\n\nOK = advance and send email\nCancel = advance without email')
-    const res = await fetch(`/api/onboarding/${personId}/advance`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ send_email: sendEmail }),
-    })
-    const data = await res.json()
-    if (res.ok && data.success) {
-      showBanner(`Moved to "${data.newStatus}".${data.emailSent ? ' Email sent.' : ''}`, 'success')
-      setTimeout(() => window.location.reload(), 1500)
-    } else {
-      showBanner(`Failed: ${data.error ?? 'Unknown error'}`, 'error')
-    }
-  })
-
-  // ─── Move back ────────────────────────────────────────────────────────────
-
-  document.getElementById('btnRevert')?.addEventListener('click', async () => {
-    if (!confirm('Move this member back to the previous stage?')) return
-    const res = await fetch(`/api/onboarding/${personId}/advance`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ direction: 'back' }),
-    })
-    const data = await res.json()
-    if (res.ok && data.success) {
-      showBanner(`Moved back to "${data.newStatus}".`, 'success')
-      setTimeout(() => window.location.reload(), 1500)
-    } else {
-      showBanner(`Failed: ${data.error ?? 'Unknown error'}`, 'error')
-    }
-  })
-
-  // ─── Cancel application ───────────────────────────────────────────────────
-
-  document.getElementById('btnCancel')?.addEventListener('click', async () => {
-    const reason = prompt('Reason for cancellation (e.g. "Not a good fit", "Withdrew application"):')
-    if (reason === null) return
-    const res = await fetch(`/api/onboarding/${personId}/advance`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ direction: 'cancel', reason }),
-    })
-    const data = await res.json()
-    if (res.ok && data.success) {
-      showBanner('Application cancelled.', 'success')
-      setTimeout(() => window.location.reload(), 1500)
-    } else {
-      showBanner(`Failed: ${data.error ?? 'Unknown error'}`, 'error')
-    }
-  })
-
-  // ─── Reinstate cancelled ──────────────────────────────────────────────────
-
-  document.getElementById('btnReactivate')?.addEventListener('click', async () => {
-    if (!confirm('Reinstate this person as an Applicant?')) return
-    const res = await fetch(`/api/onboarding/${personId}/advance`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ direction: 'reinstate' }),
-    })
-    const data = await res.json()
-    if (res.ok && data.success) {
-      showBanner('Reinstated as Applicant.', 'success')
-      setTimeout(() => window.location.reload(), 1500)
-    } else {
-      showBanner(`Failed: ${data.error ?? 'Unknown error'}`, 'error')
-    }
-  })
-</script>

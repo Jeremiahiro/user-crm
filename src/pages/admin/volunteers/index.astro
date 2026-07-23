@@ -1,0 +1,255 @@
+---
+import DashboardLayout from '@/layouts/DashboardLayout.astro'
+import Pagination from '@/components/ui/Pagination.astro'
+import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin } from '@/lib/rbac'
+import { createHash } from 'node:crypto'
+
+if (!Astro.locals.user) return Astro.redirect('/login')
+if (!isAdmin(Astro.locals.user)) return Astro.redirect('/dashboard')
+
+const VALID_TYPES = ['member', 'mentor', 'volunteer', 'parent', 'trustee']
+
+const PAGE_SIZE = 25
+const searchQ      = Astro.url.searchParams.get('q') ?? ''
+const statusFilter = Astro.url.searchParams.get('status') ?? ''
+const teamFilter   = Astro.url.searchParams.get('team_id') ?? ''
+const typeParam    = Astro.url.searchParams.get('type') ?? ''
+// Default to 'volunteer' — this page is the volunteers directory
+const typeFilter   = VALID_TYPES.includes(typeParam) ? typeParam : 'volunteer'
+const page         = Math.max(1, parseInt(Astro.url.searchParams.get('page') ?? '1'))
+const offset       = (page - 1) * PAGE_SIZE
+
+let teamPersonIds: string[] | null = null
+if (teamFilter) {
+  const { data: ptRows } = await supabaseAdmin
+    .from('person_teams')
+    .select('person_id')
+    .eq('team_id', teamFilter)
+  teamPersonIds = (ptRows ?? []).map(r => r.person_id as string)
+}
+
+let query = supabaseAdmin
+  .from('people')
+  .select('id, full_name, email, status, person_types, profile_photo_url, date_joined, person_teams(is_team_lead, teams(id, name))', { count: 'exact' })
+  .contains('person_types', [typeFilter])
+  .eq('is_archived', false)
+  .order('full_name')
+
+if (statusFilter) query = query.eq('status', statusFilter)
+if (searchQ)      query = query.ilike('full_name', `%${searchQ}%`)
+if (teamPersonIds) query = query.in('id', teamPersonIds.length > 0 ? teamPersonIds : ['00000000-0000-0000-0000-000000000000'])
+
+query = query.range(offset, offset + PAGE_SIZE - 1)
+
+const { data: rawRows, count } = await query
+const { data: teams } = await supabaseAdmin.from('teams').select('id, name').eq('is_active', true).order('name')
+
+type Row = {
+  id: string
+  full_name: string
+  email: string
+  status: string
+  person_types: string[]
+  profile_photo_url: string | null
+  date_joined: string | null
+  person_teams: { is_team_lead: boolean; teams: { id: string; name: string } | null }[]
+}
+
+const volunteers = (rawRows ?? []) as Row[]
+const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE)
+
+const filterParams = new URLSearchParams()
+if (searchQ)      filterParams.set('q', searchQ)
+if (statusFilter) filterParams.set('status', statusFilter)
+if (teamFilter)   filterParams.set('team_id', teamFilter)
+if (typeFilter !== 'volunteer') filterParams.set('type', typeFilter)
+const paginationBase = `/admin/volunteers${filterParams.toString() ? `?${filterParams}` : ''}`
+
+function titleCase(s: string) {
+  return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+const statusOptions = [
+  { value: '', label: 'All statuses' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' }
+]
+
+const STATUS_STYLES: Record<string, string> = {
+  active:         'background: var(--color-success-50); color: var(--color-success-700); border: 1px solid var(--color-success-200);',
+  pending_review: 'background: var(--color-warning-50); color: var(--color-warning-700); border: 1px solid var(--color-warning-200);',
+  suspended:      'background: var(--color-warning-50); color: var(--color-warning-700); border: 1px solid var(--color-warning-200);',
+  applicant:      'background: var(--color-neutral-100); color: var(--color-neutral-600);',
+  inactive:       'background: var(--color-neutral-100); color: var(--color-neutral-600);',
+}
+
+function gravatarUrl(email: string) {
+  const hash = createHash('md5').update(email.toLowerCase().trim()).digest('hex')
+  return `https://www.gravatar.com/avatar/${hash}?d=mp&s=72`
+}
+---
+
+<DashboardLayout title="Volunteers">
+  <div>
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Volunteers</h1>
+        <p class="font-body text-sm text-neutral-500 m-0">
+          {count ?? 0} volunteer{(count ?? 0) !== 1 ? 's' : ''}{searchQ || statusFilter || teamFilter ? ' (filtered)' : ''}
+        </p>
+      </div>
+      <div class="flex gap-2 items-center">
+        <div x-data="{ open: false }">
+          <button @click="open = true"
+            class="inline-flex items-center gap-1.5 bg-neutral-100 text-neutral-700 px-4.5 py-2.5 rounded-md font-body text-sm font-medium border border-neutral-200 cursor-pointer">
+            ↓ Export CSV
+          </button>
+          <div x-show="open" x-cloak
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            @click.self="open = false">
+            <div class="bg-white rounded-xl shadow-xl p-6 w-85">
+              <h3 class="font-heading text-base font-bold text-brand-navy mb-1">Export CSV</h3>
+              <p class="font-body text-[13px] text-neutral-500 mb-5">Choose which person type to export. Active filters (status, team, search) are applied automatically.</p>
+              <form method="GET" action="/admin/members/export" @submit="open = false">
+                <input type="hidden" name="q" value={searchQ} />
+                <input type="hidden" name="status" value={statusFilter} />
+                <input type="hidden" name="team_id" value={teamFilter} />
+                <div class="flex flex-col gap-1 mb-5">
+                  <label class="font-body text-xs font-semibold text-neutral-600">Person type</label>
+                  <select name="type"
+                    class="w-full py-2 px-3 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-700 bg-white">
+                    <option value="">All types</option>
+                    {VALID_TYPES.map(t => (
+                      <option value={t} selected={t === typeFilter}>{titleCase(t)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div class="flex justify-end gap-2">
+                  <button type="button" @click="open = false"
+                    class="py-2 px-4 font-body text-[13px] text-neutral-600 bg-neutral-100 border border-neutral-200 rounded-md cursor-pointer">
+                    Cancel
+                  </button>
+                  <button type="submit"
+                    class="py-2 px-4 font-body text-[13px] font-semibold text-white bg-brand-navy border-none rounded-md cursor-pointer">
+                    Download
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        <a href="/admin/members/new?type=volunteer"
+          class="px-4.5 py-2.5 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
+          + Add volunteer
+        </a>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <form method="GET" class="flex gap-2.5 items-center mb-5 flex-wrap">
+      <input type="search" name="q" value={searchQ} placeholder="Search by name…"
+        class="px-3 py-2.25 border border-neutral-300 rounded-md font-body text-sm min-w-50" />
+      <select name="type"
+        class="px-3 py-2.25 border border-neutral-300 rounded-md font-body text-sm bg-white">
+        {VALID_TYPES.map(t => <option value={t} selected={typeFilter === t}>{titleCase(t)}</option>)}
+      </select>
+      <select name="status"
+        class="px-3 py-2.25 border border-neutral-300 rounded-md font-body text-sm bg-white">
+        {statusOptions.map(o => <option value={o.value} selected={statusFilter === o.value}>{o.label}</option>)}
+      </select>
+      <select name="team_id"
+        class="px-3 py-2.25 border border-neutral-300 rounded-md font-body text-sm bg-white">
+        <option value="">All teams</option>
+        {(teams ?? []).map((t: any) => <option value={t.id} selected={teamFilter === t.id}>{t.name}</option>)}
+      </select>
+      <button type="submit"
+        class="px-4 py-2.25 bg-neutral-800 text-white border-0 rounded-md font-body text-sm font-medium cursor-pointer">
+        Filter
+      </button>
+      {(searchQ || statusFilter || teamFilter || typeFilter !== 'volunteer') && (
+        <a href="/admin/volunteers" class="font-body text-[13px] text-neutral-500 no-underline">
+          Clear
+        </a>
+      )}
+    </form>
+
+    {volunteers.length > 0 ? (
+      <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="bg-neutral-50 border-b border-neutral-200">
+              <th class="px-4 py-2.5 text-left font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.07em]">Volunteer</th>
+              <th class="px-4 py-2.5 text-left font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.07em]">Team(s)</th>
+              <th class="px-4 py-2.5 text-left font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.07em]">Types</th>
+              <th class="px-4 py-2.5 text-left font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.07em]">Status</th>
+              <th class="px-4 py-2.5"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {volunteers.map((v, i) => (
+              <tr class={i > 0 ? 'border-t border-neutral-100' : ''}
+                onmouseover="this.style.backgroundColor='var(--color-neutral-50)'"
+                onmouseout="this.style.backgroundColor=''">
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-full overflow-hidden shrink-0">
+                      <img src={v.profile_photo_url ?? gravatarUrl(v.email)} alt={v.full_name} width="36" height="36" class="w-full h-full object-cover" />
+                    </div>
+                    <div>
+                      <a href={`/admin/members/${v.id}?from=volunteers`}
+                        class="font-body text-sm font-semibold text-brand-navy no-underline block">
+                        {v.full_name}
+                      </a>
+                      <span class="font-body text-xs text-neutral-500">{v.email}</span>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-4 py-3">
+                  <div class="flex flex-wrap gap-1">
+                    {(v.person_teams ?? []).map(pt => pt.teams && (
+                      <span class="font-body text-xs text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">
+                        {pt.is_team_lead ? '★ ' : ''}{pt.teams.name}
+                      </span>
+                    ))}
+                    {(!v.person_teams || v.person_teams.length === 0) && (
+                      <span class="font-body text-[13px] text-neutral-400">—</span>
+                    )}
+                  </div>
+                </td>
+                <td class="px-4 py-3 font-body text-[13px] text-neutral-600">
+                  {(v.person_types ?? []).map(titleCase).join(', ') || '—'}
+                </td>
+                <td class="px-4 py-3">
+                  <span style={`display: inline-block; padding: 2px 10px; border-radius: var(--radius-full); font-family: var(--font-body); font-size: 12px; font-weight: 600; ${STATUS_STYLES[v.status] ?? 'background: var(--color-neutral-100); color: var(--color-neutral-600);'}`}>
+                    {titleCase(v.status)}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <a href={`/admin/members/${v.id}?from=volunteers`}
+                    class="font-body text-[13px] font-medium text-brand-navy no-underline">
+                    View →
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Pagination page={page} totalPages={totalPages} baseUrl={paginationBase} />
+    ) : (
+      <div class="bg-white border border-neutral-200 rounded-lg p-15 text-center">
+        <p class="font-heading text-base font-bold text-neutral-700 mb-2">No volunteers found</p>
+        <p class="font-body text-sm text-neutral-400 mb-5">
+          {searchQ || statusFilter || teamFilter ? 'Try adjusting your filters.' : 'Volunteers are people with the "volunteer" person type.'}
+        </p>
+        {!searchQ && !statusFilter && !teamFilter && (
+          <a href="/admin/members/new?type=volunteer"
+            class="inline-block px-4.5 py-2.5 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
+            Add volunteer
+          </a>
+        )}
+      </div>
+    )}
+  </div>
+</DashboardLayout>

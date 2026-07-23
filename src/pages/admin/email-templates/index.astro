@@ -61,22 +61,50 @@ function countInCategory(cat: string) {
 ---
 
 <DashboardLayout title="Email Templates">
-  <div id="templates-root">
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+  <div id="templates-root" x-data="{
+    modalOpen: false,
+    itemId: '',
+    itemName: '',
+    message: '',
+    loading: false,
+    error: '',
+    openModal(el) {
+      this.itemId = el.dataset.templateId;
+      this.itemName = el.dataset.templateName;
+      this.message = 'Archive \'' + this.itemName + '\'? It will no longer appear in the active list.';
+      this.modalOpen = true;
+      this.error = '';
+    },
+    async doAction() {
+      this.loading = true;
+      var res = await fetch('/api/email-templates/' + this.itemId, { method: 'DELETE' });
+      if (res.ok) {
+        var row = document.querySelector('[data-template-id=\'' + this.itemId + '\']');
+        if (row) row.remove();
+        this.modalOpen = false;
+        this.loading = false;
+      } else {
+        var e = await res.json();
+        this.error = e.error || 'Failed to archive';
+        this.loading = false;
+      }
+    }
+  }">
+    <div class="flex items-center justify-between mb-6">
       <div>
-        <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Email Templates</h1>
-        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+        <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Email Templates</h1>
+        <p class="font-body text-sm text-neutral-500 m-0">
           Reusable styled emails with variable substitution.
         </p>
       </div>
       <a href="/admin/email-templates/new"
-        style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+        class="px-4.5 py-2.5 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
         + New template
       </a>
     </div>
 
     <!-- Category tabs -->
-    <div style="display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--color-neutral-200); padding-bottom: 0;">
+    <div class="flex gap-1 mb-5 border-b border-neutral-200 pb-0">
       {[['all', 'All', visibleTemplates.length], ...CATEGORIES.map(c => [c, CATEGORY_LABELS[c], countInCategory(c)])].map(([cat, label, count]) => {
         const active = categoryFilter === cat
         const href = cat === 'all'
@@ -84,76 +112,77 @@ function countInCategory(cat: string) {
           : `/admin/email-templates?category=${cat}${showArchived ? '&archived=1' : ''}`
         return (
           <a href={href}
-            style={`display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: var(--radius-md) var(--radius-md) 0 0; font-family: var(--font-body); font-size: 13px; font-weight: ${active ? '600' : '400'}; text-decoration: none; color: ${active ? 'var(--color-brand-navy)' : 'var(--color-neutral-500)'}; border-bottom: 2px solid ${active ? 'var(--color-brand-navy)' : 'transparent'}; margin-bottom: -1px;`}>
+            class={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-t-md font-body text-[13px] no-underline -mb-px border-b-2 ${active ? 'font-semibold text-brand-navy border-brand-navy' : 'font-normal text-neutral-500 border-transparent'}`}>
             {label}
-            <span style={`font-size: 11px; padding: 1px 6px; border-radius: 20px; background: ${active ? 'var(--color-brand-navy)' : 'var(--color-neutral-200)'}; color: ${active ? 'white' : 'var(--color-neutral-600)'};`}>{count}</span>
+            <span class={`text-[11px] px-1.5 py-0.25 rounded-5 ${active ? 'bg-brand-navy text-white' : 'bg-neutral-200 text-neutral-600'}`}>{count}</span>
           </a>
         )
       })}
-      <div style="flex: 1;"></div>
+      <div class="flex-1"></div>
       <a href={`/admin/email-templates${categoryFilter !== 'all' ? `?category=${categoryFilter}` : ''}${showArchived ? '' : (categoryFilter !== 'all' ? '&archived=1' : '?archived=1')}`}
-        style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); text-decoration: none; padding: 8px 4px; align-self: center;">
+        class="font-body text-xs text-neutral-400 no-underline py-2 px-1 self-center">
         {showArchived ? 'Hide archived' : 'Show archived'}
       </a>
     </div>
 
     <!-- Table -->
     {filtered.length === 0 ? (
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 48px 24px; text-align: center;">
-        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0 0 16px;">No templates yet in this category.</p>
+      <div class="bg-white border border-neutral-200 rounded-lg p-12 text-center">
+        <p class="font-body text-sm text-neutral-400 mb-4 mt-0 mx-0">No templates yet in this category.</p>
         <a href="/admin/email-templates/new"
-          style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
+          class="px-4.5 py-2.5 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
           Create first template
         </a>
       </div>
     ) : (
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
-        <table style="width: 100%; border-collapse: collapse;">
-          <thead style="background: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
+      <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+        <table class="w-full border-collapse">
+          <thead class="bg-neutral-50 border-b border-neutral-200">
             <tr>
-              <th style="padding: 10px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em;">Name</th>
-              <th style="padding: 10px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em;">Category</th>
-              <th style="padding: 10px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em;">Subject</th>
-              <th style="padding: 10px 16px; text-align: left; font-family: var(--font-body); font-size: 11px; font-weight: 600; color: var(--color-neutral-500); text-transform: uppercase; letter-spacing: 0.06em;">Status</th>
-              <th style="padding: 10px 16px;"></th>
+              <th class="px-4 py-2.5 text-left font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.06em]">Name</th>
+              <th class="px-4 py-2.5 text-left font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.06em]">Category</th>
+              <th class="px-4 py-2.5 text-left font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.06em]">Subject</th>
+              <th class="px-4 py-2.5 text-left font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.06em]">Status</th>
+              <th class="px-4 py-2.5"></th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((t, i) => (
-              <tr style={`${i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''} ${!t.is_active ? 'opacity: 0.6;' : ''}`}>
-                <td style="padding: 14px 16px;">
+              <tr data-template-id={t.id} class={`${i > 0 ? 'border-t border-neutral-100' : ''} ${!t.is_active ? 'opacity-60' : ''}`}>
+                <td class="px-4 py-3.5">
                   <a href={`/admin/email-templates/${t.id}/edit`}
-                    style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none; display: block;">
+                    class="font-body text-sm font-semibold text-brand-navy no-underline block">
                     {t.name}
                   </a>
                   {t.description && (
-                    <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 2px 0 0;">{t.description}</p>
+                    <p class="font-body text-xs text-neutral-400 mt-0.5 mb-0">{t.description}</p>
                   )}
                 </td>
-                <td style="padding: 14px 16px;">
+                <td class="px-4 py-3.5">
                   <Badge variant={CATEGORY_COLORS[t.category] as 'neutral' | 'success' | 'warning' | 'danger' ?? 'neutral'}>
                     {CATEGORY_LABELS[t.category] ?? t.category}
                   </Badge>
                 </td>
-                <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600 max-w-60 overflow-hidden text-ellipsis whitespace-nowrap">
                   {t.subject}
                 </td>
-                <td style="padding: 14px 16px;">
+                <td class="px-4 py-3.5">
                   <Badge variant={t.is_active ? 'success' : 'neutral'}>
                     {t.is_active ? 'Active' : 'Archived'}
                   </Badge>
                 </td>
-                <td style="padding: 14px 16px; text-align: right; white-space: nowrap;">
-                  <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center;">
+                <td class="px-4 py-3.5 text-right whitespace-nowrap">
+                  <div class="flex gap-2 justify-end items-center">
                     <a href={`/admin/email-templates/${t.id}/edit`}
-                      style="padding: 5px 12px; background: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; font-weight: 500; text-decoration: none;">
+                      class="px-3 py-1.25 bg-neutral-100 text-neutral-700 rounded-md font-body text-xs font-medium no-underline">
                       Edit
                     </a>
                     {admin && t.is_active && (
-                      <button class="archive-btn"
+                      <button
                         data-template-id={t.id}
                         data-template-name={t.name}
-                        style="padding: 5px 12px; background: white; color: var(--color-danger-600); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; cursor: pointer;">
+                        @click="openModal($el)"
+                        class="px-3 py-1.25 bg-white text-danger-600 border border-danger-200 rounded-md font-body text-xs cursor-pointer">
                         Archive
                       </button>
                     )}
@@ -165,22 +194,24 @@ function countInCategory(cat: string) {
         </table>
       </div>
     )}
-  </div>
 
-  <script is:inline>
-    document.querySelectorAll('.archive-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var id = btn.dataset.templateId
-        var name = btn.dataset.templateName
-        if (!confirm('Archive "' + name + '"? It will no longer appear in the active list.')) return
-        btn.disabled = true
-        btn.textContent = 'Archiving…'
-        fetch('/api/email-templates/' + id, { method: 'DELETE' })
-          .then(function (r) {
-            if (r.ok) { window.location.reload() }
-            else { r.json().then(function (e) { alert(e.error || 'Failed to archive'); btn.disabled = false; btn.textContent = 'Archive' }) }
-          })
-      })
-    })
-  </script>
+    <!-- Confirmation Modal -->
+    <div x-show="modalOpen" @click.self="modalOpen = false" @keydown.escape.window="modalOpen = false"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/45">
+      <div class="bg-white rounded-lg py-7 px-8 max-w-105 w-[90%] shadow-[0_25px_50px_rgba(0,0,0,0.2)]">
+        <h3 class="font-heading text-[17px] font-bold text-brand-navy mt-0 mb-2.5">Archive template</h3>
+        <p x-text="message" class="font-body text-sm text-neutral-700 mb-5 mt-0 mx-0 leading-normal"></p>
+        <p x-show="error" x-text="error" class="font-body text-[13px] text-danger-600 mb-3.5 mt-0 mx-0"></p>
+        <div class="flex gap-2.5 justify-end">
+          <button @click="modalOpen = false" :disabled="loading"
+            class="px-4.5 py-2 bg-neutral-100 border border-neutral-200 rounded-md font-body text-sm font-medium cursor-pointer text-neutral-700">
+            Cancel
+          </button>
+          <button @click="doAction()" :disabled="loading" x-text="loading ? 'Archiving...' : 'Archive'"
+            class="px-4.5 py-2 bg-danger-600 text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </DashboardLayout>

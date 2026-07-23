@@ -1,15 +1,8 @@
 ---
 import DashboardLayout from '@/layouts/DashboardLayout.astro'
-import Badge from '@/components/ui/Badge.astro'
 import { supabaseAdmin } from '@/lib/supabase'
-import { formatDate } from '@/lib/utils'
 
 if (!Astro.locals.user) return Astro.redirect('/login')
-
-const currentYear = new Date().getFullYear()
-
-// ── Fetch all in-pipeline members (applicant, pending_review, approved)
-// + recently activated (last 30 days) so admins can see completed onboardings
 
 const thirtyDaysAgo = new Date()
 thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
@@ -24,250 +17,485 @@ type PersonRow = {
   phone: string | null
   address: string | null
   date_of_birth: string | null
+  cancellation_type: string | null
 }
 
 const { data: pipeline } = await supabaseAdmin
   .from('people')
-  .select('id, full_name, email, status, applied_at, date_joined, phone, address, date_of_birth')
-  .in('status', ['applicant', 'pending_review', 'approved', 'active', 'cancelled'])
+  .select('id, full_name, email, status, applied_at, date_joined, phone, address, date_of_birth, cancellation_type')
+  .in('status', ['applicant', 'in_progress', 'in_training', 'active', 'cancelled'])
   .eq('is_archived', false)
   .order('applied_at', { ascending: true })
 
 const people = (pipeline ?? []) as PersonRow[]
 
-// For active members, only show recently joined (last 30 days)
 const filtered = people.filter(p =>
   p.status !== 'active' ||
   (p.date_joined && new Date(p.date_joined) >= thirtyDaysAgo),
 )
 
-// ── Derived checklist status — batch queries
 const personIds = filtered.map(p => p.id)
 
 const [
-  { data: dbsRecords },
-  { data: duesRecords },
-  { data: documents },
+  { data: checklistItems },
   { data: teamAssignments },
-  { data: checklists },
 ] = await Promise.all([
-  supabaseAdmin.from('dbs_records').select('person_id').eq('is_archived', false).in('person_id', personIds),
-  supabaseAdmin.from('dues').select('person_id').eq('year', currentYear).not('paid_at', 'is', null).in('person_id', personIds),
-  supabaseAdmin.from('documents').select('person_id').eq('upload_status', 'matched').in('person_id', personIds),
-  supabaseAdmin.from('person_teams').select('person_id').in('person_id', personIds),
-  supabaseAdmin.from('onboarding_checklists').select('*, training_completed_at').in('person_id', personIds),
+  supabaseAdmin
+    .from('onboarding_checklist_items')
+    .select('person_id, item_key, stage, completed_at')
+    .in('person_id', personIds),
+  supabaseAdmin
+    .from('person_teams')
+    .select('person_id')
+    .in('person_id', personIds),
 ])
 
-// Build lookup sets
-const hasDbsIds = new Set((dbsRecords ?? []).map(r => r.person_id))
-const hasDuesIds = new Set((duesRecords ?? []).map(r => r.person_id))
-const hasDocIds = new Set((documents ?? []).map(r => r.person_id))
-const hasTeamIds = new Set((teamAssignments ?? []).map(r => r.person_id))
+const IN_PROGRESS_ITEMS = ['interview', 'documentation', 'reference_check']
+const IN_TRAINING_ITEMS = ['safeguarding', 'mentoring_100_way', 'dbs_check']
+const ALL_ITEMS = [...IN_PROGRESS_ITEMS, ...IN_TRAINING_ITEMS]
 
-type ChecklistRow = {
-  person_id: string
-  welcome_sent_at: string | null
-  dbs_completed_at: string | null
-  reference_checked_at: string | null
-  induction_done_at: string | null
-  agreement_signed_at: string | null
-  training_completed_at: string | null
-  completed_at: string | null
+const completedByPerson = new Map<string, Set<string>>()
+for (const item of checklistItems ?? []) {
+  if (item.completed_at) {
+    if (!completedByPerson.has(item.person_id)) completedByPerson.set(item.person_id, new Set())
+    completedByPerson.get(item.person_id)!.add(item.item_key)
+  }
 }
 
-const checklistMap = new Map<string, ChecklistRow>(
-  ((checklists ?? []) as ChecklistRow[]).map(c => [c.person_id, c]),
-)
+const hasTeamIds = new Set((teamAssignments ?? []).map(r => r.person_id))
 
 function profileComplete(p: PersonRow): boolean {
   return !!(p.full_name && p.email && p.phone && p.address && p.date_of_birth)
 }
 
-function checkedCount(p: PersonRow): number {
-  const cl = checklistMap.get(p.id)
-  let count = 0
-  if (profileComplete(p)) count++
-  if (hasDbsIds.has(p.id)) count++
-  if (hasDuesIds.has(p.id)) count++
-  if (hasDocIds.has(p.id)) count++
-  if (hasTeamIds.has(p.id)) count++
-  if (cl?.welcome_sent_at) count++
-  if (cl?.dbs_completed_at) count++
-  if (cl?.reference_checked_at) count++
-  if (cl?.induction_done_at) count++
-  if (cl?.agreement_signed_at) count++
-  if (cl?.training_completed_at) count++
-  return count
+function itemsForStage(status: string): string[] {
+  if (status === 'in_progress') return IN_PROGRESS_ITEMS
+  if (status === 'in_training') return IN_TRAINING_ITEMS
+  return ALL_ITEMS
 }
 
-const TOTAL_ITEMS = 11
+function checkedCount(p: PersonRow): { done: number; total: number } {
+  const completed = completedByPerson.get(p.id) ?? new Set()
+  const stageItems = itemsForStage(p.status)
+  const done = stageItems.filter(k => completed.has(k)).length
+  return { done, total: stageItems.length || ALL_ITEMS.length }
+}
 
-// ── Group by status
-const stages = [
-  { key: 'applicant',      label: 'Applicant',     color: 'var(--color-neutral-400)',  advance: 'Move to In Progress' },
-  { key: 'pending_review', label: 'In Progress',   color: 'var(--color-warning-500)',  advance: 'Approve' },
-  { key: 'approved',       label: 'Approved',      color: 'var(--color-info-500)',     advance: 'Activate' },
-  { key: 'active',         label: 'Activated',     color: 'var(--color-success-500)',  advance: '' },
-  { key: 'cancelled',      label: 'Cancelled',     color: 'var(--color-danger-400)',   advance: '' },
-] as const
-
-function daysInStage(p: PersonRow): number {
+function daysIn(p: PersonRow): number {
   const d = p.status === 'active' ? p.date_joined : p.applied_at
   if (!d) return 0
   return Math.floor((Date.now() - new Date(d).getTime()) / 86_400_000)
 }
+
+const STAGES = [
+  { key: 'applicant',   label: 'Applicant',   dotColor: 'bg-neutral-400', advanceLabel: 'Move to In Progress' },
+  { key: 'in_progress', label: 'In Progress', dotColor: 'bg-warning-500', advanceLabel: 'Move to In Training' },
+  { key: 'in_training', label: 'In Training', dotColor: 'bg-info-500',    advanceLabel: 'Activate'            },
+  { key: 'active',      label: 'Activated',   dotColor: 'bg-success-600', advanceLabel: ''                    },
+  { key: 'cancelled',   label: 'Cancelled',   dotColor: 'bg-danger-400',  advanceLabel: ''                    },
+] as const
+
+const peopleJson = JSON.stringify(filtered.map(p => {
+  const { done, total } = checkedCount(p)
+  return {
+    id: p.id,
+    full_name: p.full_name,
+    email: p.email,
+    status: p.status,
+    applied_at: p.applied_at,
+    days: daysIn(p),
+    done,
+    total,
+  }
+}))
 ---
 
+<style>
+  .kanban-card:hover { background-color: var(--color-neutral-50); }
+  .list-row:hover td { background-color: var(--color-neutral-50); }
+  .view-btn:not(.view-btn--active):hover { background-color: var(--color-neutral-200); }
+</style>
+
 <DashboardLayout title="Onboarding Pipeline">
-  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px;">
-    <div>
-      <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Onboarding Pipeline</h1>
-      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
-        {filtered.filter(p => !['active','cancelled'].includes(p.status)).length} member{filtered.filter(p => !['active','cancelled'].includes(p.status)).length !== 1 ? 's' : ''} in progress
-      </p>
+  <div x-data={`(function() {
+    var people = ${peopleJson};
+    return {
+      view: 'kanban',
+      search: '',
+      modal: { open: false, personId: '', label: '', type: 'advance' },
+      cancel: { type: '', reason: '' },
+      banner: { show: false, text: '', ok: true },
+      get filtered() {
+        var q = this.search.toLowerCase().trim();
+        if (!q) return people;
+        return people.filter(function(p) {
+          return p.full_name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q);
+        });
+      },
+      byStatus(status) {
+        return this.filtered.filter(function(p) { return p.status === status; });
+      },
+      openAdvance(pid, label) {
+        this.modal = { open: true, personId: pid, label: label, type: 'advance' };
+      },
+      openCancel(pid, name) {
+        this.cancel = { type: '', reason: '' };
+        this.modal = { open: true, personId: pid, label: name, type: 'cancel' };
+      },
+      async confirmAdvance(sendEmail) {
+        var pid = this.modal.personId;
+        this.modal.open = false;
+        var res = await fetch('/api/onboarding/' + pid + '/advance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ send_email: sendEmail }),
+        });
+        var data = await res.json();
+        if (res.ok) {
+          this.banner = { show: true, text: 'Moved to ' + data.label + '.' + (data.emailSent ? ' Email sent.' : ''), ok: true };
+          setTimeout(function() { window.location.reload(); }, 1200);
+        } else {
+          this.banner = { show: true, text: data.error || 'Failed to advance.', ok: false };
+        }
+      },
+      async confirmCancel() {
+        if (!this.cancel.type) return;
+        var pid = this.modal.personId;
+        this.modal.open = false;
+        var res = await fetch('/api/onboarding/' + pid + '/advance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ direction: 'cancel', cancellation_type: this.cancel.type, reason: this.cancel.reason }),
+        });
+        var data = await res.json();
+        if (res.ok) {
+          this.banner = { show: true, text: 'Application cancelled.', ok: true };
+          setTimeout(function() { window.location.reload(); }, 1200);
+        } else {
+          this.banner = { show: true, text: data.error || 'Failed to cancel.', ok: false };
+        }
+      },
+    };
+  })()`}>
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+      <div>
+        <h1 class="font-heading text-2xl font-bold text-brand-navy m-0 mb-1">Onboarding Pipeline</h1>
+        <p class="font-body text-sm text-neutral-500 m-0">
+          {filtered.filter(p => !['active','cancelled'].includes(p.status)).length} applicant{filtered.filter(p => !['active','cancelled'].includes(p.status)).length !== 1 ? 's' : ''} in pipeline
+        </p>
+      </div>
+      <div class="flex items-center gap-2.5">
+        <a href="/admin/onboarding/analytics"
+          class="px-3.5 py-2 bg-neutral-100 text-neutral-700 rounded-md font-body text-[13px] font-medium no-underline">
+          Analytics
+        </a>
+        <a href="/admin/members/new"
+          class="px-4 py-2 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
+          + Add applicant
+        </a>
+      </div>
     </div>
-    <div style="display: flex; gap: 10px;">
-      <a href="/admin/onboarding/analytics"
-        style="padding: 10px 16px; background: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
-        Analytics
-      </a>
-      <a href="/admin/members/new"
-        style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
-        + Add applicant
-      </a>
+
+    <!-- Toolbar -->
+    <div class="flex items-center gap-3 mb-5">
+      <div class="relative flex-1 max-w-90">
+        <svg class="absolute left-2.75 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input
+          type="text"
+          x-model="search"
+          placeholder="Search by name or email…"
+          class="w-full py-2.25 pl-8.5 pr-3 border border-neutral-200 rounded-md font-body text-sm text-neutral-800 outline-none box-border"
+        />
+      </div>
+
+      <!-- View toggle -->
+      <div class="flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-md p-1 ml-auto">
+        <button @click="view = 'kanban'" title="Board view"
+          :class="view === 'kanban' ? 'view-btn--active bg-white text-brand-navy shadow-sm' : 'text-neutral-400'"
+          class="view-btn flex items-center justify-center w-8.5 h-8.5 border-none rounded-1.5 cursor-pointer transition-all duration-150">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+          </svg>
+        </button>
+        <button @click="view = 'list'" title="List view"
+          :class="view === 'list' ? 'view-btn--active bg-white text-brand-navy shadow-sm' : 'text-neutral-400'"
+          class="view-btn flex items-center justify-center w-8.5 h-8.5 border-none rounded-1.5 cursor-pointer transition-all duration-150">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+          </svg>
+        </button>
+      </div>
     </div>
-  </div>
 
-  <!-- Status flash -->
-  <div id="statusBanner" style="display: none; padding: 14px 20px; border-radius: var(--radius-md); margin-bottom: 20px; font-family: var(--font-body); font-size: 14px;"></div>
+    <!-- Banner -->
+    <div
+      x-show="banner.show"
+      :class="banner.ok
+        ? 'bg-success-50 border-success-200 text-success-800'
+        : 'bg-danger-50 border-danger-200 text-danger-800'"
+      x-text="banner.text"
+      class="hidden py-3 px-4.5 border rounded-md font-body text-sm mb-4"
+    ></div>
 
-  <!-- ── Pipeline kanban ── -->
-  <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; align-items: start;">
+    <!-- ── KANBAN VIEW ── -->
+    <div x-show="view === 'kanban'" class="overflow-x-auto min-h-screen">
+      <div class="grid gap-4 items-start min-w-320 [grid-template-columns:repeat(6,minmax(240px,1fr))]">
 
-    {stages.map(stage => {
-      const stagePeople = filtered.filter(p => p.status === stage.key)
-      return (
-        <div>
-          <!-- Column header -->
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-            <div style={`width: 10px; height: 10px; border-radius: 50%; background-color: ${stage.color}; flex-shrink: 0;`}></div>
-            <h2 style="font-family: var(--font-heading); font-size: 13px; font-weight: 700; color: var(--color-neutral-700); margin: 0; text-transform: uppercase; letter-spacing: 0.05em;">{stage.label}</h2>
-            <span style="font-family: var(--font-heading); font-size: 12px; font-weight: 600; color: var(--color-neutral-400); margin-left: auto;">{stagePeople.length}</span>
-          </div>
+        {STAGES.map(stage => (
+          <div>
+            <!-- Column header -->
+            <div class="flex items-center gap-2 mb-3 px-0.5">
+              <div class={`w-2 h-2 rounded-full shrink-0 ${stage.dotColor}`}></div>
+              <h2 class="font-heading text-[11px] font-bold text-neutral-600 m-0 uppercase tracking-[0.06em]">{stage.label}</h2>
+              <span x-text={"byStatus('" + stage.key + "').length"} class="font-body text-xs text-neutral-400 ml-auto"></span>
+            </div>
 
-          <!-- Cards -->
-          <div style="display: flex; flex-direction: column; gap: 10px;">
-            {stagePeople.length === 0 ? (
-              <div style="padding: 20px; text-align: center; border: 1px dashed var(--color-neutral-200); border-radius: var(--radius-lg);">
-                <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-300); margin: 0;">None</p>
-              </div>
-            ) : stagePeople.map(person => {
-              const checked = checkedCount(person)
-              const progress = Math.round((checked / TOTAL_ITEMS) * 100)
-              const days = daysInStage(person)
-              const cl = checklistMap.get(person.id)
-              return (
-                <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 16px;">
+            <!-- Cards -->
+            <div class="flex flex-col gap-2.5">
+              <template x-if={"byStatus('" + stage.key + "').length === 0"}>
+                <div class="p-4.5 text-center border border-dashed border-neutral-200 rounded-lg">
+                  <p class="font-body text-xs text-neutral-300 m-0">None</p>
+                </div>
+              </template>
 
-                  <!-- Name + days badge -->
-                  <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 4px; gap: 8px;">
-                    <a href={`/admin/onboarding/${person.id}`}
-                      style="font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--color-brand-navy); text-decoration: none; line-height: 1.3;">
-                      {person.full_name}
+              <template x-for={"p in byStatus('" + stage.key + "')"} :key="p.id">
+                <div class="kanban-card bg-white border border-neutral-200 rounded-lg p-4 transition-colors duration-150">
+                  <div class="flex items-start justify-between gap-1.5 mb-0.5">
+                    <a :href="'/admin/onboarding/' + p.id"
+                      x-text="p.full_name"
+                      class="font-body text-[13px] font-semibold text-brand-navy no-underline leading-[1.3] break-words">
                     </a>
-                    <span style={`font-family: var(--font-body); font-size: 11px; font-weight: 500; white-space: nowrap; flex-shrink: 0; padding: 2px 7px; border-radius: var(--radius-full); ${days > 30 ? 'background: var(--color-danger-50); color: var(--color-danger-600);' : 'background: var(--color-neutral-100); color: var(--color-neutral-500);'}`}>{days}d</span>
+                    <span
+                      x-text="p.days + 'd'"
+                      :class="p.days > 30 ? 'bg-danger-50 text-danger-600' : 'bg-neutral-100 text-neutral-500'"
+                      class="font-body text-[11px] font-medium whitespace-nowrap py-0.5 px-1.5 rounded-full shrink-0">
+                    </span>
                   </div>
 
-                  <!-- Email -->
-                  <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0 0 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{person.email}</p>
+                  <p x-text="p.email" class="font-body text-[11px] text-neutral-400 m-0 mb-2.5 overflow-hidden text-ellipsis whitespace-nowrap"></p>
 
-                  <!-- Progress bar -->
-                  <div style="margin-bottom: 10px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                      <span style="font-family: var(--font-body); font-size: 11px; font-weight: 500; color: var(--color-neutral-500);">Checklist</span>
-                      <span style="font-family: var(--font-heading); font-size: 11px; font-weight: 700; color: var(--color-neutral-700);">{checked}/{TOTAL_ITEMS}</span>
-                    </div>
-                    <div style="height: 4px; background-color: var(--color-neutral-100); border-radius: var(--radius-full); overflow: hidden;">
-                      <div style={`height: 100%; width: ${progress}%; background-color: ${progress === 100 ? 'var(--color-success-500)' : 'var(--color-brand-gold)'}; border-radius: var(--radius-full); transition: width 0.3s;`}></div>
-                    </div>
-                  </div>
-
-                  <!-- Key missing items -->
-                  {(() => {
-                    const missing: string[] = []
-                    if (!profileComplete(person)) missing.push('Profile incomplete')
-                    if (!hasDbsIds.has(person.id)) missing.push('No DBS')
-                    if (!cl?.welcome_sent_at) missing.push('Welcome not sent')
-                    if (!hasDuesIds.has(person.id) && person.status !== 'applicant') missing.push('Dues unpaid')
-                    if (missing.length === 0) return null
-                    return (
-                      <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px;">
-                        {missing.slice(0, 2).map(m => (
-                          <span style="padding: 2px 8px; border-radius: var(--radius-full); background: #fff7ed; color: #c2410c; font-family: var(--font-body); font-size: 11px; font-weight: 500; border: 1px solid #fed7aa;">
-                            {m}
-                          </span>
-                        ))}
-                        {missing.length > 2 && (
-                          <span style="padding: 2px 8px; border-radius: var(--radius-full); background: var(--color-neutral-100); color: var(--color-neutral-500); font-family: var(--font-body); font-size: 11px;">+{missing.length - 2} more</span>
-                        )}
+                  {(stage.key === 'in_progress' || stage.key === 'in_training') && (
+                    <div class="mb-2.5">
+                      <div class="flex justify-between mb-0.75">
+                        <span class="font-body text-[10px] text-neutral-400">Checklist</span>
+                        <span x-text="p.done + '/' + p.total" class="font-heading text-[10px] font-bold text-neutral-600"></span>
                       </div>
-                    )
-                  })()}
+                      <div class="h-0.75 bg-neutral-100 rounded-full overflow-hidden">
+                        <div :style="'width:' + Math.round((p.done/p.total)*100) + '%; height:100%; background:' + (p.done===p.total ? 'var(--color-success-500)' : 'var(--color-brand-gold)') + '; border-radius:9999px'"></div>
+                      </div>
+                    </div>
+                  )}
 
-                  <!-- Actions -->
-                  <div style="display: flex; gap: 6px; margin-top: 4px;">
-                    <a href={`/admin/onboarding/${person.id}`}
-                      style="flex: 1; text-align: center; padding: 7px 8px; background: var(--color-neutral-100); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--color-neutral-600); text-decoration: none;">
+                  <div class="flex gap-2 mt-1">
+                    <a :href="'/admin/onboarding/' + p.id"
+                      class="flex-1 text-center py-2 px-3 bg-neutral-100 rounded-md font-body text-xs font-medium text-neutral-600 no-underline">
                       Details
                     </a>
-                    {stage.advance && (
-                      <button
-                        data-person-id={person.id}
-                        data-advance-label={stage.advance}
-                        onclick={`advanceMember('${person.id}', '${stage.advance}')`}
-                        style={`flex: 1.5; padding: 7px 8px; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; font-weight: 600; cursor: pointer; ${stage.key === 'approved' ? 'background: var(--color-success-600); color: white;' : stage.key === 'pending_review' ? 'background: var(--color-info-600); color: white;' : 'background: var(--color-brand-navy); color: white;'}`}>
-                        {stage.advance}
-                      </button>
+
+                    {/* Actions dropdown — all stages except active */}
+                    {stage.key !== 'active' && (
+                      <div class="relative" x-data="{ open: false }">
+                        <button
+                          @click="open = !open"
+                          @keydown.escape.window="open = false"
+                          class="flex items-center gap-1 py-2 px-3 bg-brand-navy text-white border-none rounded-md font-body text-xs font-semibold cursor-pointer">
+                          Actions
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"/>
+                          </svg>
+                        </button>
+                        <div
+                          x-show="open"
+                          x-cloak
+                          @click.outside="open = false"
+                          class="absolute bottom-full right-0 mb-1.5 bg-white border border-neutral-200 rounded-lg shadow-md z-20 min-w-45 overflow-hidden">
+
+                          {stage.advanceLabel && (
+                            <button
+                              @click={`openAdvance(p.id, '${stage.advanceLabel}'); open = false`}
+                              class="w-full text-left px-4 py-2.5 font-body text-[13px] text-neutral-700 hover:bg-neutral-50 border-none bg-transparent cursor-pointer">
+                              {stage.advanceLabel}
+                            </button>
+                          )}
+
+                          {stage.key === 'cancelled' && (
+                            <button
+                              @click="openAdvance(p.id, 'Reinstate'); open = false"
+                              class="w-full text-left px-4 py-2.5 font-body text-[13px] text-neutral-700 hover:bg-neutral-50 border-none bg-transparent cursor-pointer">
+                              Reinstate
+                            </button>
+                          )}
+
+                          {stage.key !== 'cancelled' && (
+                            <>
+                              {stage.advanceLabel && <div class="border-t border-neutral-100 mx-2"></div>}
+                              <button
+                                @click="openCancel(p.id, p.full_name); open = false"
+                                class="w-full text-left px-4 py-2.5 font-body text-[13px] text-danger-600 hover:bg-danger-50 border-none bg-transparent cursor-pointer">
+                                Cancel application
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
-              )
-            })}
+              </template>
+            </div>
+          </div>
+        ))}
+
+      </div>
+    </div>
+
+    <!-- ── LIST VIEW ── -->
+    <div x-show="view === 'list'" style="display:none">
+      <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+        <table class="w-full border-collapse">
+          <thead class="bg-neutral-50 border-b border-neutral-200">
+            <tr>
+              <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.5 px-4 uppercase tracking-[0.05em]">Name</th>
+              <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.5 px-4 uppercase tracking-[0.05em]">Stage</th>
+              <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.5 px-4 uppercase tracking-[0.05em]">Checklist</th>
+              <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.5 px-4 uppercase tracking-[0.05em]">Applied</th>
+              <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.5 px-4 uppercase tracking-[0.05em]">Days</th>
+              <th class="py-2.5 px-4"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-if="filtered.length === 0">
+              <tr>
+                <td colspan="6" class="p-10 text-center font-body text-sm text-neutral-400">No results match your search.</td>
+              </tr>
+            </template>
+            <template x-for="(p, i) in filtered" :key="p.id">
+              <tr class="list-row" :class="i > 0 ? 'border-t border-neutral-100' : ''">
+                <td class="py-3 px-4">
+                  <a :href="'/admin/onboarding/' + p.id" x-text="p.full_name"
+                    class="font-body text-sm font-semibold text-brand-navy no-underline block"></a>
+                  <span x-text="p.email" class="font-body text-xs text-neutral-400"></span>
+                </td>
+                <td class="py-3 px-4">
+                  <span
+                    x-text="p.status.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); })"
+                    :class="
+                      p.status === 'applicant'   ? 'bg-neutral-100 text-neutral-600' :
+                      p.status === 'in_progress' ? 'bg-warning-50 text-warning-700 border border-warning-200' :
+                      p.status === 'in_training' ? 'bg-info-50 text-info-700 border border-info-200' :
+                      p.status === 'active'      ? 'bg-success-100 text-success-800' :
+                                                   'bg-danger-50 text-danger-700 border border-danger-200'"
+                    class="inline-block py-0.5 px-2.5 rounded-full font-body text-xs font-semibold">
+                  </span>
+                </td>
+                <td class="py-3 px-4">
+                  <div class="flex items-center gap-2">
+                    <div class="w-20 h-1 bg-neutral-100 rounded-full overflow-hidden">
+                      <div :style="'width:' + (p.total > 0 ? Math.round((p.done/p.total)*100) : 0) + '%; height:100%; background:var(--color-brand-gold); border-radius:9999px'"></div>
+                    </div>
+                    <span x-text="p.done + '/' + p.total" class="font-body text-xs text-neutral-500"></span>
+                  </div>
+                </td>
+                <td x-text="p.applied_at ? new Date(p.applied_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'"
+                  class="py-3 px-4 font-body text-[13px] text-neutral-600"></td>
+                <td class="py-3 px-4">
+                  <span
+                    x-text="p.days + 'd'"
+                    :class="p.days > 30 ? 'text-danger-600 font-semibold' : 'text-neutral-500'"
+                    class="font-body text-[13px]">
+                  </span>
+                </td>
+                <td class="py-3 px-4 text-right">
+                  <a :href="'/admin/onboarding/' + p.id"
+                    class="font-body text-[13px] font-medium text-brand-navy no-underline">
+                    View →
+                  </a>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Advance modal ── -->
+    <div x-show="modal.open && modal.type === 'advance'" x-cloak
+      class="fixed inset-0 z-50 bg-black/45"
+      @keydown.escape.window="modal.open = false">
+      <div class="flex items-center justify-center w-full h-full" @click.self="modal.open = false">
+        <div class="bg-white rounded-xl p-7 max-w-105 w-[calc(100%-48px)] shadow-lg">
+          <h3 x-text="modal.label + '?'" class="font-heading text-[17px] font-bold text-brand-navy m-0 mb-2"></h3>
+          <p class="font-body text-sm text-neutral-600 m-0 mb-6">Would you like to send a status notification email to the applicant?</p>
+          <div class="flex gap-2 justify-end flex-wrap">
+            <button @click="modal.open = false"
+              class="py-2.25 px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">
+              Cancel
+            </button>
+            <button @click="confirmAdvance(false)"
+              class="py-2.25 px-4 bg-neutral-200 text-neutral-800 border-none rounded-md font-body text-sm font-medium cursor-pointer">
+              No email
+            </button>
+            <button @click="confirmAdvance(true)"
+              class="py-2.25 px-4.5 bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">
+              Send email
+            </button>
           </div>
         </div>
-      )
-    })}
+      </div>
+    </div>
+
+    <!-- ── Cancel modal ── -->
+    <div x-show="modal.open && modal.type === 'cancel'" x-cloak
+      class="fixed inset-0 z-50 bg-black/45"
+      @keydown.escape.window="modal.open = false">
+      <div class="flex items-center justify-center w-full h-full" @click.self="modal.open = false">
+        <div class="bg-white rounded-xl p-7 max-w-110 w-[calc(100%-48px)] shadow-lg">
+          <h3 class="font-heading text-[17px] font-bold text-danger-700 m-0 mb-1.5">Cancel application</h3>
+          <p x-text="'Cancel ' + modal.label + '\'s application?'" class="font-body text-sm text-neutral-600 m-0 mb-5"></p>
+
+          <div class="mb-4">
+            <label class="block font-body text-[13px] font-semibold text-neutral-700 mb-1.5">
+              Reason <span class="text-danger-600">*</span>
+            </label>
+            <select x-model="cancel.type"
+              class="w-full py-2.25 px-3 border border-neutral-300 rounded-md font-body text-sm bg-white text-neutral-800">
+              <option value="" disabled>Select a reason…</option>
+              <option value="opted_out">Opted out voluntarily</option>
+              <option value="training_incomplete">Did not complete training</option>
+              <option value="eligibility">Eligibility / criteria not met</option>
+              <option value="no_response">No response / unresponsive</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div class="mb-6">
+            <label class="block font-body text-[13px] font-semibold text-neutral-700 mb-1.5">
+              Notes (optional)
+            </label>
+            <textarea x-model="cancel.reason" rows="2"
+              placeholder="Any additional context…"
+              class="w-full py-2.25 px-3 border border-neutral-300 rounded-md font-body text-sm resize-y box-border"></textarea>
+          </div>
+
+          <div class="flex gap-2 justify-end">
+            <button @click="modal.open = false"
+              class="py-2.25 px-4 bg-neutral-100 text-neutral-700 border-none rounded-md font-body text-sm cursor-pointer">
+              Back
+            </button>
+            <button @click="confirmCancel()"
+              :disabled="!cancel.type"
+              :class="cancel.type ? 'bg-danger-600 text-white cursor-pointer' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'"
+              class="py-2.25 px-5 border-none rounded-md font-body text-sm font-semibold">
+              Cancel application
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
   </div>
 </DashboardLayout>
-
-<script is:inline>
-  const banner = document.getElementById('statusBanner')
-
-  function showBanner(message, type) {
-    if (!banner) return
-    banner.textContent = message
-    banner.style.display = 'block'
-    banner.style.backgroundColor = type === 'success' ? 'var(--color-success-50)' : 'var(--color-danger-50)'
-    banner.style.border = `1px solid ${type === 'success' ? 'var(--color-success-200)' : 'var(--color-danger-200)'}`
-    banner.style.color = type === 'success' ? 'var(--color-success-700)' : 'var(--color-danger-700)'
-  }
-
-  async function advanceMember(personId, label) {
-    const sendEmail = confirm(`${label} this member?\n\nOK = advance and send status email\nCancel = advance without email`)
-    const res = await fetch(`/api/onboarding/${personId}/advance`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ send_email: sendEmail }),
-    })
-    const data = await res.json()
-    if (res.ok && data.success) {
-      showBanner(`Member moved to "${data.newStatus}".${data.emailSent ? ' Email sent.' : ''}`, 'success')
-      setTimeout(() => window.location.reload(), 1500)
-    } else {
-      showBanner(`Failed: ${data.error ?? 'Unknown error'}`, 'error')
-    }
-  }
-
-  window.advanceMember = advanceMember
-</script>

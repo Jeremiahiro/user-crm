@@ -21,48 +21,43 @@ function pageUrl(p: number): string {
   return `${baseUrl}${sep}page=${p}`
 }
 
-// Show up to 5 page numbers around current
 const range: number[] = []
 const delta = 2
 for (let i = Math.max(1, page - delta); i <= Math.min(totalPages, page + delta); i++) {
   range.push(i)
 }
+
+const navLinkBase = 'border border-neutral-200 rounded-md font-body no-underline bg-white'
+const navLinkSm = `${navLinkBase} px-2.5 py-1.5 text-xs text-neutral-600`
+const navLinkMd = `${navLinkBase} px-3 py-1.5 text-[13px] text-neutral-700`
 ---
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; flex-wrap: wrap; gap: 8px;">
-  <span style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500);">
+<div class="flex justify-between items-center mt-4 flex-wrap gap-2">
+  <span class="font-body text-[13px] text-neutral-500">
     Page {page} of {totalPages}
   </span>
-  <div style="display: flex; gap: 6px; align-items: center;">
+  <div class="flex gap-1.5 items-center">
     {page > 1 && (
-      <a href={pageUrl(1)}
-         style="padding: 6px 10px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); text-decoration: none; background: white;">
-        «
-      </a>
+      <a href={pageUrl(1)} class={navLinkSm}>«</a>
     )}
     {page > 1 && (
-      <a href={pageUrl(page - 1)}
-         style="padding: 6px 12px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); text-decoration: none; background: white;">
-        Previous
-      </a>
+      <a href={pageUrl(page - 1)} class={navLinkMd}>Previous</a>
     )}
     {range.map(p => (
-      <a href={pageUrl(p)}
-         style={`padding: 6px 10px; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; text-decoration: none; border: 1px solid ${p === page ? 'var(--color-brand-navy)' : 'var(--color-neutral-200)'}; background: ${p === page ? 'var(--color-brand-navy)' : 'white'}; color: ${p === page ? 'white' : 'var(--color-neutral-700)'}; font-weight: ${p === page ? '600' : '400'};`}>
+      <a
+        href={pageUrl(p)}
+        class={p === page
+          ? 'px-2.5 py-1.5 rounded-md font-body text-[13px] no-underline border border-brand-navy bg-brand-navy text-white font-semibold'
+          : `${navLinkMd}`}
+      >
         {p}
       </a>
     ))}
     {page < totalPages && (
-      <a href={pageUrl(page + 1)}
-         style="padding: 6px 12px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); text-decoration: none; background: white;">
-        Next
-      </a>
+      <a href={pageUrl(page + 1)} class={navLinkMd}>Next</a>
     )}
     {page < totalPages && (
-      <a href={pageUrl(totalPages)}
-         style="padding: 6px 10px; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); text-decoration: none; background: white;">
-        »
-      </a>
+      <a href={pageUrl(totalPages)} class={navLinkSm}>»</a>
     )}
   </div>
 </div>

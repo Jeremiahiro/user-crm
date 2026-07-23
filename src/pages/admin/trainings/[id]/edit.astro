@@ -58,53 +58,67 @@ if (Astro.request.method === 'POST') {
 
 const safeDocTypes = docTypes ?? []
 const t = values as any
+const requiresDocInitial = t.requires_document === true || t.requires_document === 'on'
 ---
 
+<style>
+  [x-cloak] { display: none !important; }
+</style>
+
 <DashboardLayout title={`Edit — ${t.title}`}>
-  <div style="max-width: 600px;">
+  <div class="max-w-150" x-data={`{
+    archiveModal: { open: false },
+    async doArchive() {
+      const form = document.createElement('form')
+      form.method = 'POST'
+      form.innerHTML = '<input name="_action" value="archive">'
+      document.body.appendChild(form)
+      form.submit()
+    }
+  }`}>
     <Breadcrumb crumbs={[
       { label: 'Trainings', href: '/admin/trainings' },
       { label: t.title, href: `/admin/trainings/${trainingId}` },
       { label: 'Edit' },
     ]} />
-    <h1 style="font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 24px;">Edit Training</h1>
+    <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0 mb-6">Edit Training</h1>
 
     {globalError && (
-      <div style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-200); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 20px; font-family: var(--font-body); font-size: 14px; color: var(--color-danger-700);">
+      <div class="bg-danger-50 border border-danger-200 rounded-md px-4 py-3 mb-5 font-body text-sm text-danger-700">
         {globalError}
       </div>
     )}
 
-    <form method="POST" style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+    <form method="POST" id="editForm" x-data={`{ requiresDoc: ${requiresDocInitial} }`} class="bg-white border border-neutral-200 rounded-lg p-8 flex flex-col gap-5">
 
       <!-- Title -->
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label for="titleInput" style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Title *</label>
+      <div class="flex flex-col gap-1">
+        <label for="titleInput" class="font-body text-[13px] font-medium text-neutral-700">Title *</label>
         <input id="titleInput" name="title" type="text" required value={t.title ?? ''}
-          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-800);" />
-        {errors.title && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-danger-600); margin: 0;">{errors.title}</p>}
+          class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm text-neutral-800" />
+        {errors.title && <p class="font-body text-xs text-danger-600 m-0">{errors.title}</p>}
       </div>
 
       <!-- Description (CKEditor) -->
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <label style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Description</label>
+      <div class="flex flex-col gap-1">
+        <label class="font-body text-[13px] font-medium text-neutral-700">Description</label>
         <input type="hidden" name="description" id="descriptionInput" value={t.description ?? ''} />
-        <div id="descriptionEditor" style="min-height: 200px;"></div>
+        <div id="descriptionEditor" class="min-h-50"></div>
       </div>
 
       <!-- Requires document -->
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <input id="requiresDocCheck" name="requires_document" type="checkbox"
-          checked={t.requires_document === true || t.requires_document === 'on'}
-          style="width: 16px; height: 16px; cursor: pointer;" />
-        <label for="requiresDocCheck" style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-700); cursor: pointer;">Requires document upload</label>
+      <div class="flex items-center gap-2.5">
+        <input id="requiresDocCheck" name="requires_document" type="checkbox" x-model="requiresDoc"
+          checked={requiresDocInitial}
+          class="w-4 h-4 cursor-pointer" />
+        <label for="requiresDocCheck" class="font-body text-sm text-neutral-700 cursor-pointer">Requires document upload</label>
       </div>
 
       <!-- Expected document type (conditional) -->
-      <div id="docTypeRow" style="display: none; flex-direction: column; gap: 4px;">
-        <label for="docTypeSelect" style="font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--color-neutral-700);">Expected document type</label>
+      <div class="flex flex-col gap-1" x-show="requiresDoc" style={requiresDocInitial ? '' : 'display: none;'}>
+        <label for="docTypeSelect" class="font-body text-[13px] font-medium text-neutral-700">Expected document type</label>
         <select id="docTypeSelect" name="expected_document_type_id"
-          style="padding: 10px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white; color: var(--color-neutral-800);">
+          class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm bg-white text-neutral-800">
           <option value="">Any type</option>
           {safeDocTypes.map((dt: any) => (
             <option value={dt.id} selected={t.expected_document_type_id === dt.id}>{dt.name}</option>
@@ -113,45 +127,50 @@ const t = values as any
       </div>
 
       <!-- Actions -->
-      <div style="display: flex; gap: 12px; padding-top: 8px;">
+      <div class="flex gap-3 pt-2">
         <button type="submit"
-          style="padding: 10px 20px; background-color: var(--color-brand-navy); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer;">
+          class="px-5 py-2.5 bg-brand-navy text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">
           Save changes
         </button>
         <a href={`/admin/trainings/${trainingId}`}
-          style="padding: 10px 20px; background-color: var(--color-neutral-100); color: var(--color-neutral-700); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 500; text-decoration: none;">
+          class="px-5 py-2.5 bg-neutral-100 text-neutral-700 rounded-md font-body text-sm font-medium no-underline">
           Cancel
         </a>
       </div>
     </form>
 
     <!-- Archive section -->
-    <div style="background: white; border: 1px solid var(--color-danger-200); border-radius: var(--radius-lg); padding: 24px; margin-top: 24px;">
-      <h2 style="font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-danger-700); margin: 0 0 8px;">Danger zone</h2>
-      <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); margin: 0 0 14px;">Archiving a training hides it from the list and prevents new completions. This cannot be easily undone.</p>
-      <form method="POST" id="archiveForm">
-        <input type="hidden" name="_action" value="archive" />
-        <button type="submit"
-          style="padding: 9px 18px; background-color: var(--color-danger-600); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer;">
-          Archive training
-        </button>
-      </form>
+    <div class="bg-white border border-danger-200 rounded-lg p-6 mt-6">
+      <h2 class="font-heading text-sm font-bold text-danger-700 m-0 mb-2">Danger zone</h2>
+      <p class="font-body text-[13px] text-neutral-600 m-0 mb-3.5">Archiving a training hides it from the list and prevents new completions. This cannot be easily undone.</p>
+      <button type="button" @click="archiveModal.open = true"
+        class="px-4.5 py-2.25 bg-danger-600 text-white border-none rounded-md font-body text-[13px] font-semibold cursor-pointer">
+        Archive training
+      </button>
+    </div>
+
+    <!-- Archive confirm modal -->
+    <div x-show="archiveModal.open" x-cloak @click="archiveModal.open = false"
+      class="fixed inset-0 bg-[rgba(0,0,0,0.45)] z-1000 flex items-center justify-center">
+      <div @click.stop class="bg-white rounded-lg px-8 py-7 max-w-95 w-[90%] shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
+        <p class="font-body text-sm font-semibold text-neutral-800 m-0 mb-1.5">Archive this training?</p>
+        <p class="font-body text-[13px] text-neutral-600 m-0 mb-5 leading-normal">It will no longer appear in the list and new completions will be prevented.</p>
+        <div class="flex gap-2.5 justify-end">
+          <button @click="archiveModal.open = false"
+            class="px-4 py-2 bg-neutral-100 border border-neutral-200 rounded-md font-body text-[13px] font-medium cursor-pointer text-neutral-700">
+            Cancel
+          </button>
+          <button @click="doArchive()"
+            class="px-4 py-2 bg-danger-600 text-white border-none rounded-md font-body text-[13px] font-semibold cursor-pointer">
+            Archive
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </DashboardLayout>
 
 <script is:inline>
-  // Requires-document toggle
-  var cb = document.getElementById('requiresDocCheck')
-  var row = document.getElementById('docTypeRow')
-  cb.addEventListener('change', function() { row.style.display = cb.checked ? 'flex' : 'none' })
-  row.style.display = cb.checked ? 'flex' : 'none'
-
-  // Archive confirm
-  document.getElementById('archiveForm').addEventListener('submit', function(e) {
-    if (!confirm('Archive this training? It will no longer appear in the list.')) e.preventDefault()
-  })
-
   // CKEditor
   var ckScript = document.createElement('script')
   ckScript.src = 'https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js'
@@ -167,7 +186,7 @@ const t = values as any
   document.head.appendChild(ckScript)
 
   // Sync editor content to hidden input on submit
-  document.querySelector('form[method="POST"]:not(#archiveForm)').addEventListener('submit', function() {
+  document.getElementById('editForm').addEventListener('submit', function() {
     if (window._trainingEditor) {
       document.getElementById('descriptionInput').value = window._trainingEditor.getData()
     }

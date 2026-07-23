@@ -138,7 +138,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       supabaseAdmin
         .from('people')
         .select('id')
-        .in('status', ['active', 'approved'])
+        .eq('status', 'active')
         .eq('is_archived', false)
         .neq('id', parsed.data.person_id),
     ])

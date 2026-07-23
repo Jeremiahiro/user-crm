@@ -185,33 +185,33 @@ function pageUrl(p: number) {
     .notif-item.unread:hover { background: #dbeafe; }
   </style>
 
-  <div style="max-width: 1100px;">
+  <div class="max-w-275">
 
     <!-- Header -->
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+    <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
       <div>
-        <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">
+        <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">
           Notifications
           {unreadCount > 0 && (
-            <span id="unread-badge" style="display: inline-flex; align-items: center; justify-content: center; background: var(--color-danger-600); color: white; border-radius: 99px; font-size: 12px; font-weight: 700; min-width: 22px; height: 22px; padding: 0 6px; margin-left: 8px; vertical-align: middle;">
+            <span id="unread-badge" class="inline-flex items-center justify-center bg-danger-600 text-white rounded-full text-xs font-bold min-w-5.5 h-5.5 px-1.5 ml-2 align-middle">
               {unreadCount}
             </span>
           )}
         </h1>
-        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+        <p class="font-body text-sm text-neutral-500 m-0">
           {totalCount ?? 0} notification{(totalCount ?? 0) !== 1 ? 's' : ''}{tagParam !== 'all' ? ` · ${TAG_LABELS[tagParam] ?? tagParam}` : ''}{unreadCount > 0 ? ` · ${unreadCount} unread` : ''}
         </p>
       </div>
       {unreadCount > 0 && (
         <button id="mark-all-btn"
-          style="padding: 6px 14px; background: var(--color-neutral-100); color: var(--color-neutral-700); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer;">
+          class="px-3.5 py-1.5 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-md font-body text-[13px] font-medium cursor-pointer">
           Mark all as read
         </button>
       )}
     </div>
 
     <!-- Tag filter chips -->
-    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;">
+    <div class="flex gap-2 flex-wrap mb-5">
       {Object.keys(TAG_LABELS).map(tag => {
         const count = tagCounts[tag] ?? 0
         const isActive = tagParam === tag
@@ -227,17 +227,17 @@ function pageUrl(p: number) {
     </div>
 
     {rows.length === 0 ? (
-      <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); padding: 64px 32px; text-align: center;">
-        <p style="font-size: 36px; margin: 0 0 12px;">🔔</p>
-        <p style="font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 6px;">No notifications here</p>
-        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">
+      <div class="bg-white border border-neutral-200 rounded-lg px-8 py-16 text-center">
+        <p class="text-[36px] mb-3">🔔</p>
+        <p class="font-heading text-lg font-bold text-brand-navy mb-1.5">No notifications here</p>
+        <p class="font-body text-sm text-neutral-500 m-0">
           {tagParam !== 'all' ? `No ${TAG_LABELS[tagParam] ?? tagParam} notifications yet.` : 'Nothing yet.'}
         </p>
       </div>
     ) : (
       <>
         <!-- Two-column masonry via CSS columns -->
-        <div style="column-count: 2; column-gap: 12px;">
+        <div class="columns-2 gap-3">
           {rows.map(n => {
             const tag = tagFor(n.type)
             const inner = (
@@ -248,33 +248,32 @@ function pageUrl(p: number) {
                 class={`notif-item${!n.is_read ? ' unread' : ''}`}>
 
                 {!n.is_read && (
-                  <span class="unread-dot" style="position: absolute; left: 5px; top: 50%; transform: translateY(-50%); width: 6px; height: 6px; border-radius: 50%; background: #3b82f6; flex-shrink: 0;"></span>
+                  <span class="unread-dot absolute left-1.25 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#3b82f6] shrink-0"></span>
                 )}
 
-                <span style="font-size: 20px; flex-shrink: 0; margin-top: 1px;">{iconFor(n.type)}</span>
+                <span class="text-xl shrink-0 mt-0.25">{iconFor(n.type)}</span>
 
-                <div style="flex: 1; min-width: 0;">
-                  <p style={`font-family: var(--font-body); font-size: 13px; color: var(--color-brand-navy); margin: 0 0 2px; ${!n.is_read ? 'font-weight: 700;' : 'font-weight: 500;'} white-space: nowrap; overflow: hidden; text-overflow: ellipsis;`}>
+                <div class="flex-1 min-w-0">
+                  <p class={`font-body text-[13px] text-brand-navy mb-0.5 truncate ${!n.is_read ? 'font-bold' : 'font-medium'}`}>
                     {cleanTitle(n.title)}
                   </p>
                   {n.body && (
-                    <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); margin: 0 0 4px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                    <p class="font-body text-xs text-neutral-600 mb-1 leading-snug line-clamp-2">
                       {n.body}
                     </p>
                   )}
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <p style="font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-400); margin: 0;">{timeAgo(n.created_at)}</p>
-                    <span style="font-family: var(--font-body); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-neutral-400);">{TAG_LABELS[tag] ?? tag}</span>
+                  <div class="flex items-center gap-2">
+                    <p class="font-body text-[11px] text-neutral-400 m-0">{timeAgo(n.created_at)}</p>
+                    <span class="font-body text-[10px] font-semibold uppercase tracking-[0.04em] text-neutral-400">{TAG_LABELS[tag] ?? tag}</span>
                   </div>
                 </div>
 
                 {!n.is_read && (
                   <button
-                    class="mark-one-btn"
+                    class="mark-one-btn shrink-0 bg-transparent border border-neutral-300 rounded-md px-2 py-0.5 font-body text-[11px] text-neutral-500 cursor-pointer self-start"
                     data-notif-id={n.id}
                     onclick="event.preventDefault(); event.stopPropagation(); markOneRead(this)"
-                    title="Mark as read"
-                    style="flex-shrink: 0; background: none; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); padding: 2px 8px; font-family: var(--font-body); font-size: 11px; color: var(--color-neutral-500); cursor: pointer; align-self: flex-start;">
+                    title="Mark as read">
                     ✓
                   </button>
                 )}
@@ -284,7 +283,7 @@ function pageUrl(p: number) {
             return (
               <div class="notif-card">
                 {n.link ? (
-                  <a href={n.link} class="notif-item-link" data-id={n.id} style="display: block; text-decoration: none; color: inherit;"
+                  <a href={n.link} class="notif-item-link block no-underline text-inherit" data-id={n.id}
                      onmouseover="this.querySelector('.notif-item') && (this.querySelector('.notif-item').style.background='')"
                      onclick={`markAsReadOnClick('${n.id}')`}>
                     {inner}
@@ -299,20 +298,20 @@ function pageUrl(p: number) {
 
         <!-- Pagination -->
         {totalPages > 1 && (
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 20px;">
-            <p style="font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-500); margin: 0;">
+          <div class="flex items-center justify-between mt-5">
+            <p class="font-body text-[13px] text-neutral-500 m-0">
               Page {page} of {totalPages}
             </p>
-            <div style="display: flex; gap: 6px;">
+            <div class="flex gap-1.5">
               {page > 1 && (
                 <a href={pageUrl(page - 1)}
-                  style="padding: 6px 14px; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); text-decoration: none;">
+                  class="px-3.5 py-1.5 bg-white border border-neutral-200 rounded-md font-body text-[13px] text-neutral-700 no-underline">
                   ← Prev
                 </a>
               )}
               {page < totalPages && (
                 <a href={pageUrl(page + 1)}
-                  style="padding: 6px 14px; background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-700); text-decoration: none;">
+                  class="px-3.5 py-1.5 bg-white border border-neutral-200 rounded-md font-body text-[13px] text-neutral-700 no-underline">
                   Next →
                 </a>
               )}

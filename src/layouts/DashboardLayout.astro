@@ -1,116 +1,187 @@
 ---
-import '../styles/global.css'
-import { supabaseAdmin } from '@/lib/supabase'
-import { isAdmin as checkIsAdmin, isMentor as checkIsMentor } from '@/lib/rbac'
-import type { SessionUser } from '../types/domain'
+import "../styles/global.css";
+import { supabaseAdmin } from "@/lib/supabase";
+import { isAdmin as checkIsAdmin, isMentor as checkIsMentor } from "@/lib/rbac";
+import type { SessionUser } from "../types/domain";
 
 interface Props {
-  title?: string
-  user?: SessionUser
+  title?: string;
+  user?: SessionUser;
+  activeHref?: string;
 }
 
-const { title = 'Dashboard', user = Astro.locals.user } = Astro.props
+const {
+  title = "Dashboard",
+  user = Astro.locals.user,
+  activeHref,
+} = Astro.props;
 
 const { data: logoSetting } = await supabaseAdmin
-  .from('org_settings').select('value').eq('key', 'logo_url').single()
-const orgLogoUrl = logoSetting?.value ?? ''
+  .from("org_settings")
+  .select("value")
+  .eq("key", "logo_url")
+  .single();
+const orgLogoUrl = logoSetting?.value ?? "";
 
-const currentPath = Astro.url.pathname
+const currentPath = Astro.url.pathname;
 
 function getInitials(name: string): string {
-  const parts = name.trim().split(' ')
-  const first = parts[0]?.[0] ?? ''
-  const last = parts[parts.length - 1]?.[0] ?? ''
-  return (first + last).toUpperCase()
+  const parts = name.trim().split(" ");
+  const first = parts[0]?.[0] ?? "";
+  const last = parts[parts.length - 1]?.[0] ?? "";
+  return (first + last).toUpperCase();
 }
 
-const initials = user ? getInitials(user.name) : '??'
+const initials = user ? getInitials(user.name) : "??";
 
-// Role helpers
-const isAdmin = checkIsAdmin(user)
-const isMentor = checkIsMentor(user)
+const isAdmin = checkIsAdmin(user);
+const isMentor = checkIsMentor(user);
 
-// Unread notification count
-let unreadCount = 0
+let unreadCount = 0;
 if (user?.person_id) {
   const { count } = await supabaseAdmin
-    .from('notifications')
-    .select('*', { count: 'exact', head: true })
-    .eq('recipient_id', user.person_id)
-    .eq('is_read', false)
-  unreadCount = count ?? 0
+    .from("notifications")
+    .select("*", { count: "exact", head: true })
+    .eq("recipient_id", user.person_id)
+    .eq("is_read", false);
+  unreadCount = count ?? 0;
 }
 
-// Lucide-style SVG paths (24x24 viewBox, stroke icons)
 const icons: Record<string, string> = {
-  grid:          `<rect x="3" y="3" width="4" height="4"/><rect x="9" y="3" width="4" height="4"/><rect x="3" y="9" width="4" height="4"/><rect x="9" y="9" width="4" height="4"/>`,
-  users:         `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>`,
-  layers:        `<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>`,
-  flag:          `<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>`,
-  calendar:      `<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>`,
-  award:         `<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>`,
-  'check-circle':`<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>`,
-  'user-check':  `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/>`,
-  shield:        `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>`,
-  'user-cog':    `<circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4"/><circle cx="19" cy="19" r="2"/><path d="M19 15v2m0 4v2m-3-4h2m4 0h2m-5.5-2.5 1.5 1.5m3-3 1.5 1.5M15.5 21.5l1.5-1.5m3 3 1.5-1.5"/>`,
-  'file-text':   `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>`,
-  settings:      `<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>`,
-  mail:          `<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>`,
-  receipt:        `<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8H8"/><path d="M16 12H8"/><path d="M12 16H8"/>`,
-  'chevrons-left':`<polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>`,
-  'chevrons-right':`<polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/>`,
-  'book-open':   `<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>`,
-  star:          `<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>`,
-}
+  grid: `<rect x="3" y="3" width="4" height="4"/><rect x="9" y="3" width="4" height="4"/><rect x="3" y="9" width="4" height="4"/><rect x="9" y="9" width="4" height="4"/>`,
+  briefcase: `<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>`,
+  users: `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>`,
+  layers: `<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>`,
+  flag: `<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>`,
+  calendar: `<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>`,
+  award: `<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>`,
+  "check-circle": `<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>`,
+  "user-check": `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/>`,
+  shield: `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>`,
+  "user-cog": `<circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4"/><circle cx="19" cy="19" r="2"/><path d="M19 15v2m0 4v2m-3-4h2m4 0h2m-5.5-2.5 1.5 1.5m3-3 1.5 1.5M15.5 21.5l1.5-1.5m3 3 1.5-1.5"/>`,
+  "file-text": `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>`,
+  settings: `<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>`,
+  mail: `<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>`,
+  receipt: `<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8H8"/><path d="M16 12H8"/><path d="M12 16H8"/>`,
+  "chevrons-left": `<polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>`,
+  "chevrons-right": `<polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/>`,
+  "book-open": `<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>`,
+  star: `<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>`,
+};
 
 interface NavItem {
-  label: string
-  href: string
-  icon: string
+  label: string;
+  href: string;
+  icon: string;
 }
 
 interface NavSection {
-  label: string
-  items: NavItem[]
+  label: string;
+  items: NavItem[];
 }
 
 const navItems = {
-  dashboard: { label: 'Dashboard', href: '/dashboard', icon: 'grid' },
-  members: { label: 'Members', href: '/admin/members', icon: 'users' },
-  teams: { label: 'Teams', href: '/admin/teams', icon: 'layers' },
-  pillars: { label: 'Pillars', href: '/admin/pillars', icon: 'flag' },
-  cmp: { label: 'CMP', href: '/admin/cmp', icon: 'calendar' },
-  awards: { label: 'Awards', href: '/admin/awards', icon: 'award' },
-  praise: { label: 'Praise', href: '/admin/praise', icon: 'star' },
-  dues: { label: 'Dues', href: '/admin/dues', icon: 'receipt' },
-  dbs: { label: 'DBS Status', href: '/admin/dbs', icon: 'check-circle' },
-  onboarding: { label: 'Onboarding', href: '/admin/onboarding', icon: 'user-check' },
-  documents: { label: 'Documents', href: '/admin/documents', icon: 'file-text' },
-  trainings: { label: 'Trainings', href: '/admin/trainings', icon: 'book-open' },
-  email: { label: 'Email', href: '/admin/email', icon: 'mail' },
-  roles: { label: 'Roles', href: '/admin/roles', icon: 'shield' },
-  positions: { label: 'Positions', href: '/admin/positions', icon: 'user-cog' },
-  audit: { label: 'Audit Log', href: '/admin/audit', icon: 'file-text' },
-  settings: { label: 'Settings', href: '/admin/settings', icon: 'settings' },
-}
+  dashboard: { label: "Dashboard", href: "/dashboard", icon: "grid" },
+  members: { label: "Members", href: "/admin/members", icon: "users" },
+  volunteers: {
+    label: "Volunteers",
+    href: "/admin/volunteers",
+    icon: "user-check",
+  },
+  onboarding: {
+    label: "Onboarding",
+    href: "/admin/onboarding",
+    icon: "user-cog",
+  },
+  teams: { label: "Teams", href: "/admin/teams", icon: "layers" },
+  committees: { label: "Committees", href: "/admin/committees", icon: "briefcase" },
+  cmp: { label: "CMP", href: "/admin/cmp", icon: "calendar" },
+  trainings: {
+    label: "Trainings",
+    href: "/admin/trainings",
+    icon: "book-open",
+  },
+  awards: { label: "Awards", href: "/admin/awards", icon: "award" },
+  praise: { label: "Praise", href: "/admin/praise", icon: "star" },
+  dues: { label: "Dues", href: "/admin/dues", icon: "receipt" },
+  dbs: { label: "DBS", href: "/admin/dbs", icon: "check-circle" },
+  documents: {
+    label: "Documents",
+    href: "/admin/documents",
+    icon: "file-text",
+  },
+  email: { label: "Email", href: "/admin/email", icon: "mail" },
+  audit: { label: "Audit Log", href: "/admin/audit", icon: "file-text" },
+  settings: { label: "Settings", href: "/admin/settings", icon: "settings" },
+};
 
-const navSections: NavSection[] = isAdmin ? [
-  { label: 'Main', items: [navItems.dashboard, navItems.members, navItems.teams, navItems.pillars] },
-  { label: 'Programmes', items: [navItems.cmp, navItems.awards, navItems.praise, navItems.trainings] },
-  { label: 'Compliance', items: [navItems.dues, navItems.dbs, navItems.onboarding, navItems.documents] },
-  { label: 'Communications', items: [navItems.email] },
-  { label: 'Admin', items: [navItems.roles, navItems.positions, navItems.audit, navItems.settings] },
-] : isMentor ? [
-  { label: 'Main', items: [navItems.dashboard, navItems.teams, navItems.pillars] },
-  { label: 'Programmes', items: [navItems.cmp, navItems.awards, navItems.praise, navItems.trainings] },
-] : [
-  { label: 'Main', items: [navItems.dashboard, navItems.teams, navItems.pillars] },
-  { label: 'Programmes', items: [navItems.awards, navItems.praise, navItems.trainings] },
-]
+const navSections: NavSection[] = isAdmin
+  ? [
+      { label: "Overview", items: [navItems.dashboard] },
+      {
+        label: "People",
+        items: [
+          navItems.members,
+          navItems.volunteers,
+          navItems.onboarding,
+        ],
+      },
+      {
+        label: "Groups",
+        items: [
+          navItems.teams,
+          navItems.committees,
+        ],
+      },
+      {
+        label: "Programmes",
+        items: [
+          navItems.cmp,
+          navItems.trainings,
+          navItems.awards,
+          navItems.praise,
+        ],
+      },
+      {
+        label: "Compliance",
+        items: [navItems.dues, navItems.dbs, navItems.documents],
+      },
+      {
+        label: "Admin",
+        items: [
+          navItems.email,
+          navItems.audit,
+          navItems.settings,
+        ],
+      },
+    ]
+  : isMentor
+    ? [
+        { label: "Overview", items: [navItems.dashboard] },
+        { label: "Groups", items: [navItems.teams, navItems.committees] },
+        {
+          label: "Programmes",
+          items: [
+            navItems.cmp,
+            navItems.trainings,
+            navItems.awards,
+            navItems.praise,
+          ],
+        },
+      ]
+    : [
+        { label: "Overview", items: [navItems.dashboard] },
+        { label: "Groups", items: [navItems.teams, navItems.committees] },
+        {
+          label: "Programmes",
+          items: [navItems.trainings, navItems.awards, navItems.praise],
+        },
+      ];
 
 function isActive(href: string): boolean {
-  if (href === '/dashboard') return currentPath === '/dashboard'
-  return currentPath.startsWith(href)
+  if (activeHref) return href === activeHref;
+  if (href === "/dashboard") return currentPath === "/dashboard";
+  return currentPath.startsWith(href);
 }
 ---
 
@@ -128,6 +199,7 @@ function isActive(href: string): boolean {
       rel="stylesheet"
     />
     <style>
+      /* Sidebar collapse/expand animations — needs complex selectors, kept here intentionally */
       #sidebar {
         width: 240px;
         transition: width 0.2s ease;
@@ -137,7 +209,9 @@ function isActive(href: string): boolean {
       }
       #sidebar .nav-label,
       #sidebar .nav-text {
-        transition: opacity 0.15s ease, width 0.2s ease;
+        transition:
+          opacity 0.15s ease,
+          width 0.2s ease;
         overflow: hidden;
         white-space: nowrap;
       }
@@ -164,23 +238,6 @@ function isActive(href: string): boolean {
       #main-content.sidebar-collapsed {
         margin-left: 56px;
       }
-      #toggle-sidebar {
-        cursor: pointer;
-        background: none;
-        border: none;
-        color: var(--color-neutral-400);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 6px;
-        border-radius: 6px;
-        transition: background-color 0.15s, color 0.15s;
-      }
-      #toggle-sidebar:hover {
-        background-color: var(--color-neutral-100);
-        color: var(--color-neutral-600);
-      }
-      /* Hover-expand when collapsed */
       #sidebar.collapsed:hover {
         width: 240px;
       }
@@ -196,7 +253,6 @@ function isActive(href: string): boolean {
         margin-left: 8px !important;
         margin-right: 8px !important;
       }
-      /* Tooltip for collapsed icons — hidden while hover-expanding */
       #sidebar.collapsed a[data-label] {
         position: relative;
       }
@@ -218,105 +274,95 @@ function isActive(href: string): boolean {
         pointer-events: none;
       }
     </style>
+    <style>
+      [x-cloak] {
+        display: none !important;
+      }
+      .modal-btn-danger {
+        background: var(--color-danger-600) !important;
+      }
+      .modal-btn-primary {
+        background: var(--color-brand-navy) !important;
+      }
+    </style>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"
+    ></script>
   </head>
-  <body style="margin:0; font-family: var(--font-body); background-color: var(--color-neutral-50);">
-
+  <body class="m-0 font-body bg-neutral-50">
     <!-- Top Nav -->
     <header
-      style="
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 60px;
-        background-color: var(--color-brand-navy);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 24px;
-        z-index: 100;
-        box-sizing: border-box;
-      "
+      class="fixed top-0 left-0 right-0 h-15 bg-brand-navy flex items-center justify-between px-6 z-[100] box-border"
     >
-      <a href="/dashboard" style="display: flex; align-items: center; gap: 10px; text-decoration: none;">
-        {orgLogoUrl
-          ? <img src={orgLogoUrl} alt="Organisation logo" style="height: 36px; max-width: 120px; object-fit: contain;" />
-          : <span style="font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: white; letter-spacing: -0.3px;">
-              100BM<span style="color: var(--color-brand-gold);">OL</span>
+      <a href="/dashboard" class="flex items-center gap-2.5 no-underline">
+        {
+          orgLogoUrl ? (
+            <img
+              src={orgLogoUrl}
+              alt="Organisation logo"
+              class="h-9 max-w-30 object-contain"
+            />
+          ) : (
+            <span class="font-heading text-xl font-bold text-white tracking-[-0.3px]">
+              100BM<span class="text-brand-gold">OL</span>
             </span>
+          )
         }
       </a>
 
-      <div style="display: flex; align-items: center; gap: 12px;">
+      <div class="flex items-center gap-3">
         {
           user && (
             <>
-              <div
-                style="
-                  width: 32px;
-                  height: 32px;
-                  border-radius: var(--radius-full);
-                  background-color: var(--color-brand-gold);
-                  color: var(--color-brand-navy);
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  font-size: 12px;
-                  font-weight: 600;
-                  font-family: var(--font-body);
-                  flex-shrink: 0;
-                "
-              >
+              <div class="w-8 h-8 rounded-full bg-brand-gold text-brand-navy flex items-center justify-center text-xs font-semibold font-body shrink-0">
                 {user.image ? (
                   <img
                     src={user.image}
                     alt={user.name}
                     width={32}
                     height={32}
-                    style="border-radius: var(--radius-full); object-fit: cover;"
+                    class="rounded-full object-cover"
                   />
                 ) : (
                   initials
                 )}
               </div>
-              <span
-                style="
-                  color: var(--color-neutral-300);
-                  font-size: 14px;
-                  font-weight: 500;
-                "
-              >
+              <span class="text-neutral-300 text-sm font-medium">
                 {user.name}
               </span>
             </>
           )
         }
-        <a href="/notifications" style="position: relative; color: rgba(255,255,255,0.7); text-decoration: none; display: flex; align-items: center; padding: 4px 8px;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        <a
+          href="/notifications"
+          class="relative text-white/70 no-underline flex items-center px-2 py-1"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
           </svg>
-          {unreadCount > 0 && (
-            <span style="position: absolute; top: 0; right: 0; background: #ef4444; color: white; font-size: 10px; font-weight: 700; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; line-height: 1;">
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </span>
-          )}
+          {
+            unreadCount > 0 && (
+              <span class="absolute top-0 right-0 bg-[#ef4444] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center leading-none">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )
+          }
         </a>
-        <form method="POST" action="/api/auth/signout" style="margin: 0;">
+        <form method="POST" action="/api/auth/signout" class="m-0">
           <button
             type="submit"
-            style="
-              background: none;
-              border: none;
-              cursor: pointer;
-              color: var(--color-neutral-500);
-              font-size: 13px;
-              padding: 4px 8px;
-              border-radius: var(--radius-md);
-              font-family: var(--font-body);
-            "
-            onmouseover="this.style.color='var(--color-neutral-300)'"
-            onmouseout="this.style.color='var(--color-neutral-500)'"
+            class="bg-transparent border-none cursor-pointer text-neutral-500 text-[13px] px-2 py-1 rounded-md font-body hover:text-neutral-300 transition-colors duration-150"
           >
             Sign out
           </button>
@@ -324,110 +370,139 @@ function isActive(href: string): boolean {
       </div>
     </header>
 
-    <div style="display: flex; padding-top: 60px; min-height: 100vh;">
-
+    <div class="flex pt-15 min-h-screen">
       <!-- Sidebar -->
       <nav
         id="sidebar"
-        style="
-          min-height: calc(100vh - 60px);
-          background-color: white;
-          border-right: 1px solid var(--color-neutral-200);
-          position: fixed;
-          top: 60px;
-          left: 0;
-          bottom: 0;
-          overflow-y: auto;
-          overflow-x: hidden;
-          padding: 12px 0 16px;
-          box-sizing: border-box;
-          z-index: 50;
-        "
+        class="bg-white border-r border-neutral-200 fixed top-15 left-0 bottom-0 overflow-y-auto overflow-x-hidden py-3 pb-4 box-border z-50"
       >
         <!-- Collapse toggle -->
-        <div style="display: flex; justify-content: flex-end; padding: 0 8px 8px; border-bottom: 1px solid var(--color-neutral-100); margin-bottom: 8px;">
-          <button id="toggle-sidebar" title="Collapse sidebar">
-            <svg id="icon-collapse" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" set:html={icons['chevrons-left']} />
-            <svg id="icon-expand" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;" set:html={icons['chevrons-right']} />
+        <div
+          class="flex justify-end px-2 pb-2 border-b border-neutral-100 mb-2"
+        >
+          <button
+            id="toggle-sidebar"
+            title="Collapse sidebar"
+            class="cursor-pointer bg-transparent border-none text-neutral-400 flex items-center justify-center p-1.5 rounded-1.5 transition-[background-color,color] duration-150 hover:bg-neutral-100 hover:text-neutral-600"
+          >
+            <svg
+              id="icon-collapse"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              set:html={icons["chevrons-left"]}
+            />
+            <svg
+              id="icon-expand"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="hidden"
+              set:html={icons["chevrons-right"]}
+            />
           </button>
         </div>
 
         {
-          navSections.map((section) => (
-            <div style="margin-bottom: 4px;">
-              <p
-                class="nav-label"
-                style="
-                  font-size: 10px;
-                  font-weight: 600;
-                  color: var(--color-neutral-400);
-                  text-transform: uppercase;
-                  letter-spacing: 0.1em;
-                  padding: 8px 16px 4px;
-                  margin: 0;
-                  font-family: var(--font-body);
-                "
-              >
-                {section.label}
-              </p>
-              {section.items.map((item) => {
-                const active = isActive(item.href)
-                const svgPath = icons[item.icon] ?? ''
-                return (
-                  <a
-                    href={item.href}
-                    data-label={item.label}
-                    class="nav-item"
-                    style={`
-                      display: flex;
-                      align-items: center;
-                      gap: 10px;
-                      padding: 0 8px;
-                      margin: 1px 8px;
-                      height: 38px;
-                      border-radius: var(--radius-md);
-                      text-decoration: none;
-                      font-size: 14px;
-                      font-weight: 500;
-                      font-family: var(--font-body);
-                      transition: background-color 0.15s;
-                      ${active
-                        ? 'background-color: var(--color-neutral-100); color: var(--color-brand-navy); border-left: 3px solid var(--color-brand-gold); padding-left: 5px;'
-                        : 'color: var(--color-neutral-600);'
-                      }
-                    `}
+          navSections.map((section) => {
+            const sectionActive = section.items.some((item) =>
+              isActive(item.href),
+            );
+            const sectionId =
+              "nav-section-" + section.label.toLowerCase().replace(/\s+/g, "-");
+            return (
+              <div class="nav-section mb-0.5" data-section-id={sectionId}>
+                {section.items.length > 1 ? (
+                  <button
+                    class="nav-section-toggle nav-label flex items-center justify-between w-full bg-transparent border-none cursor-pointer pt-2 pb-1 px-3.5 text-[10px] font-semibold text-neutral-400 uppercase tracking-[0.1em] font-body box-border"
+                    data-section={sectionId}
                   >
+                    <span>{section.label}</span>
                     <svg
-                      width="16"
-                      height="16"
+                      class="nav-chevron shrink-0 transition-transform duration-200"
+                      width="12"
+                      height="12"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
-                      stroke-width="2"
+                      stroke-width="2.5"
                       stroke-linecap="round"
                       stroke-linejoin="round"
-                      style="flex-shrink: 0; opacity: 0.75;"
-                      set:html={svgPath}
-                    />
-                    <span class="nav-text">{item.label}</span>
-                  </a>
-                )
-              })}
-            </div>
-          ))
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
+                ) : (
+                  <p class="nav-label text-[10px] font-semibold text-neutral-400 uppercase tracking-[0.1em] pt-2 pb-1 px-4 m-0 font-body">
+                    {section.label}
+                  </p>
+                )}
+
+                <div
+                  class="nav-section-items"
+                  data-section-items={
+                    section.items.length > 1 ? sectionId : undefined
+                  }
+                  data-active={sectionActive ? "true" : "false"}
+                  style={
+                    section.items.length === 1
+                      ? ""
+                      : sectionActive
+                        ? ""
+                        : "display: none;"
+                  }
+                >
+                  {section.items.map((item) => {
+                    const active = isActive(item.href);
+                    const svgPath = icons[item.icon] ?? "";
+                    return (
+                      <a
+                        href={item.href}
+                        data-label={item.label}
+                        class={[
+                          "nav-item flex items-center gap-2.5 px-2 mx-2 h-9 rounded-md no-underline text-[13px] font-medium font-body transition-colors duration-150",
+                          active
+                            ? "bg-neutral-100 text-brand-navy border-l-0.75 border-brand-gold pl-1.25"
+                            : "text-neutral-600",
+                        ].join(" ")}
+                      >
+                        <svg
+                          width="15"
+                          height="15"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          class="shrink-0 opacity-70"
+                          set:html={svgPath}
+                        />
+                        <span class="nav-text">{item.label}</span>
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })
         }
       </nav>
 
       <!-- Main Content -->
       <main
         id="main-content"
-        style="
-          flex: 1;
-          padding: 32px;
-          min-height: calc(100vh - 60px);
-          background-color: var(--color-neutral-50);
-          box-sizing: border-box;
-        "
+        class="flex-1 min-w-0 overflow-x-hidden p-8 min-h-[calc(100vh-60px)] bg-neutral-50 box-border"
       >
         <slot />
       </main>
@@ -435,41 +510,109 @@ function isActive(href: string): boolean {
 
     <script is:inline>
       (function () {
-        var sidebar = document.getElementById('sidebar')
-        var main = document.getElementById('main-content')
-        var btnToggle = document.getElementById('toggle-sidebar')
-        var iconCollapse = document.getElementById('icon-collapse')
-        var iconExpand = document.getElementById('icon-expand')
+        var sidebar = document.getElementById("sidebar");
+        var main = document.getElementById("main-content");
+        var btnToggle = document.getElementById("toggle-sidebar");
+        var iconCollapse = document.getElementById("icon-collapse");
+        var iconExpand = document.getElementById("icon-expand");
 
-        var STORAGE_KEY = '100bmol_sidebar_collapsed'
+        var STORAGE_KEY = "100bmol_sidebar_collapsed";
 
         function setCollapsed(collapsed) {
           if (collapsed) {
-            sidebar.classList.add('collapsed')
-            main.classList.add('sidebar-collapsed')
-            iconCollapse.style.display = 'none'
-            iconExpand.style.display = 'block'
-            localStorage.setItem(STORAGE_KEY, '1')
+            sidebar.classList.add("collapsed");
+            main.classList.add("sidebar-collapsed");
+            iconCollapse.style.display = "none";
+            iconExpand.style.display = "block";
+            localStorage.setItem(STORAGE_KEY, "1");
           } else {
-            sidebar.classList.remove('collapsed')
-            main.classList.remove('sidebar-collapsed')
-            iconCollapse.style.display = 'block'
-            iconExpand.style.display = 'none'
-            localStorage.setItem(STORAGE_KEY, '0')
+            sidebar.classList.remove("collapsed");
+            main.classList.remove("sidebar-collapsed");
+            iconCollapse.style.display = "block";
+            iconExpand.style.display = "none";
+            localStorage.setItem(STORAGE_KEY, "0");
           }
         }
 
-        // Restore saved state
         try {
-          if (localStorage.getItem(STORAGE_KEY) === '1') {
-            setCollapsed(true)
+          if (localStorage.getItem(STORAGE_KEY) === "1") {
+            setCollapsed(true);
           }
         } catch (e) {}
 
-        btnToggle.addEventListener('click', function () {
-          setCollapsed(!sidebar.classList.contains('collapsed'))
-        })
-      })()
+        btnToggle.addEventListener("click", function () {
+          setCollapsed(!sidebar.classList.contains("collapsed"));
+        });
+
+        var ACC_KEY = "100bmol_nav_open";
+
+        function getSavedOpen() {
+          try {
+            return JSON.parse(localStorage.getItem(ACC_KEY) || "null");
+          } catch {
+            return null;
+          }
+        }
+        function saveOpen(openSet) {
+          try {
+            localStorage.setItem(ACC_KEY, JSON.stringify([...openSet]));
+          } catch {}
+        }
+
+        var toggleBtns = document.querySelectorAll(".nav-section-toggle");
+        var openSections = new Set(getSavedOpen() || []);
+
+        if (!getSavedOpen()) {
+          document
+            .querySelectorAll('.nav-section-items[data-active="true"]')
+            .forEach(function (el) {
+              openSections.add(el.getAttribute("data-section-items"));
+            });
+        }
+
+        function applyAccordionState() {
+          document
+            .querySelectorAll(".nav-section-items[data-section-items]")
+            .forEach(function (el) {
+              var sid = el.getAttribute("data-section-items");
+              var isOpen = openSections.has(sid);
+              el.style.display = isOpen ? "" : "none";
+            });
+          toggleBtns.forEach(function (btn) {
+            var sid = btn.getAttribute("data-section");
+            var chevron = btn.querySelector(".nav-chevron");
+            if (chevron)
+              chevron.style.transform = openSections.has(sid)
+                ? "rotate(180deg)"
+                : "";
+          });
+        }
+
+        document
+          .querySelectorAll('.nav-section-items[data-active="true"]')
+          .forEach(function (el) {
+            openSections.add(el.getAttribute("data-section-items"));
+          });
+
+        applyAccordionState();
+
+        toggleBtns.forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var sid = btn.getAttribute("data-section");
+            if (openSections.has(sid)) {
+              var items = document.querySelector(
+                '[data-section-items="' + sid + '"]',
+              );
+              if (items && items.getAttribute("data-active") === "true") return;
+              openSections.delete(sid);
+            } else {
+              openSections.add(sid);
+            }
+            saveOpen(openSections);
+            applyAccordionState();
+          });
+        });
+      })();
     </script>
   </body>
 </html>

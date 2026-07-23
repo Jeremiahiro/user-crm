@@ -50,97 +50,132 @@ function formatDate(d: string | null) {
 ---
 
 <DashboardLayout title="Participation Events">
-  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
-    <div>
-      <h1 style="font-family: var(--font-heading); font-size: 24px; font-weight: 700; color: var(--color-brand-navy); margin: 0 0 4px;">Participation Events</h1>
-      <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-500); margin: 0;">{rows.length} event{rows.length !== 1 ? 's' : ''}</p>
-    </div>
-    <a href="/admin/participation/new"
-      style="padding: 10px 18px; background-color: var(--color-brand-navy); color: white; border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; font-weight: 600; text-decoration: none;">
-      + Log event
-    </a>
-  </div>
-
-  <!-- Filters -->
-  <form method="GET" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
-    <select name="pillar_id" onchange="this.form.submit()"
-      style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
-      <option value="" selected={!pillarId}>All pillars</option>
-      {(pillars ?? []).map(p => (
-        <option value={p.id} selected={pillarId === p.id}>{p.name as string}</option>
-      ))}
-    </select>
-    <select name="team_id" onchange="this.form.submit()"
-      style="padding: 8px 12px; border: 1px solid var(--color-neutral-300); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 14px; background: white;">
-      <option value="" selected={!teamId}>All teams</option>
-      {(teams ?? []).map(t => (
-        <option value={t.id} selected={teamId === t.id}>{t.name as string}</option>
-      ))}
-    </select>
-    {(pillarId || teamId) && (
-      <a href="/admin/participation"
-        style="padding: 8px 12px; background: var(--color-neutral-100); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600); text-decoration: none;">
-        Clear
-      </a>
-    )}
-  </form>
-
-  <!-- Table -->
-  <div style="background: white; border: 1px solid var(--color-neutral-200); border-radius: var(--radius-lg); overflow: hidden;">
-    {rows.length === 0 ? (
-      <div style="padding: 48px; text-align: center;">
-        <p style="font-family: var(--font-body); font-size: 14px; color: var(--color-neutral-400); margin: 0;">No participation events logged.</p>
+  <div x-data="{
+    modalOpen: false,
+    itemId: '',
+    message: 'Archive this participation event? It will be hidden from the list.',
+    loading: false,
+    error: '',
+    openModal(eventId) {
+      this.itemId = eventId;
+      this.modalOpen = true;
+      this.error = '';
+    },
+    async doAction() {
+      this.loading = true;
+      var res = await fetch('/api/participation/' + this.itemId, { method: 'DELETE' });
+      if (res.ok) {
+        var row = document.querySelector('[data-event-id=\'' + this.itemId + '\']');
+        if (row) row.remove();
+        this.modalOpen = false;
+        this.loading = false;
+      } else {
+        this.error = 'Failed to archive event.';
+        this.loading = false;
+      }
+    }
+  }">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Participation Events</h1>
+        <p class="font-body text-sm text-neutral-500 m-0">{rows.length} event{rows.length !== 1 ? 's' : ''}</p>
       </div>
-    ) : (
-      <table style="width: 100%; border-collapse: collapse;">
-        <thead style="background-color: var(--color-neutral-50); border-bottom: 1px solid var(--color-neutral-200);">
-          <tr>
-            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Event</th>
-            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Member</th>
-            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Date</th>
-            <th style="font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--color-neutral-500); text-align: left; padding: 10px 16px; text-transform: uppercase; letter-spacing: 0.05em;">Team / Pillar</th>
-            <th style="padding: 10px 16px;"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((ev, i) => (
-            <tr style={i > 0 ? 'border-top: 1px solid var(--color-neutral-100);' : ''}>
-              <td style="padding: 14px 16px;">
-                <p style="font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--color-neutral-800); margin: 0 0 2px;">{ev.event_name}</p>
-                {ev.notes && <p style="font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-400); margin: 0;">{ev.notes}</p>}
-              </td>
-              <td style="padding: 14px 16px;">
-                {ev.people ? (
-                  <a href={`/admin/members/${ev.people.id}`}
-                    style="font-family: var(--font-body); font-size: 13px; color: var(--color-brand-navy); text-decoration: none;">
-                    {ev.people.full_name}
-                  </a>
-                ) : <span style="color: var(--color-neutral-400);">—</span>}
-              </td>
-              <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">{formatDate(ev.event_date)}</td>
-              <td style="padding: 14px 16px; font-family: var(--font-body); font-size: 13px; color: var(--color-neutral-600);">
-                {ev.teams?.name ?? ev.pillars?.name ?? '—'}
-              </td>
-              <td style="padding: 14px 16px; text-align: right;">
-                <button onclick={`archiveEvent('${ev.id}')`}
-                  style="padding: 4px 10px; background: var(--color-neutral-100); border: 1px solid var(--color-neutral-200); border-radius: var(--radius-md); font-family: var(--font-body); font-size: 12px; color: var(--color-neutral-600); cursor: pointer;">
-                  Archive
-                </button>
-              </td>
+      <a href="/admin/participation/new"
+        class="px-4.5 py-2.5 bg-brand-navy text-white rounded-md font-body text-sm font-semibold no-underline">
+        + Log event
+      </a>
+    </div>
+
+    <!-- Filters -->
+    <form method="GET" class="flex gap-2.5 mb-5 flex-wrap">
+      <select name="pillar_id" onchange="this.form.submit()"
+        class="px-3 py-2 border border-neutral-300 rounded-md font-body text-sm bg-white">
+        <option value="" selected={!pillarId}>All pillars</option>
+        {(pillars ?? []).map(p => (
+          <option value={p.id} selected={pillarId === p.id}>{p.name as string}</option>
+        ))}
+      </select>
+      <select name="team_id" onchange="this.form.submit()"
+        class="px-3 py-2 border border-neutral-300 rounded-md font-body text-sm bg-white">
+        <option value="" selected={!teamId}>All teams</option>
+        {(teams ?? []).map(t => (
+          <option value={t.id} selected={teamId === t.id}>{t.name as string}</option>
+        ))}
+      </select>
+      {(pillarId || teamId) && (
+        <a href="/admin/participation"
+          class="px-3 py-2 bg-neutral-100 rounded-md font-body text-[13px] text-neutral-600 no-underline">
+          Clear
+        </a>
+      )}
+    </form>
+
+    <!-- Table -->
+    <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+      {rows.length === 0 ? (
+        <div class="p-12 text-center">
+          <p class="font-body text-sm text-neutral-400 m-0">No participation events logged.</p>
+        </div>
+      ) : (
+        <table class="w-full border-collapse">
+          <thead class="bg-neutral-50 border-b border-neutral-200">
+            <tr>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Event</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Member</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Date</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Team / Pillar</th>
+              <th class="px-4 py-2.5"></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    )}
+          </thead>
+          <tbody>
+            {rows.map((ev, i) => (
+              <tr data-event-id={ev.id} class={i > 0 ? 'border-t border-neutral-100' : ''}>
+                <td class="px-4 py-3.5">
+                  <p class="font-body text-sm font-medium text-neutral-800 mb-0.5">{ev.event_name}</p>
+                  {ev.notes && <p class="font-body text-xs text-neutral-400 m-0">{ev.notes}</p>}
+                </td>
+                <td class="px-4 py-3.5">
+                  {ev.people ? (
+                    <a href={`/admin/members/${ev.people.id}`}
+                      class="font-body text-[13px] text-brand-navy no-underline">
+                      {ev.people.full_name}
+                    </a>
+                  ) : <span class="text-neutral-400">—</span>}
+                </td>
+                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600">{formatDate(ev.event_date)}</td>
+                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600">
+                  {ev.teams?.name ?? ev.pillars?.name ?? '—'}
+                </td>
+                <td class="px-4 py-3.5 text-right">
+                  <button @click={`openModal('${ev.id}')`}
+                    class="py-1 px-2.5 bg-neutral-100 border border-neutral-200 rounded-md font-body text-xs text-neutral-600 cursor-pointer">
+                    Archive
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div x-show="modalOpen" @click.self="modalOpen = false" @keydown.escape.window="modalOpen = false"
+      class="fixed inset-0 z-100 flex items-center justify-center bg-black/45">
+      <div class="bg-white rounded-lg py-7 px-8 max-w-105 w-[90%] shadow-[0_25px_50px_rgba(0,0,0,0.2)]">
+        <h3 class="font-heading text-[17px] font-bold text-brand-navy mb-2.5">Archive event</h3>
+        <p x-text="message" class="font-body text-sm text-neutral-700 mb-5 leading-[1.55]"></p>
+        <p x-show="error" x-text="error" class="font-body text-[13px] text-danger-600 mb-3.5"></p>
+        <div class="flex gap-2.5 justify-end">
+          <button @click="modalOpen = false" :disabled="loading"
+            class="py-2 px-4.5 bg-neutral-100 border border-neutral-200 rounded-md font-body text-sm font-medium cursor-pointer text-neutral-700">
+            Cancel
+          </button>
+          <button @click="doAction()" :disabled="loading" x-text="loading ? 'Archiving...' : 'Archive'"
+            class="py-2 px-4.5 bg-danger-600 text-white border-none rounded-md font-body text-sm font-semibold cursor-pointer">
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </DashboardLayout>
-
-<script>
-  async function archiveEvent(id: string) {
-    if (!confirm('Archive this participation event?')) return
-    const res = await fetch(`/api/participation/${id}`, { method: 'DELETE' })
-    if (res.ok) window.location.reload()
-    else alert('Failed to archive event.')
-  }
-  (window as unknown as Record<string, unknown>).archiveEvent = archiveEvent
-</script>
