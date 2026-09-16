@@ -7,6 +7,9 @@ if (!Astro.locals.user) return Astro.redirect('/login')
 const thirtyDaysAgo = new Date()
 thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
+const threeDaysAgo = new Date()
+threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+
 type PersonRow = {
   id: string
   full_name: string
@@ -55,7 +58,9 @@ const IN_TRAINING_ITEMS = ['safeguarding', 'mentoring_100_way', 'dbs_check']
 const ALL_ITEMS = [...IN_PROGRESS_ITEMS, ...IN_TRAINING_ITEMS]
 
 const completedByPerson = new Map<string, Set<string>>()
+const hasAnyChecklistItems = new Set<string>()
 for (const item of checklistItems ?? []) {
+  hasAnyChecklistItems.add(item.person_id)
   if (item.completed_at) {
     if (!completedByPerson.has(item.person_id)) completedByPerson.set(item.person_id, new Set())
     completedByPerson.get(item.person_id)!.add(item.item_key)
@@ -106,6 +111,7 @@ const peopleJson = JSON.stringify(filtered.map(p => {
     days: daysIn(p),
     done,
     total,
+    is_new: p.status === 'applicant' && !!p.applied_at && new Date(p.applied_at) >= threeDaysAgo && !hasAnyChecklistItems.has(p.id),
   }
 }))
 ---
@@ -133,7 +139,13 @@ const peopleJson = JSON.stringify(filtered.map(p => {
         });
       },
       byStatus(status) {
-        return this.filtered.filter(function(p) { return p.status === status; });
+        var people = this.filtered.filter(function(p) { return p.status === status; });
+        if (status === 'applicant') {
+          people = people.slice().sort(function(a, b) {
+            return (b.applied_at || '').localeCompare(a.applied_at || '');
+          });
+        }
+        return people;
       },
       openAdvance(pid, label) {
         this.modal = { open: true, personId: pid, label: label, type: 'advance' };
@@ -265,10 +277,15 @@ const peopleJson = JSON.stringify(filtered.map(p => {
               <template x-for={"p in byStatus('" + stage.key + "')"} :key="p.id">
                 <div class="kanban-card bg-white border border-neutral-200 rounded-lg p-4 transition-colors duration-150">
                   <div class="flex items-start justify-between gap-1.5 mb-0.5">
-                    <a :href="'/admin/onboarding/' + p.id"
-                      x-text="p.full_name"
-                      class="font-body text-[13px] font-semibold text-brand-navy no-underline leading-[1.3] break-words">
-                    </a>
+                    <div class="flex items-center gap-1.5 min-w-0">
+                      <a :href="'/admin/onboarding/' + p.id"
+                        x-text="p.full_name"
+                        class="font-body text-[13px] font-semibold text-brand-navy no-underline leading-[1.3] break-words">
+                      </a>
+                      <template x-if="p.is_new">
+                        <span class="font-body text-[10px] font-bold px-1.5 py-0.25 rounded-full bg-success-100 text-success-700 border border-success-200 shrink-0 uppercase tracking-wide">New</span>
+                      </template>
+                    </div>
                     <span
                       x-text="p.days + 'd'"
                       :class="p.days > 30 ? 'bg-danger-50 text-danger-600' : 'bg-neutral-100 text-neutral-500'"
@@ -376,8 +393,13 @@ const peopleJson = JSON.stringify(filtered.map(p => {
             <template x-for="(p, i) in filtered" :key="p.id">
               <tr class="list-row" :class="i > 0 ? 'border-t border-neutral-100' : ''">
                 <td class="py-3 px-4">
-                  <a :href="'/admin/onboarding/' + p.id" x-text="p.full_name"
-                    class="font-body text-sm font-semibold text-brand-navy no-underline block"></a>
+                  <div class="flex items-center gap-1.5">
+                    <a :href="'/admin/onboarding/' + p.id" x-text="p.full_name"
+                      class="font-body text-sm font-semibold text-brand-navy no-underline"></a>
+                    <template x-if="p.is_new">
+                      <span class="font-body text-[10px] font-bold px-1.5 py-px rounded-full bg-success-100 text-success-700 border border-success-200 shrink-0 uppercase tracking-wide">New</span>
+                    </template>
+                  </div>
                   <span x-text="p.email" class="font-body text-xs text-neutral-400"></span>
                 </td>
                 <td class="py-3 px-4">

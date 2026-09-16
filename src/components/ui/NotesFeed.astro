@@ -1,0 +1,129 @@
+---
+interface Props {
+  notes: Array<{ id: string; note: string; author_name: string | null; created_at: string }>
+  personId: string
+  apiUrl: string
+  canWrite: boolean
+  canDelete: boolean
+}
+
+const { notes, personId, apiUrl, canWrite, canDelete } = Astro.props
+const notesJson = JSON.stringify(notes)
+---
+
+<div
+  x-data={`(function(){
+    var notes = ${notesJson};
+    var personId = ${JSON.stringify(personId)};
+    var apiUrl = ${JSON.stringify(apiUrl)};
+    var canDelete = ${JSON.stringify(canDelete)};
+    return {
+      events: notes,
+      noteText: '',
+      noteLoading: false,
+      async addNote() {
+        if (!this.noteText.trim()) return;
+        this.noteLoading = true;
+        var res = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ person_id: personId, note: this.noteText.trim() }),
+        });
+        this.noteLoading = false;
+        if (res.ok) {
+          var d = await res.json();
+          this.events.unshift({ id: d.data.id, note: this.noteText.trim(), author_name: d.data.author_name, created_at: d.data.created_at });
+          this.noteText = '';
+        }
+      },
+      async deleteNote(noteId) {
+        var res = await fetch(apiUrl, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: noteId }),
+        });
+        if (res.ok) {
+          this.events = this.events.filter(function(e) { return e.id !== noteId; });
+        }
+      },
+      fmtDate(iso) {
+        var d = new Date(iso);
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      },
+    };
+  })()`}
+  class="bg-white border border-neutral-200 rounded-xl overflow-hidden"
+>
+
+  <!-- Note input (admins / canWrite only) -->
+  {canWrite && (
+    <div class="p-5 border-b border-neutral-100">
+      <h2 class="font-heading text-sm font-bold text-brand-navy m-0 mb-3">Notes</h2>
+      <textarea
+        x-model="noteText"
+        @keydown.meta.enter="addNote()"
+        rows="3"
+        placeholder="Add a note…"
+        class="w-full py-2.5 px-3 border border-neutral-200 rounded-md font-body text-[13px] text-neutral-800 resize-none box-border outline-none placeholder:text-neutral-400 focus:border-brand-navy transition-colors"
+      ></textarea>
+      <div class="flex justify-end mt-2">
+        <button
+          @click="addNote()"
+          :disabled="!noteText.trim() || noteLoading"
+          :class="noteText.trim() && !noteLoading ? 'bg-brand-navy text-white cursor-pointer' : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'"
+          class="py-2 px-4 border-none rounded-md font-body text-[13px] font-semibold transition-all duration-150"
+        >
+          <span x-text="noteLoading ? 'Saving…' : 'Add note'"></span>
+        </button>
+      </div>
+    </div>
+  )}
+
+  {!canWrite && (
+    <div class="px-5 pt-5 pb-1">
+      <h2 class="font-heading text-sm font-bold text-brand-navy m-0">Notes</h2>
+    </div>
+  )}
+
+  <!-- Event feed -->
+  <div class="min-h-30 max-h-[calc(100vh-16rem)] overflow-y-auto">
+    <template x-if="events.length === 0">
+      <div class="py-10 text-center">
+        <p class="font-body text-[13px] text-neutral-300 m-0">No notes yet.</p>
+      </div>
+    </template>
+    <template x-for="(ev, i) in events" :key="ev.id">
+      <div
+        class="relative pl-10 pr-5 py-4"
+        :class="i < events.length - 1 ? 'border-b border-neutral-50' : ''"
+      >
+        <!-- Timeline dot -->
+        <div class="absolute left-4.5 top-5 w-2.5 h-2.5 rounded-full bg-neutral-400"></div>
+        <!-- Connector line -->
+        <div x-show="i < events.length - 1" class="absolute left-5.5 top-7.5 -bottom-4 w-0.5 bg-neutral-100"></div>
+
+        <!-- Content -->
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex-1 min-w-0">
+            <p x-text="ev.note" class="font-body text-[13px] text-neutral-800 m-0 mb-0.5 wrap-break-word"></p>
+            <div class="flex items-center gap-1.5 mt-1">
+              <span x-text="fmtDate(ev.created_at)" class="font-body text-[11px] text-neutral-400"></span>
+              <template x-if="ev.author_name">
+                <span class="font-body text-[11px] text-neutral-300">·</span>
+              </template>
+              <span x-show="ev.author_name" x-text="ev.author_name" class="font-body text-[11px] text-neutral-400"></span>
+            </div>
+          </div>
+          <template x-if="canDelete">
+            <button
+              @click="deleteNote(ev.id)"
+              class="w-6 h-6 flex items-center justify-center bg-transparent border-none text-neutral-300 hover:text-danger-600 hover:bg-danger-50 rounded cursor-pointer shrink-0 transition-colors text-sm"
+              title="Delete note"
+            >×</button>
+          </template>
+        </div>
+      </div>
+    </template>
+  </div>
+
+</div>

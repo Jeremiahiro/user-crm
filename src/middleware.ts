@@ -1,12 +1,34 @@
 import { defineMiddleware } from 'astro:middleware'
 import { Auth } from '@auth/core'
 import { authConfig } from './lib/auth'
+import { supabaseAdmin } from './lib/supabase'
 import type { SessionUser } from './types/domain'
 
 const PROTECTED_PREFIXES = ['/admin', '/dashboard']
 
 export const onRequest = defineMiddleware(async (ctx, next) => {
   const { pathname } = ctx.url
+
+  // Dev auth bypass — set DEV_USER_EMAIL in .env to skip the Google OAuth flow
+  if (import.meta.env.DEV && import.meta.env.DEV_USER_EMAIL) {
+    const email = import.meta.env.DEV_USER_EMAIL as string
+    const { data: person } = await supabaseAdmin
+      .from('people')
+      .select('id, status')
+      .eq('email', email)
+      .single()
+    if (person) {
+      const { data: userRoles } = await supabaseAdmin
+        .from('user_roles')
+        .select('roles(name)')
+        .eq('person_id', person.id)
+      const roles: string[] = (userRoles ?? [])
+        .map((ur) => (ur as unknown as { roles: { name: string } | null }).roles?.name ?? null)
+        .filter((name): name is string => name !== null)
+      ctx.locals.user = { id: person.id, email, name: email, person_id: person.id, roles } satisfies SessionUser
+      return next()
+    }
+  }
 
   // Always try to resolve the session — API routes need locals.user too
   const sessionUrl = new URL('/api/auth/session', ctx.url.origin)
