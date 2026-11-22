@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro'
 import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase'
 import { writeAuditLog } from '@/lib/audit'
+import { requireAdmin } from '@/lib/http'
+import { isAdmin } from '@/lib/rbac'
 
 const CreateTeamSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
@@ -34,11 +36,7 @@ export const GET: APIRoute = async ({ locals }) => {
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !isAdmin(locals.user)) return requireAdmin(locals.user)!
 
   let body: unknown
   try { body = await request.json() } catch {

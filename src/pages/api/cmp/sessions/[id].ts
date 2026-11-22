@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro'
 import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase'
 import { writeAuditLog } from '@/lib/audit'
+import { dbErrorMessage, requireCmpStaff } from '@/lib/http'
+import { canManageCmp } from '@/lib/rbac'
 
 const UpdateSessionSchema = z.object({
   title: z.string().min(1).optional(),
@@ -16,11 +18,7 @@ const UpdateSessionSchema = z.object({
 })
 
 export const GET: APIRoute = async ({ params, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !canManageCmp(locals.user)) return requireCmpStaff(locals.user)!
 
   const { data: session, error } = await supabaseAdmin
     .from('cmp_sessions')
@@ -48,11 +46,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 }
 
 export const PUT: APIRoute = async ({ params, request, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !canManageCmp(locals.user)) return requireCmpStaff(locals.user)!
 
   let body: unknown
   try { body = await request.json() } catch {
@@ -81,7 +75,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
 
   if (error || !session) {
     console.error('[PUT /api/cmp/sessions/:id] DB error:', error)
-    return new Response(JSON.stringify({ error: 'Failed to update session' }), {
+    return new Response(JSON.stringify({ error: dbErrorMessage('Failed to update session.', error) }), {
       status: 500, headers: { 'Content-Type': 'application/json' },
     })
   }
@@ -101,11 +95,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
 }
 
 export const DELETE: APIRoute = async ({ params, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !canManageCmp(locals.user)) return requireCmpStaff(locals.user)!
 
   // Block delete if session has attendance records
   const { count } = await supabaseAdmin
@@ -127,7 +117,7 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
 
   if (error) {
     console.error('[DELETE /api/cmp/sessions/:id] DB error:', error)
-    return new Response(JSON.stringify({ error: 'Failed to delete session' }), {
+    return new Response(JSON.stringify({ error: dbErrorMessage('Failed to delete session.', error) }), {
       status: 500, headers: { 'Content-Type': 'application/json' },
     })
   }

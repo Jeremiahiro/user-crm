@@ -3,6 +3,7 @@ import DashboardLayout from '@/layouts/DashboardLayout.astro'
 import Breadcrumb from '@/components/ui/Breadcrumb.astro'
 import { supabaseAdmin } from '@/lib/supabase'
 import { isAdmin, getTeamLeadIds } from '@/lib/rbac'
+import { snakeToTitle } from '@/lib/utils'
 
 const user = Astro.locals.user
 if (!user) return Astro.redirect('/login')
@@ -135,7 +136,7 @@ const t = training as any
       {myCompletion ? (
         <div class="bg-success-50 border border-success-100 rounded-md py-3.5 px-4">
           <p class="font-body text-sm font-semibold text-success-700 mb-1">Completed &#10003;</p>
-          <p class="font-body text-xs text-success-700 mb-0.5 capitalize">Method: {(myCompletion as any).method?.replace('_', ' ')}</p>
+          <p class="font-body text-xs text-success-700 mb-0.5">Method: {snakeToTitle(String((myCompletion as { method?: string }).method ?? ''))}</p>
           <p class="font-body text-xs text-success-700 m-0">{fmt((myCompletion as any).completed_at)}</p>
         </div>
       ) : !t.requires_document ? (

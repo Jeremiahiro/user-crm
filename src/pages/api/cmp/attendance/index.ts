@@ -11,6 +11,8 @@ import type { APIRoute } from 'astro'
 import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase'
 import { writeAuditLog } from '@/lib/audit'
+import { requireCmpStaff } from '@/lib/http'
+import { canManageCmp } from '@/lib/rbac'
 
 const UpsertAttendanceSchema = z.discriminatedUnion('role', [
   // Mentee attendance (person is in the mentees table)
@@ -44,11 +46,7 @@ const UpsertAttendanceSchema = z.discriminatedUnion('role', [
 ])
 
 export const POST: APIRoute = async ({ request, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !canManageCmp(locals.user)) return requireCmpStaff(locals.user)!
 
   let body: unknown
   try { body = await request.json() } catch {
@@ -137,11 +135,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 }
 
 export const DELETE: APIRoute = async ({ request, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !canManageCmp(locals.user)) return requireCmpStaff(locals.user)!
 
   let body: unknown
   try { body = await request.json() } catch {

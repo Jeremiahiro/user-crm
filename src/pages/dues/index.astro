@@ -2,11 +2,12 @@
 import DashboardLayout from '@/layouts/DashboardLayout.astro'
 import { supabaseAdmin } from '@/lib/supabase'
 import { isAdmin } from '@/lib/rbac'
+import { isChapterMember } from '@/lib/people'
 
 const user = Astro.locals.user
 if (!user) return Astro.redirect('/login')
 if (isAdmin(user)) return Astro.redirect('/admin/dues')
-if (!user.person_id) return Astro.redirect('/dashboard')
+if (!user.person_id || !isChapterMember(user.person_types)) return Astro.redirect('/dashboard')
 
 const pid = user.person_id
 const currentYear = new Date().getFullYear()
@@ -70,7 +71,7 @@ function pendingCount(y: number): number {
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-4 items-start">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
     {years.map(y => {
       const joinedThisYear = joinYear === y
       const joinMonth = joinedThisYear && memberData?.date_joined
@@ -91,7 +92,7 @@ function pendingCount(y: number): number {
           </div>
 
           <!-- Month grid -->
-          <div class="grid grid-cols-6 gap-2 py-4 px-5">
+          <div class="month-grid py-4 px-5">
             {MONTHS.map((monthLabel, i) => {
               const month = i + 1
               const key = `${y}-${month}`

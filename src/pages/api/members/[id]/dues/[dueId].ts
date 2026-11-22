@@ -1,14 +1,12 @@
 import type { APIRoute } from 'astro'
 import { supabaseAdmin } from '@/lib/supabase'
 import { writeAuditLog } from '@/lib/audit'
+import { requireAdmin } from '@/lib/http'
+import { isAdmin } from '@/lib/rbac'
 
 // DELETE = mark month as unpaid (removes the dues record — not a compliance record)
 export const DELETE: APIRoute = async ({ params, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !isAdmin(locals.user)) return requireAdmin(locals.user)!
 
   const { data: due } = await supabaseAdmin
     .from('dues')

@@ -83,13 +83,13 @@ const backUrl = programmeYearId ? `/admin/cmp/years/${programmeYearId}` : '/admi
     <form method="POST" class="bg-white border border-neutral-200 rounded-lg p-8 flex flex-col gap-5">
       <Input label="Title *" name="title" value={String(values.title)} error={errors.title} required />
 
-      <div class="grid grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Input label="Date *" name="session_date" type="date" value={String(values.session_date)} error={errors.session_date} required />
         <Input label="Start time" name="session_time" type="time" value={String(values.session_time)} error={errors.session_time} />
         <Input label="End time" name="session_end_time" type="time" value={String(values.session_end_time)} error={errors.session_end_time} />
       </div>
 
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input label="Location" name="location" value={String(values.location)} error={errors.location} />
         <div class="flex flex-col gap-1">
           <label class="font-body text-[13px] font-medium text-neutral-700">Type</label>

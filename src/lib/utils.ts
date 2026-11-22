@@ -56,9 +56,16 @@ export type BadgeVariant = 'success' | 'warning' | 'danger' | 'neutral' | 'info'
 
 const STATUS_VARIANT_MAP: Record<string, BadgeVariant> = {
   active: 'success',
+  approved: 'success',
+  in_progress: 'warning',
+  in_training: 'info',
   pending_review: 'warning',
   applicant: 'neutral',
   inactive: 'neutral',
+  suspended: 'danger',
+  cancelled: 'danger',
+  alumni: 'info',
+  left: 'neutral',
 }
 
 /**

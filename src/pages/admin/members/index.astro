@@ -4,6 +4,9 @@ import EmptyState from '@/components/ui/EmptyState.astro'
 import Pagination from '@/components/ui/Pagination.astro'
 import { supabaseAdmin } from '@/lib/supabase'
 import { createHash } from 'node:crypto'
+import { displayName } from '@/lib/names'
+import { PERSON_STATUS_OPTIONS } from '@/lib/people'
+import { snakeToTitle as titleCase } from '@/lib/utils'
 
 if (!Astro.locals.user) return Astro.redirect('/login')
 
@@ -29,14 +32,14 @@ if (teamFilter) {
 
 let query = supabaseAdmin
   .from('people')
-  .select('id, full_name, email, status, person_types, profile_photo_url, date_joined, person_teams(is_team_lead, teams(id, name))', { count: 'exact' })
+  .select('id, full_name, preferred_name, first_name, email, status, person_types, profile_photo_url, date_joined, person_teams(is_team_lead, teams(id, name))', { count: 'exact' })
   .contains('person_types', [typeFilter])
   .eq('is_archived', false)
   .neq('status', 'applicant')
   .order('full_name')
 
 if (statusFilter) query = query.eq('status', statusFilter)
-if (searchQ) query = query.ilike('full_name', `%${searchQ}%`)
+if (searchQ) query = query.or(`full_name.ilike.%${searchQ}%,preferred_name.ilike.%${searchQ}%`)
 if (teamPersonIds) query = query.in('id', teamPersonIds.length > 0 ? teamPersonIds : ['00000000-0000-0000-0000-000000000000'])
 
 query = query.range(offset, offset + PAGE_SIZE - 1)
@@ -67,23 +70,20 @@ const paginationBase = `/admin/members${filterParams.toString() ? `?${filterPara
 
 const statusOptions = [
   { value: '', label: 'All statuses' },
-  { value: 'pending_review', label: 'Pending Review' },
-  { value: 'active', label: 'Active' },
-  { value: 'suspended', label: 'Suspended' },
-  { value: 'inactive', label: 'Inactive' },
+  ...PERSON_STATUS_OPTIONS.filter(option => option.value !== 'applicant'),
 ]
 
 const STATUS_STYLES: Record<string, string> = {
   active:         'background: var(--color-success-50); color: var(--color-success-700); border: 1px solid var(--color-success-200);',
   pending_review: 'background: var(--color-warning-50); color: var(--color-warning-700); border: 1px solid var(--color-warning-200);',
-  in_progress:    'background: var(--color-neutral-100); color: var(--color-neutral-600);',
+  in_progress:    'background: var(--color-warning-50); color: var(--color-warning-700); border: 1px solid var(--color-warning-200);',
+  in_training:    'background: var(--color-neutral-100); color: var(--color-neutral-700);',
+  alumni:         'background: var(--color-neutral-100); color: var(--color-neutral-600);',
+  left:           'background: var(--color-neutral-100); color: var(--color-neutral-600);',
+  cancelled:      'background: var(--color-danger-50, #fef2f2); color: var(--color-danger-700, #b91c1c);',
   suspended:      'background: var(--color-warning-50); color: var(--color-warning-700); border: 1px solid var(--color-warning-200);',
   applicant:      'background: var(--color-neutral-100); color: var(--color-neutral-600);',
   inactive:       'background: var(--color-neutral-100); color: var(--color-neutral-600);',
-}
-
-function titleCase(s: string): string {
-  return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
 function gravatarUrl(email: string): string {
@@ -204,13 +204,16 @@ function gravatarUrl(email: string): string {
                 <td class="px-4 py-3">
                   <div class="flex items-center gap-2.5">
                     <div class="w-9 h-9 rounded-full overflow-hidden shrink-0">
-                      <img src={m.profile_photo_url ?? gravatarUrl(m.email)} alt={m.full_name} width={36} height={36} class="w-full h-full object-cover" />
+                      <img src={m.profile_photo_url ?? gravatarUrl(m.email)} alt={displayName(m)} width={36} height={36} class="w-full h-full object-cover" />
                     </div>
                     <div>
                       <a href={`/admin/members/${m.id}`}
                         class="font-body text-sm font-semibold text-brand-navy no-underline block">
-                        {m.full_name}
+                        {displayName(m)}
                       </a>
+                      {m.preferred_name && m.preferred_name !== m.full_name && (
+                        <span class="font-body text-xs text-neutral-400 block">{m.full_name}</span>
+                      )}
                       <span class="font-body text-xs text-neutral-500">{m.email}</span>
                     </div>
                   </div>

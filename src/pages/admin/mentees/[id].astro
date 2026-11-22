@@ -2,6 +2,7 @@
 import DashboardLayout from '@/layouts/DashboardLayout.astro'
 import Breadcrumb from '@/components/ui/Breadcrumb.astro'
 import { supabaseAdmin } from '@/lib/supabase'
+import { snakeToTitle } from '@/lib/utils'
 
 if (!Astro.locals.user) return Astro.redirect('/login')
 
@@ -256,9 +257,9 @@ const tabs = [
                     {a.cmp_sessions?.session_time && <span class="ml-1 text-neutral-400">{formatTime(a.cmp_sessions.session_time)}</span>}
                   </td>
                   <td class="py-3 px-4">
-                    <span class="py-0.5 px-2.5 rounded-full font-body text-xs font-semibold capitalize"
+                    <span class="py-0.5 px-2.5 rounded-full font-body text-xs font-semibold"
                       style={`background: ${STATUS_COLORS[a.status] ?? 'var(--color-neutral-100)'}; color: ${STATUS_TEXT[a.status] ?? 'var(--color-neutral-600)'};`}>
-                      {a.status}
+                      {snakeToTitle(a.status)}
                     </span>
                   </td>
                 </tr>

@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro'
 import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase'
 import { writeAuditLog } from '@/lib/audit'
+import { requireCmpStaff } from '@/lib/http'
+import { canManageCmp } from '@/lib/rbac'
 
 const UpdateMenteeSchema = z.object({
   full_name: z.string().min(1).optional(),
@@ -19,11 +21,7 @@ const UpdateMenteeSchema = z.object({
 })
 
 export const GET: APIRoute = async ({ params, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !canManageCmp(locals.user)) return requireCmpStaff(locals.user)!
 
   const { data: mentee, error } = await supabaseAdmin
     .from('mentees')
@@ -48,11 +46,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 }
 
 export const PUT: APIRoute = async ({ params, request, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !canManageCmp(locals.user)) return requireCmpStaff(locals.user)!
 
   let body: unknown
   try { body = await request.json() } catch {
@@ -100,11 +94,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
 }
 
 export const DELETE: APIRoute = async ({ params, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !canManageCmp(locals.user)) return requireCmpStaff(locals.user)!
 
   // Block archive if mentee has active CMP attendance
   const { count } = await supabaseAdmin

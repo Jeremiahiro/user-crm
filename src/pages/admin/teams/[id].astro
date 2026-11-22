@@ -5,6 +5,8 @@ import Badge from '@/components/ui/Badge.astro'
 import EmptyState from '@/components/ui/EmptyState.astro'
 import { supabaseAdmin } from '@/lib/supabase'
 import { isAdmin } from '@/lib/rbac'
+import { displayName } from '@/lib/names'
+import { statusVariant, snakeToTitle } from '@/lib/utils'
 
 if (!Astro.locals.user) return Astro.redirect('/login')
 
@@ -23,7 +25,7 @@ const [{ data: team }, { data: rawRequests }] = await Promise.all([
       person_teams(
         is_team_lead,
         joined_at,
-        people(id, full_name, email, status, profile_photo_url)
+        people(id, full_name, preferred_name, first_name, email, status, profile_photo_url)
       )
     `)
     .eq('id', id ?? '')
@@ -294,13 +296,13 @@ if (!admin && !isMember && currentPersonId) {
                     <td class="py-3.5 px-4">
                       <a href={`/admin/members/${m.people.id}`}
                          class="font-body text-sm font-medium text-brand-navy no-underline">
-                        {m.people.full_name}
+                        {displayName(m.people)}
                       </a>
                       <p class="font-body text-xs text-neutral-500 m-0">{m.people.email}</p>
                     </td>
                     <td class="py-3.5 px-4">
-                      <Badge variant={m.people.status === 'active' ? 'success' : m.people.status === 'pending_review' ? 'warning' : 'neutral'}>
-                        {m.people.status}
+                      <Badge variant={statusVariant(m.people.status)}>
+                        {snakeToTitle(m.people.status)}
                       </Badge>
                     </td>
                     <td class="py-3.5 px-4 font-body text-[13px] text-neutral-500">

@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro'
 import { supabaseAdmin } from '@/lib/supabase'
 import { isAdmin } from '@/lib/rbac'
+import { isChapterMember } from '@/lib/people'
+import { displayName } from '@/lib/names'
 import { createNotification } from '@/lib/notify'
 import { writeAuditLog } from '@/lib/audit'
 
@@ -40,6 +42,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
     })
   }
 
+  const { data: pair } = await supabaseAdmin
+    .from('people')
+    .select('id, person_types, full_name, preferred_name, first_name')
+    .in('id', [person_id, buddy_id])
+
+  type BuddyPerson = { id: string; person_types: string[] | null; full_name: string; preferred_name: string | null; first_name: string | null }
+  const peopleRows = (pair ?? []) as BuddyPerson[]
+  if (peopleRows.length !== 2 || !peopleRows.every(p => isChapterMember(p.person_types))) {
+    return new Response(JSON.stringify({ error: 'Both people must be members before they can be paired as buddies.' }), {
+      status: 400, headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
   // Check if person already has a buddy assigned to them
   const { data: existingForPerson } = await supabaseAdmin
     .from('buddy_assignments')
@@ -68,14 +83,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     })
   }
 
-  // Fetch names for notification
-  const { data: people } = await supabaseAdmin
-    .from('people')
-    .select('id, full_name')
-    .in('id', [person_id, buddy_id])
-
-  type PersonName = { id: string; full_name: string }
-  const peopleMap = new Map(((people ?? []) as PersonName[]).map(p => [p.id, p.full_name]))
+  const peopleMap = new Map(peopleRows.map(p => [p.id, displayName(p)]))
   const personName = peopleMap.get(person_id) ?? 'Your buddy'
   const buddyName = peopleMap.get(buddy_id) ?? 'Your buddy'
 

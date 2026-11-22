@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro'
 import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase'
 import { writeAuditLog } from '@/lib/audit'
+import { requireAdmin } from '@/lib/http'
+import { isAdmin } from '@/lib/rbac'
 
 const AssignTenureSchema = z.object({
   person_id: z.string().uuid('Member is required'),
@@ -11,11 +13,7 @@ const AssignTenureSchema = z.object({
 })
 
 export const POST: APIRoute = async ({ params, request, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !isAdmin(locals.user)) return requireAdmin(locals.user)!
 
   let body: unknown
   try { body = await request.json() } catch {
@@ -135,11 +133,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 }
 
 export const DELETE: APIRoute = async ({ params, url, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !isAdmin(locals.user)) return requireAdmin(locals.user)!
 
   const tenureId = url.searchParams.get('tenure_id')
   if (!tenureId) {

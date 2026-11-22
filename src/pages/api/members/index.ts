@@ -1,24 +1,9 @@
 import type { APIRoute } from 'astro'
-import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase'
 import { writeAuditLog } from '@/lib/audit'
-
-const CreateMemberSchema = z.object({
-  first_name: z.string().min(1, 'First name is required').max(100),
-  middle_name: z.string().max(100).optional(),
-  last_name: z.string().min(1, 'Last name is required').max(100),
-  email: z.string().email('Invalid email address'),
-  email_secondary: z.string().email('Invalid secondary email').optional().nullable(),
-  phone: z.string().optional(),
-  date_of_birth: z.string().optional(),
-  gender: z.string().optional(),
-  address: z.string().optional(),
-  person_types: z.array(z.enum(['member', 'mentor', 'volunteer', 'parent', 'trustee'])).default(['member']),
-  status: z.enum(['applicant', 'pending_review', 'active', 'suspended', 'inactive']).default('applicant'),
-  source: z.enum(['google_form', 'manual']).optional(),
-  date_joined: z.string().optional(),
-  notes: z.string().optional(),
-})
+import { dbErrorMessage, requireAdmin } from '@/lib/http'
+import { CreateMemberSchema } from '@/lib/people'
+import { isAdmin } from '@/lib/rbac'
 
 export const GET: APIRoute = async ({ url, locals }) => {
   if (!locals.user) {
@@ -33,7 +18,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
   let query = supabaseAdmin
     .from('people')
-    .select('id, full_name, email, phone, status, person_types, profile_photo_url, date_joined, is_archived, person_teams(team_id, is_team_lead, teams(name))')
+    .select('id, full_name, preferred_name, first_name, email, phone, status, person_types, profile_photo_url, date_joined, is_archived, person_teams(team_id, is_team_lead, teams(name))')
     .eq('is_archived', false)
     .order('full_name')
 
@@ -45,7 +30,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       query = query.in('status', statuses)
     }
   }
-  if (search) query = query.ilike('full_name', `%${search}%`)
+  if (search) query = query.or(`full_name.ilike.%${search}%,preferred_name.ilike.%${search}%`)
 
   const { data, error } = await query
 
@@ -70,11 +55,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !isAdmin(locals.user)) return requireAdmin(locals.user)!
 
   let body: unknown
   try { body = await request.json() } catch {
@@ -101,7 +82,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     console.error('[POST /api/members] DB error:', error)
     const isDupe = error.code === '23505'
     return new Response(
-      JSON.stringify({ error: isDupe ? 'A member with this email already exists.' : 'Failed to create member' }),
+      JSON.stringify({
+        error: isDupe
+          ? 'A member with this email already exists.'
+          : dbErrorMessage('Failed to create member.', error),
+      }),
       { status: isDupe ? 409 : 500, headers: { 'Content-Type': 'application/json' } },
     )
   }

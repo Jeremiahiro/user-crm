@@ -7,6 +7,8 @@ import NotesFeed from '@/components/ui/NotesFeed.astro'
 import { supabaseAdmin } from '@/lib/supabase'
 import { createHash } from 'node:crypto'
 import { isAdmin, getTeamMemberIds } from '@/lib/rbac'
+import { displayName } from '@/lib/names'
+import { statusVariant, snakeToTitle as titleCase } from '@/lib/utils'
 
 if (!Astro.locals.user) return Astro.redirect('/login')
 
@@ -126,17 +128,8 @@ if (canSeeDocumentsTab && id) {
   memberDocs = (docsData ?? []) as any[]
 }
 
-function statusVariant(s: string): 'success' | 'warning' | 'danger' | 'neutral' | 'info' {
-  const map: Record<string, 'success' | 'warning' | 'danger' | 'neutral' | 'info'> = {
-    active: 'success', pending_review: 'warning',
-    applicant: 'neutral', suspended: 'warning', inactive: 'neutral',
-  }
-  return map[s] ?? 'neutral'
-}
-
-function titleCase(s: string): string {
-  return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-}
+const profileName = displayName(member as { preferred_name?: string | null; first_name?: string | null; full_name?: string | null })
+const legalName = String(member.full_name ?? '')
 
 function getInitials(name: string): string {
   return name.trim().split(' ').map(n => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
@@ -270,9 +263,9 @@ const hasApplicationData = !!(
 )
 ---
 
-<DashboardLayout title={member.full_name as string} activeHref={breadcrumbParent.href}>
+<DashboardLayout title={profileName} activeHref={breadcrumbParent.href}>
   <div id="member-root" data-member-id={id} data-login-enabled={isLoginEnabled ? 'true' : 'false'} x-data="memberPage()">
-    <Breadcrumb crumbs={[breadcrumbParent, { label: member.full_name as string }]} />
+    <Breadcrumb crumbs={[breadcrumbParent, { label: profileName }]} />
     <!-- Member header -->
     <div class="flex items-start justify-between mb-8 pb-6 border-b border-neutral-200">
       <div class="flex items-center gap-4">
@@ -282,13 +275,16 @@ const hasApplicationData = !!(
         <div>
           <div class="flex items-center gap-2.5 mb-1">
             <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0">
-              {member.full_name}
+              {profileName}
             </h1>
             <Badge variant={statusVariant(member.status as string)}>
               {titleCase(member.status as string)}
             </Badge>
           </div>
           <p class="font-body text-sm text-neutral-500 mb-1">{member.email}</p>
+          {member.preferred_name && profileName !== legalName && (
+            <p class="font-body text-xs text-neutral-400 mb-1">Legal name: {legalName}</p>
+          )}
           {(member.person_types as string[] | null)?.length ? (
             <p class="font-body text-xs text-neutral-400 m-0">
               {(member.person_types as string[]).map(titleCase).join(' · ')}
@@ -927,7 +923,7 @@ const hasApplicationData = !!(
                     <td class="py-2.5 px-4 text-neutral-500 whitespace-nowrap">{fmtDate(entry.created_at)}</td>
                     <td class="py-2.5 px-4">
                       <span class={`inline-block py-0.5 px-2 rounded-2.5 text-[11px] font-semibold uppercase tracking-[0.04em] ${actionBadgeClass(entry.action)}`}>
-                        {entry.action}
+                        {titleCase(entry.action)}
                       </span>
                     </td>
                     <td class="py-2.5 px-4 text-neutral-600 font-mono text-xs">{entry.target_table}</td>
@@ -986,7 +982,7 @@ const hasApplicationData = !!(
                       <td class="py-3 px-4 font-body text-[13px] text-neutral-600">{(doc.document_type as any)?.name ?? '—'}</td>
                       <td class="py-3 px-4">
                         <span class={`inline-block py-0.5 px-2.5 rounded-full font-body text-xs font-semibold ${docStatusCls}`}>
-                          {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                          {titleCase(String(doc.status ?? ''))}
                         </span>
                       </td>
                       <td class="py-3 px-4 font-body text-[13px] text-neutral-500">{fmtDay(doc.created_at)}</td>

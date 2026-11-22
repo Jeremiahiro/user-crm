@@ -116,13 +116,14 @@ if (!Astro.locals.user) return Astro.redirect('/login')
     { key: 'first_name',   label: 'First name',    required: true,  type: 'text' },
     { key: 'middle_name',  label: 'Middle name',   required: false, type: 'text' },
     { key: 'last_name',    label: 'Last name',     required: true,  type: 'text' },
+    { key: 'preferred_name', label: 'Preferred name', required: false, type: 'text' },
     { key: 'email',        label: 'Email',          required: true,  type: 'email' },
     { key: 'phone',        label: 'Phone',          required: false, type: 'text' },
     { key: 'date_of_birth',label: 'Date of birth',  required: false, type: 'date' },
     { key: 'gender',       label: 'Gender',         required: false, type: 'text' },
     { key: 'address',      label: 'Address',        required: false, type: 'text' },
     { key: 'status',       label: 'Status',         required: false, type: 'enum',
-      values: ['applicant','pending_review','active','suspended','inactive'],
+      values: ['applicant','in_progress','in_training','active','suspended','inactive','alumni','left','cancelled'],
       default: 'active' },
     { key: 'person_types', label: 'Person types',   required: false, type: 'multi',
       values: ['member','mentor','volunteer','parent','trustee'],
@@ -271,8 +272,8 @@ if (!Astro.locals.user) return Astro.redirect('/login')
 
   // ── PREVIEW TABLE ─────────────────────────────────────────────────────────────
   const STATUS_COLORS = {
-    active: '#166534', applicant: '#6b7280', pending_review: '#92400e',
-    suspended: '#991b1b', inactive: '#6b7280',
+    active: '#166534', applicant: '#6b7280', in_progress: '#92400e', in_training: '#1d4ed8',
+    suspended: '#991b1b', inactive: '#6b7280', alumni: '#6b7280', left: '#6b7280', cancelled: '#991b1b',
   }
 
   function getRowValue(row, fieldKey) {
@@ -294,7 +295,7 @@ if (!Astro.locals.user) return Astro.redirect('/login')
     if (!lastName || lastName.trim() === '') errors.push('last_name required')
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.push('valid email required')
     const status = getRowValue(row, 'status')
-    const validStatuses = ['applicant','pending_review','active','suspended','inactive']
+    const validStatuses = ['applicant','in_progress','in_training','approved','active','suspended','inactive','alumni','left','cancelled']
     if (status && !validStatuses.includes(status.trim())) errors.push(`invalid status "${status}"`)
     return errors
   }

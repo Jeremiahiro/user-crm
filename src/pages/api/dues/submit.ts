@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro'
 import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase'
 import { isAdmin } from '@/lib/rbac'
+import { isChapterMember } from '@/lib/people'
+import { dbErrorMessage } from '@/lib/http'
 import { notifyMultiple } from '@/lib/notify'
 
 const Schema = z.object({
@@ -19,6 +21,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
   if (isAdmin(user)) {
     return new Response(JSON.stringify({ error: 'Admins use the direct dues entry.' }), {
+      status: 403, headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  const { data: person } = await supabaseAdmin
+    .from('people')
+    .select('person_types')
+    .eq('id', user.person_id)
+    .single()
+  if (!isChapterMember(person?.person_types as string[] | null)) {
+    return new Response(JSON.stringify({ error: 'Dues are only available to members.' }), {
       status: 403, headers: { 'Content-Type': 'application/json' },
     })
   }
@@ -71,7 +84,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   if (error) {
     console.error('[POST /api/dues/submit]', error)
-    return new Response(JSON.stringify({ error: 'Failed to submit.' }), {
+    return new Response(JSON.stringify({ error: dbErrorMessage('Failed to submit.', error) }), {
       status: 500, headers: { 'Content-Type': 'application/json' },
     })
   }
@@ -138,6 +151,17 @@ export const DELETE: APIRoute = async ({ request, locals }) => {
   }
 
   const { year, month } = parsed.data
+
+  const { data: person } = await supabaseAdmin
+    .from('people')
+    .select('person_types')
+    .eq('id', user.person_id)
+    .single()
+  if (!isChapterMember(person?.person_types as string[] | null)) {
+    return new Response(JSON.stringify({ error: 'Dues are only available to members.' }), {
+      status: 403, headers: { 'Content-Type': 'application/json' },
+    })
+  }
 
   const { error } = await supabaseAdmin
     .from('dues_submissions')

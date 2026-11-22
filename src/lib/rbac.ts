@@ -1,15 +1,6 @@
-import type { SessionUser } from '../types/domain'
 import { supabaseAdmin } from './supabase'
 
-export const ADMIN_ROLES = ['Super Admin', 'Admin', 'Chapter Leadership']
-
-export function isAdmin(user: SessionUser | undefined | null): boolean {
-  return user?.roles?.some(r => ADMIN_ROLES.includes(r)) ?? false
-}
-
-export function isMentor(user: SessionUser | undefined | null): boolean {
-  return user?.roles?.some(r => r === 'Mentor') ?? false
-}
+export { ADMIN_ROLES, canManageCmp, isAdmin, isMentor } from './access'
 
 export async function getTeamLeadIds(personId: string): Promise<Set<string>> {
   const { data } = await supabaseAdmin

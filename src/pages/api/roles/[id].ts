@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro'
 import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase'
 import { writeAuditLog } from '@/lib/audit'
+import { requireAdmin } from '@/lib/http'
+import { isAdmin } from '@/lib/rbac'
 
 const UpdateRoleSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -14,11 +16,7 @@ const UpdateRoleSchema = z.object({
 })
 
 export const PUT: APIRoute = async ({ params, request, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !isAdmin(locals.user)) return requireAdmin(locals.user)!
 
   const { data: existing } = await supabaseAdmin.from('roles').select('*').eq('id', params.id ?? '').single()
   if (!existing) {
@@ -85,11 +83,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
 }
 
 export const DELETE: APIRoute = async ({ params, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !isAdmin(locals.user)) return requireAdmin(locals.user)!
 
   const { data: role } = await supabaseAdmin.from('roles').select('*').eq('id', params.id ?? '').single()
   if (!role) {

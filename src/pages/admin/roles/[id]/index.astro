@@ -2,6 +2,7 @@
 import DashboardLayout from '@/layouts/DashboardLayout.astro'
 import Badge from '@/components/ui/Badge.astro'
 import { supabaseAdmin } from '@/lib/supabase'
+import { statusVariant, snakeToTitle as titleCase } from '@/lib/utils'
 
 if (!Astro.locals.user) return Astro.redirect('/login')
 
@@ -27,18 +28,6 @@ type UserRoleRow = {
 }
 
 const members = (role.user_roles as UserRoleRow[]) ?? []
-
-function statusVariant(s: string): 'success' | 'warning' | 'neutral' | 'danger' | 'info' {
-  const map: Record<string, 'success' | 'warning' | 'neutral' | 'danger' | 'info'> = {
-    active: 'success', approved: 'info', pending_review: 'warning',
-    applicant: 'neutral', suspended: 'warning', inactive: 'neutral',
-  }
-  return map[s] ?? 'neutral'
-}
-
-function titleCase(s: string): string {
-  return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-}
 
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })

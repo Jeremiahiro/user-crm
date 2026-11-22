@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro'
 import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase'
 import { writeAuditLog } from '@/lib/audit'
+import { json, requireAdmin } from '@/lib/http'
+import { isAdmin } from '@/lib/rbac'
 
 const CreateDbsSchema = z.object({
   person_id: z.string().uuid('Member is required'),
@@ -18,8 +20,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
     })
   }
 
-  // Optionally filter by person_id
+  // Optionally filter by person_id. Listing every record is admin-only;
+  // a member may read their own.
   const personId = url.searchParams.get('person_id')
+  if (!isAdmin(locals.user) && personId !== locals.user.person_id) {
+    return json({ error: 'Forbidden' }, 403)
+  }
 
   let query = supabaseAdmin
     .from('dbs_records')
@@ -43,11 +49,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !isAdmin(locals.user)) return requireAdmin(locals.user)!
 
   let body: unknown
   try { body = await request.json() } catch {

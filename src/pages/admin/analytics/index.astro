@@ -1,6 +1,7 @@
 ---
 import DashboardLayout from '@/layouts/DashboardLayout.astro'
 import { supabaseAdmin } from '@/lib/supabase'
+import { snakeToTitle } from '@/lib/utils'
 
 if (!Astro.locals.user) return Astro.redirect('/login')
 
@@ -76,14 +77,20 @@ const [
 
 const STATUS_LABELS: Record<string, string> = {
   active: 'Active',
-  pending_review: 'Pending Review',
+  in_progress: 'In Progress',
+  in_training: 'In Training',
   applicant: 'Applicant',
   inactive: 'Inactive',
+  suspended: 'Suspended',
+  alumni: 'Alumni',
+  left: 'Left',
+  cancelled: 'Cancelled',
 }
 
 const STATUS_COLORS: Record<string, string> = {
   active: 'var(--color-success-500)',
-  pending_review: 'var(--color-warning-500)',
+  in_progress: 'var(--color-warning-500)',
+  in_training: 'var(--color-brand-gold)',
   applicant: 'var(--color-neutral-400)',
   inactive: 'var(--color-neutral-400)',
 }
@@ -415,7 +422,7 @@ function pct(n: number, total: number) {
           .sort(([, a], [, b]) => b - a)
           .map(([type, count], i) => (
             <tr class={i > 0 ? 'border-t border-neutral-100' : ''}>
-              <td class="py-3 px-6 font-body text-sm text-neutral-800 capitalize">{type.replace(/_/g, ' ')}</td>
+              <td class="py-3 px-6 font-body text-sm text-neutral-800">{snakeToTitle(type)}</td>
               <td class="py-3 px-6 font-heading text-sm font-semibold text-neutral-700 text-right">{count}</td>
               <td class="py-3 px-6 font-body text-[13px] text-neutral-500 text-right">{pct(count, totalMembers)}%</td>
             </tr>

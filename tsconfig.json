@@ -3,9 +3,8 @@
   "compilerOptions": {
     "strictNullChecks": true,
     "noUncheckedIndexedAccess": true,
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src/**/*", "astro.config.ts"]

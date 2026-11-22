@@ -1,13 +1,11 @@
 import type { APIRoute } from 'astro'
 import { supabaseAdmin } from '@/lib/supabase'
 import { writeAuditLog } from '@/lib/audit'
+import { requireAdmin } from '@/lib/http'
+import { isAdmin } from '@/lib/rbac'
 
 export const DELETE: APIRoute = async ({ params, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !isAdmin(locals.user)) return requireAdmin(locals.user)!
 
   const { data: before } = await supabaseAdmin
     .from('participation_events').select('*').eq('id', params.id ?? '').single()

@@ -1,23 +1,32 @@
 import { defineMiddleware } from 'astro:middleware'
 import { Auth } from '@auth/core'
 import { authConfig } from './lib/auth'
+import { isDevAuthBypassEnabled } from './lib/dev-auth'
+import { canManageCmp, isAdmin } from './lib/rbac'
 import { supabaseAdmin } from './lib/supabase'
-import type { SessionUser } from './types/domain'
+import type { PersonType, SessionUser } from './types/domain'
 
-const PROTECTED_PREFIXES = ['/admin', '/dashboard']
+const PROTECTED_PREFIXES = ['/admin', '/dashboard', '/dues', '/notifications']
 
 export const onRequest = defineMiddleware(async (ctx, next) => {
   const { pathname } = ctx.url
 
-  // Dev auth bypass — set DEV_USER_EMAIL in .env to skip the Google OAuth flow
-  if (import.meta.env.DEV && import.meta.env.DEV_USER_EMAIL) {
+  // Dev auth bypass — set DEV_USER_EMAIL in .env to skip the Google OAuth flow.
+  // Refuses to run when the build is production or the deploy is Vercel production/preview.
+  if (isDevAuthBypassEnabled({
+    dev: import.meta.env.DEV,
+    prod: import.meta.env.PROD,
+    nodeEnv: process.env.NODE_ENV,
+    vercelEnv: process.env.VERCEL_ENV,
+    devUserEmail: import.meta.env.DEV_USER_EMAIL,
+  })) {
     const email = import.meta.env.DEV_USER_EMAIL as string
     const { data: person } = await supabaseAdmin
       .from('people')
-      .select('id, status')
+      .select('id, status, login_enabled, person_types, preferred_name, first_name, full_name')
       .eq('email', email)
       .single()
-    if (person) {
+    if (person?.login_enabled) {
       const { data: userRoles } = await supabaseAdmin
         .from('user_roles')
         .select('roles(name)')
@@ -25,8 +34,17 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
       const roles: string[] = (userRoles ?? [])
         .map((ur) => (ur as unknown as { roles: { name: string } | null }).roles?.name ?? null)
         .filter((name): name is string => name !== null)
-      ctx.locals.user = { id: person.id, email, name: email, person_id: person.id, roles } satisfies SessionUser
-      return next()
+      ctx.locals.user = {
+        id: person.id,
+        email,
+        name: (person.full_name as string | null) ?? email,
+        person_id: person.id,
+        roles,
+        person_types: (person.person_types ?? []) as PersonType[],
+        preferred_name: (person.preferred_name as string | null) ?? null,
+        first_name: (person.first_name as string | null) ?? null,
+        full_name: (person.full_name as string | null) ?? null,
+      } satisfies SessionUser
     }
   }
 
@@ -58,20 +76,19 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
 
   // Redirect to login only for protected page routes, not API routes
   const isProtectedPage = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix))
-  if (isProtectedPage && !sessionData) {
+  if (isProtectedPage && !ctx.locals.user) {
     const loginUrl = new URL('/login', ctx.url.origin)
     loginUrl.searchParams.set('callbackUrl', pathname)
     return ctx.redirect(loginUrl.toString())
   }
 
   // ── Role-based access control ─────────────────────────────────────────────
-  if (crm && pathname.startsWith('/admin')) {
-    const adminRoles = ['Super Admin', 'Admin', 'Chapter Leadership']
-    const userIsAdmin = crm.roles?.some((r: string) => adminRoles.includes(r)) ?? false
-    const userIsMentor = crm.roles?.some((r: string) => r === 'Mentor') ?? false
+  const actor = ctx.locals.user
+  if (actor && pathname.startsWith('/admin')) {
+    const userIsAdmin = isAdmin(actor)
 
     if (!userIsAdmin) {
-      // Paths non-admins can access
+      // Paths non-admins can access. Email compose is admin-only (the send API is too).
       const nonAdminAllowed = [
         /^\/admin\/pillars$/,
         /^\/admin\/teams$/,
@@ -80,17 +97,16 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
         /^\/admin\/praise(\/new)?$/,
         /^\/admin\/members\/[^/]+$/,
         /^\/admin\/teams\/[^/]+\/export$/,
-        /^\/admin\/email\/compose$/,
       ]
 
-      const ownProfileRx = crm.person_id
-        ? new RegExp(`^/admin/members/${crm.person_id}(/edit)?$`)
+      const ownProfileRx = actor.person_id
+        ? new RegExp(`^/admin/members/${actor.person_id}(/edit)?$`)
         : null
 
       const allowed =
         nonAdminAllowed.some(rx => rx.test(pathname)) ||
         (ownProfileRx ? ownProfileRx.test(pathname) : false) ||
-        (userIsMentor && (pathname.startsWith('/admin/cmp') || pathname.startsWith('/admin/mentees')))
+        (canManageCmp(actor) && (pathname.startsWith('/admin/cmp') || pathname.startsWith('/admin/mentees')))
 
       if (!allowed) {
         return ctx.redirect('/dashboard')

@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro'
 import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase'
 import { writeAuditLog } from '@/lib/audit'
+import { requireAdmin, requireCmpStaff } from '@/lib/http'
+import { canManageCmp, isAdmin } from '@/lib/rbac'
 
 const UpdateYearSchema = z.object({
   name: z.string().min(1).optional(),
@@ -10,11 +12,7 @@ const UpdateYearSchema = z.object({
 })
 
 export const GET: APIRoute = async ({ params, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !canManageCmp(locals.user)) return requireCmpStaff(locals.user)!
 
   const { data: year, error } = await supabaseAdmin
     .from('cmp_programme_years')
@@ -40,11 +38,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 }
 
 export const PUT: APIRoute = async ({ params, request, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !isAdmin(locals.user)) return requireAdmin(locals.user)!
 
   let body: unknown
   try { body = await request.json() } catch {

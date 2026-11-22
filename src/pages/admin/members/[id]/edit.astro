@@ -2,6 +2,8 @@
 import DashboardLayout from '@/layouts/DashboardLayout.astro'
 import Breadcrumb from '@/components/ui/Breadcrumb.astro'
 import Input from '@/components/ui/Input.astro'
+import { PERSON_STATUS_OPTIONS } from '@/lib/people'
+import { snakeToTitle } from '@/lib/utils'
 import { supabaseAdmin } from '@/lib/supabase'
 import { isAdmin } from '@/lib/rbac'
 import { createHash } from 'node:crypto'
@@ -114,11 +116,8 @@ function dbsStatus(expiry: string | null): { label: string; color: string } {
 
 const PERSON_TYPES = ['member', 'mentor', 'volunteer', 'parent', 'trustee']
 const STATUS_OPTIONS = [
-  { value: 'applicant',      label: 'Applicant' },
-  { value: 'pending_review', label: 'Pending Review' },
-  { value: 'active',         label: 'Active' },
-  { value: 'suspended',      label: 'Suspended' },
-  { value: 'inactive',       label: 'Inactive' },
+  ...PERSON_STATUS_OPTIONS,
+  ...(member.status === 'approved' ? [{ value: 'approved' as const, label: 'Approved (legacy)' }] : []),
 ]
 
 let errors: Record<string, string> = {}
@@ -127,6 +126,7 @@ let values: Record<string, string | string[]> = {
   first_name: member.first_name as string,
   middle_name: (member.middle_name as string | null) ?? '',
   last_name: member.last_name as string,
+  preferred_name: (member.preferred_name as string | null) ?? '',
   email: member.email as string,
   email_secondary: (member.email_secondary as string | null) ?? '',
   phone: (member.phone as string | null) ?? '',
@@ -151,6 +151,7 @@ if (Astro.request.method === 'POST') {
       first_name: values.first_name,
       middle_name: (values.middle_name as string) || null,
       last_name: values.last_name,
+      preferred_name: (values.preferred_name as string) || null,
       email: values.email,
       email_secondary: (values.email_secondary as string) || null,
       phone: (values.phone as string) || null,
@@ -194,7 +195,7 @@ if (Astro.request.method === 'POST') {
     )}
 
     <!-- Two-column layout -->
-    <div class="grid gap-5 items-start" style="grid-template-columns: 1fr 300px;">
+    <div class="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5 items-start">
 
       <!-- ── LEFT: Photo + Form ─────────────────────────────────────────── -->
       <div class="flex flex-col gap-4">
@@ -224,12 +225,11 @@ if (Astro.request.method === 'POST') {
 
           <section>
             <h2 class="font-heading text-xs font-semibold text-neutral-400 uppercase tracking-[0.08em] m-0 mb-4 pb-2 border-b border-neutral-100">Personal details</h2>
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input label="First name *" name="first_name" value={values.first_name as string} error={errors.first_name} required />
               <Input label="Last name *" name="last_name" value={values.last_name as string} error={errors.last_name} required />
-              <div class="col-span-full">
-                <Input label="Middle name" name="middle_name" value={values.middle_name as string} placeholder="Optional" />
-              </div>
+              <Input label="Middle name" name="middle_name" value={values.middle_name as string} placeholder="Optional" />
+              <Input label="Preferred name" name="preferred_name" value={values.preferred_name as string} placeholder="Name you go by" />
               <Input label="Email *" name="email" type="email" value={values.email as string} error={errors.email} required />
               <Input label="Secondary email" name="email_secondary" type="email" value={values.email_secondary as string} placeholder="Optional" />
               <Input label="Phone" name="phone" type="tel" value={values.phone as string} />
@@ -268,7 +268,7 @@ if (Astro.request.method === 'POST') {
                   <label class="flex items-center gap-1.5 px-3 py-1.5 border border-neutral-300 rounded-full cursor-pointer font-body text-[13px] text-neutral-700">
                     <input type="checkbox" name="person_types" value={type}
                       checked={(values.person_types as string[])?.includes(type)} />
-                    {type}
+                    {snakeToTitle(type)}
                   </label>
                 ))}
               </div>

@@ -15,6 +15,8 @@ import { sendEmailBulk } from '@/lib/gmail'
 import { dbsExpiryWarningEmail, dbsExpiredEmail } from '@/lib/email-templates'
 import { classifyDbs } from '@/lib/compliance'
 import { writeAuditLog } from '@/lib/audit'
+import { requireAdmin } from '@/lib/http'
+import { isAdmin } from '@/lib/rbac'
 
 const Schema = z.object({
   // warn_days can be passed explicitly; if omitted we read from org_settings
@@ -23,11 +25,7 @@ const Schema = z.object({
 })
 
 export const POST: APIRoute = async ({ request, locals, url }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !isAdmin(locals.user)) return requireAdmin(locals.user)!
 
   let body: unknown
   try { body = await request.json().catch(() => ({})) } catch {

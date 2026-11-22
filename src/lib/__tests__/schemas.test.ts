@@ -5,27 +5,10 @@
  */
 import { describe, it, expect } from 'vitest'
 import { z } from 'zod'
+import { CreateMemberSchema, PERSON_STATUSES } from '../people'
 
-// ─── Schemas (mirrored from API routes) ──────────────────────────────────────
-// These match the schemas in src/pages/api/* exactly.
-// If you change a schema in the route, update it here too.
-
-const PERSON_STATUSES = ['applicant', 'pending_review', 'active', 'suspended', 'inactive'] as const
-const PERSON_TYPES = ['member', 'mentor', 'volunteer', 'parent', 'trustee'] as const
-
-const CreateMemberSchema = z.object({
-  full_name: z.string().min(1, 'Name is required').max(200),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().optional(),
-  date_of_birth: z.string().optional(),
-  gender: z.string().optional(),
-  address: z.string().optional(),
-  person_types: z.array(z.enum(PERSON_TYPES)).default(['member']),
-  status: z.enum(PERSON_STATUSES).default('applicant'),
-  source: z.enum(['google_form', 'manual']).optional(),
-  date_joined: z.string().optional(),
-  notes: z.string().optional(),
-})
+// Award, praise, mentee, and CMP year schemas below are mirrored from the
+// API routes. The member schema is the one the routes import.
 
 const CreateAwardSchema = z.object({
   person_id: z.string().uuid(),
@@ -66,11 +49,10 @@ const CreateCmpYearSchema = z.object({
 // ─── CreateMemberSchema ───────────────────────────────────────────────────────
 
 describe('CreateMemberSchema', () => {
+  const base = { first_name: 'Alice', last_name: 'Smith', email: 'alice@example.com' }
+
   it('accepts a minimal valid payload', () => {
-    const result = CreateMemberSchema.safeParse({
-      full_name: 'Alice Smith',
-      email: 'alice@example.com',
-    })
+    const result = CreateMemberSchema.safeParse(base)
     expect(result.success).toBe(true)
     if (result.success) {
       expect(result.data.status).toBe('applicant')
@@ -78,62 +60,48 @@ describe('CreateMemberSchema', () => {
     }
   })
 
-  it('rejects an empty name', () => {
-    const result = CreateMemberSchema.safeParse({
-      full_name: '',
-      email: 'alice@example.com',
-    })
+  it('stores a preferred name and blanks become null', () => {
+    const named = CreateMemberSchema.safeParse({ ...base, preferred_name: 'Ally' })
+    const blank = CreateMemberSchema.safeParse({ ...base, preferred_name: '  ' })
+    expect(named.success && named.data.preferred_name).toBe('Ally')
+    expect(blank.success && blank.data.preferred_name).toBeNull()
+  })
+
+  it('rejects an empty first name', () => {
+    const result = CreateMemberSchema.safeParse({ ...base, first_name: '' })
     expect(result.success).toBe(false)
     if (!result.success) {
-      expect(result.error.flatten().fieldErrors.full_name).toBeTruthy()
+      expect(result.error.flatten().fieldErrors.first_name).toBeTruthy()
     }
   })
 
   it('rejects an invalid email', () => {
-    const result = CreateMemberSchema.safeParse({
-      full_name: 'Bob',
-      email: 'not-an-email',
-    })
+    const result = CreateMemberSchema.safeParse({ ...base, email: 'not-an-email' })
     expect(result.success).toBe(false)
     if (!result.success) {
       expect(result.error.flatten().fieldErrors.email).toBeTruthy()
     }
   })
 
-  it('accepts all valid statuses', () => {
+  it('accepts every status the database still allows', () => {
     for (const status of PERSON_STATUSES) {
-      const result = CreateMemberSchema.safeParse({
-        full_name: 'Test',
-        email: 'test@example.com',
-        status,
-      })
+      const result = CreateMemberSchema.safeParse({ ...base, status })
       expect(result.success).toBe(true)
     }
   })
 
-  it('rejects an invalid status', () => {
-    const result = CreateMemberSchema.safeParse({
-      full_name: 'Test',
-      email: 'test@example.com',
-      status: 'suspended',
-    })
+  it('rejects the removed pending_review status', () => {
+    const result = CreateMemberSchema.safeParse({ ...base, status: 'pending_review' })
     expect(result.success).toBe(false)
   })
 
   it('accepts multiple person_types', () => {
-    const result = CreateMemberSchema.safeParse({
-      full_name: 'Test',
-      email: 'test@example.com',
-      person_types: ['member', 'mentor'],
-    })
+    const result = CreateMemberSchema.safeParse({ ...base, person_types: ['member', 'mentor'] })
     expect(result.success).toBe(true)
   })
 
-  it('rejects a name longer than 200 characters', () => {
-    const result = CreateMemberSchema.safeParse({
-      full_name: 'A'.repeat(201),
-      email: 'test@example.com',
-    })
+  it('rejects a first name longer than 100 characters', () => {
+    const result = CreateMemberSchema.safeParse({ ...base, first_name: 'A'.repeat(101) })
     expect(result.success).toBe(false)
   })
 })

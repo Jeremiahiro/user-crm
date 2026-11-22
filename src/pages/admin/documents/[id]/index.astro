@@ -3,6 +3,7 @@ import DashboardLayout from '@/layouts/DashboardLayout.astro'
 import Breadcrumb from '@/components/ui/Breadcrumb.astro'
 import { supabaseAdmin } from '@/lib/supabase'
 import { isAdmin, getTeamMemberIds } from '@/lib/rbac'
+import { snakeToTitle } from '@/lib/utils'
 
 const user = Astro.locals.user
 if (!user) return Astro.redirect('/login')
@@ -109,7 +110,7 @@ const uploaderName = JSON.stringify(d.uploader?.full_name ?? '')
       <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0">{d.title}</h1>
       <span class="inline-block py-0.75 px-3 rounded-full font-body text-xs font-semibold"
         style={`background-color: ${STATUS_BG[d.status] ?? 'var(--color-neutral-100)'}; color: ${STATUS_COLOR[d.status] ?? 'var(--color-neutral-700)'}; border: 1px solid ${STATUS_BORDER[d.status] ?? 'var(--color-neutral-200)'};`}>
-        {d.status.charAt(0).toUpperCase() + d.status.slice(1)}
+        {snakeToTitle(String(d.status ?? ''))}
       </span>
     </div>
 

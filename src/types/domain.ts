@@ -2,9 +2,12 @@ export type PersonStatus =
   | 'applicant'
   | 'in_progress'
   | 'in_training'
+  | 'approved'
   | 'active'
   | 'suspended'
   | 'inactive'
+  | 'alumni'
+  | 'left'
   | 'cancelled'
 
 export type CancellationType =
@@ -54,6 +57,10 @@ export type AuditAction =
 
 export interface Person {
   id: string
+  first_name: string
+  middle_name?: string | null
+  last_name: string
+  preferred_name?: string | null
   full_name: string
   email: string
   phone?: string
@@ -128,4 +135,9 @@ export interface SessionUser {
   image?: string
   person_id: string
   roles: string[]
+  /** Membership types from people.person_types. Empty until the session is enriched. */
+  person_types?: PersonType[]
+  preferred_name?: string | null
+  first_name?: string | null
+  full_name?: string | null
 }
