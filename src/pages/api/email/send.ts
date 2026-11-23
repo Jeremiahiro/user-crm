@@ -8,6 +8,8 @@ import type { APIRoute } from 'astro'
 import { z } from 'zod'
 import { sendEmail, sendEmailBulk } from '@/lib/gmail'
 import { writeAuditLog } from '@/lib/audit'
+import { requireAdmin } from '@/lib/http'
+import { isAdmin } from '@/lib/rbac'
 
 const SendSchema = z.object({
   // Accept a single email or an array
@@ -18,11 +20,7 @@ const SendSchema = z.object({
 })
 
 export const POST: APIRoute = async ({ request, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !isAdmin(locals.user)) return requireAdmin(locals.user)!
 
   let body: unknown
   try { body = await request.json() } catch {

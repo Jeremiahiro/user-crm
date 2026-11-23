@@ -118,6 +118,9 @@ describe('statusVariant', () => {
   it.each([
     ['active', 'success'],
     ['pending_review', 'warning'],
+    ['in_progress', 'warning'],
+    ['in_training', 'info'],
+    ['suspended', 'danger'],
     ['applicant', 'neutral'],
     ['inactive', 'neutral'],
   ])('maps %s → %s', (status, expected) => {

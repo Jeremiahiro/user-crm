@@ -2,6 +2,7 @@
 import DashboardLayout from '@/layouts/DashboardLayout.astro'
 import Pagination from '@/components/ui/Pagination.astro'
 import { supabaseAdmin } from '@/lib/supabase'
+import { snakeToTitle } from '@/lib/utils'
 
 if (!Astro.locals.user) return Astro.redirect('/login')
 
@@ -82,7 +83,7 @@ function actionBadge(action: string): { bg: string; color: string } {
                   </td>
                   <td class="px-4 py-2.5">
                     <span class="inline-block px-2 py-0.5 rounded-2.5 text-[11px] font-semibold uppercase tracking-[0.04em]" style={`background-color: ${badge.bg}; color: ${badge.color};`}>
-                      {row.action}
+                      {snakeToTitle(row.action)}
                     </span>
                   </td>
                   <td class="px-4 py-2.5 text-neutral-600 font-mono">{row.target_table}</td>

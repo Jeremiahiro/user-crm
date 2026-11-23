@@ -2,7 +2,8 @@ import { Auth } from '@auth/core'
 import Google from '@auth/core/providers/google'
 import type { AuthConfig } from '@auth/core/types'
 import { supabaseAdmin } from './supabase'
-import type { SessionUser } from '../types/domain'
+import { splitDisplayName } from './names'
+import type { PersonType, SessionUser } from '../types/domain'
 
 export const authConfig: AuthConfig = {
   providers: [
@@ -26,9 +27,12 @@ export const authConfig: AuthConfig = {
         .single()
 
       if (!existing) {
-        // No record — create a stub applicant profile, but deny login until an admin enables it
+        // No record — create a stub applicant profile, but deny login until an admin enables it.
+        // full_name is generated from first_name / last_name and cannot be written.
+        const { first_name, last_name } = splitDisplayName(user.name, user.email)
         const { error } = await supabaseAdmin.from('people').insert({
-          full_name: user.name ?? user.email,
+          first_name,
+          last_name,
           email: user.email,
           profile_photo_url: user.image ?? null,
           status: 'applicant',
@@ -55,7 +59,7 @@ export const authConfig: AuthConfig = {
 
       const { data: person } = await supabaseAdmin
         .from('people')
-        .select('id, status')
+        .select('id, status, person_types, preferred_name, first_name, full_name')
         .eq('email', session.user.email)
         .single()
 
@@ -81,6 +85,10 @@ export const authConfig: AuthConfig = {
         ...(imageVal ? { image: imageVal } : {}),
         person_id: person.id as string,
         roles,
+        person_types: (person.person_types ?? []) as PersonType[],
+        preferred_name: (person.preferred_name as string | null) ?? null,
+        first_name: (person.first_name as string | null) ?? null,
+        full_name: (person.full_name as string | null) ?? null,
       }
 
       // Attach CRM session data — cast through unknown to satisfy strict typing

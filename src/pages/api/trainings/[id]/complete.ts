@@ -6,6 +6,7 @@
 import type { APIRoute } from 'astro'
 import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase'
+import { isAdmin } from '@/lib/rbac'
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -29,6 +30,10 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
   const parsed = CompleteSchema.safeParse(body)
   if (!parsed.success) return json({ error: 'Validation failed', issues: parsed.error.flatten() }, 422)
+
+  if (parsed.data.document_id && !isAdmin(locals.user)) {
+    return json({ error: 'Only admins can attach a document to a training completion.' }, 403)
+  }
 
   // If training requires a document, self-report is blocked
   if ((training as any).requires_document && !parsed.data.document_id) {

@@ -3,6 +3,7 @@ import DashboardLayout from '@/layouts/DashboardLayout.astro'
 import Pagination from '@/components/ui/Pagination.astro'
 import { supabaseAdmin } from '@/lib/supabase'
 import { isAdmin } from '@/lib/rbac'
+import { displayName } from '@/lib/names'
 
 const user = Astro.locals.user
 if (!user) return Astro.redirect('/login')
@@ -62,15 +63,15 @@ const paginationBase = `/admin/awards${filterParams.toString() ? `?${filterParam
 // Fetch recipient and awarded_by people separately — avoids PostgREST ambiguity with two FKs to same table
 const personIds = [...new Set(rows.map(r => r.person_id).filter(Boolean))] as string[]
 const { data: rawRecipients } = personIds.length > 0
-  ? await supabaseAdmin.from('people').select('id, full_name').in('id', personIds)
+  ? await supabaseAdmin.from('people').select('id, full_name, preferred_name, first_name').in('id', personIds)
   : { data: [] }
-const recipientMap = new Map(((rawRecipients ?? []) as { id: string; full_name: string }[]).map(p => [p.id, p.full_name]))
+const recipientMap = new Map(((rawRecipients ?? []) as { id: string; full_name: string; preferred_name: string | null; first_name: string | null }[]).map(p => [p.id, displayName(p)]))
 
 const awardedByIds = [...new Set(rows.map(r => r.awarded_by).filter(Boolean))] as string[]
 const { data: rawGrantors } = awardedByIds.length > 0
-  ? await supabaseAdmin.from('people').select('id, full_name').in('id', awardedByIds)
+  ? await supabaseAdmin.from('people').select('id, full_name, preferred_name, first_name').in('id', awardedByIds)
   : { data: [] }
-const grantorMap = new Map(((rawGrantors ?? []) as { id: string; full_name: string }[]).map(p => [p.id, p.full_name]))
+const grantorMap = new Map(((rawGrantors ?? []) as { id: string; full_name: string; preferred_name: string | null; first_name: string | null }[]).map(p => [p.id, displayName(p)]))
 
 const AWARD_LABELS: Record<string, string> = {
   member_of_the_year: 'Member of the Year',

@@ -9,6 +9,7 @@
 import type { APIRoute } from 'astro'
 import { supabaseAdmin } from '@/lib/supabase'
 import { isAdmin, getTeamLeadIds } from '@/lib/rbac'
+import { displayName } from '@/lib/names'
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -43,8 +44,8 @@ export const GET: APIRoute = async ({ locals, url }) => {
 
   let query = supabaseAdmin
     .from('people')
-    .select('id, full_name, email, status, profile_photo_url')
-    .or(`full_name.ilike.%${q}%,email.ilike.%${q}%`)
+    .select('id, full_name, preferred_name, first_name, email, status, profile_photo_url')
+    .or(`full_name.ilike.%${q}%,preferred_name.ilike.%${q}%,email.ilike.%${q}%`)
     .eq('status', 'active')
     .order('full_name')
     .limit(10)
@@ -60,5 +61,16 @@ export const GET: APIRoute = async ({ locals, url }) => {
     return json({ error: error.message }, 500)
   }
 
-  return json({ data: data ?? [] })
+  const rows = (data ?? []) as {
+    id: string
+    full_name: string
+    preferred_name?: string | null
+    first_name?: string | null
+    email: string
+    status: string
+    profile_photo_url?: string | null
+  }[]
+  return json({
+    data: rows.map(row => ({ ...row, display_name: displayName(row) })),
+  })
 }

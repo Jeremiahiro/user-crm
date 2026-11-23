@@ -1,9 +1,11 @@
 import type { APIRoute } from 'astro'
 import { supabaseAdmin } from '@/lib/supabase'
 import { writeAuditLog } from '@/lib/audit'
+import { requireCmpStaff } from '@/lib/http'
+import { canManageCmp } from '@/lib/rbac'
 
 export const POST: APIRoute = async ({ request, locals }) => {
-  if (!locals.user) return new Response(JSON.stringify({ error: 'Unauthorised' }), { status: 401 })
+  if (!locals.user || !canManageCmp(locals.user)) return requireCmpStaff(locals.user)!
 
   let body: { mentee_id?: string; note?: string }
   try { body = await request.json() } catch { return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 }) }
@@ -25,12 +27,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
 
-  await writeAuditLog({ action: 'create', table: 'cmp_mentor_notes', recordId: data.id, actorEmail: locals.user.email, newValues: { mentee_id, note: note.trim() } })
+  await writeAuditLog({
+    actorId: locals.user.person_id,
+    action: 'create',
+    targetTable: 'cmp_mentor_notes',
+    targetId: data.id as string,
+    afterValue: { mentee_id, note: note.trim() },
+  })
   return new Response(JSON.stringify(data), { status: 201 })
 }
 
 export const DELETE: APIRoute = async ({ request, locals }) => {
-  if (!locals.user) return new Response(JSON.stringify({ error: 'Unauthorised' }), { status: 401 })
+  if (!locals.user || !canManageCmp(locals.user)) return requireCmpStaff(locals.user)!
 
   let body: { id?: string }
   try { body = await request.json() } catch { return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 }) }
@@ -41,6 +49,11 @@ export const DELETE: APIRoute = async ({ request, locals }) => {
   const { error } = await supabaseAdmin.from('cmp_mentor_notes').delete().eq('id', id)
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
 
-  await writeAuditLog({ action: 'delete', table: 'cmp_mentor_notes', recordId: id, actorEmail: locals.user.email })
+  await writeAuditLog({
+    actorId: locals.user.person_id,
+    action: 'delete',
+    targetTable: 'cmp_mentor_notes',
+    targetId: id,
+  })
   return new Response(JSON.stringify({ success: true }))
 }

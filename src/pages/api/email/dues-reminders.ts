@@ -14,6 +14,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmailBulk } from '@/lib/gmail'
 import { duesReminderEmail } from '@/lib/email-templates'
 import { writeAuditLog } from '@/lib/audit'
+import { requireAdmin } from '@/lib/http'
+import { isAdmin } from '@/lib/rbac'
 
 const Schema = z.object({
   year: z.number().int().min(2020).max(2100).optional(),
@@ -21,11 +23,7 @@ const Schema = z.object({
 })
 
 export const POST: APIRoute = async ({ request, locals, url }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !isAdmin(locals.user)) return requireAdmin(locals.user)!
 
   let body: unknown
   try { body = await request.json().catch(() => ({})) } catch {

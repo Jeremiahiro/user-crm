@@ -84,7 +84,7 @@ const uid = `ms-${name}-${Math.random().toString(36).slice(2, 8)}`
 </div>
 
 <script>
-  type MemberResult = { id: string; full_name: string; email: string }
+  type MemberResult = { id: string; full_name: string; display_name?: string; email: string }
 
   function initMemberSearch(wrapper: HTMLElement) {
     const input   = wrapper.querySelector<HTMLInputElement>('.member-search-input')!
@@ -142,14 +142,14 @@ const uid = `ms-${name}-${Math.random().toString(36).slice(2, 8)}`
         li.dataset.id = item.id
         li.setAttribute('role', 'option')
         li.className = 'ms-result-item'
-        li.textContent = item.full_name
+        li.textContent = item.display_name || item.full_name
         li.addEventListener('mouseenter', () => {
           activeIndex = Array.from(getItems()).indexOf(li)
           highlightItem(activeIndex)
         })
         li.addEventListener('mousedown', e => {
           e.preventDefault()
-          select(item.id, item.full_name)
+          select(item.id, item.display_name || item.full_name)
         })
         results.appendChild(li)
       })
@@ -195,7 +195,7 @@ const uid = `ms-${name}-${Math.random().toString(36).slice(2, 8)}`
       } else if (e.key === 'Enter' && activeIndex >= 0 && items[activeIndex]) {
         e.preventDefault()
         const item = currentItems[activeIndex]
-        if (item) select(item.id, item.full_name)
+        if (item) select(item.id, item.display_name || item.full_name)
       } else if (e.key === 'Escape') {
         closeResults()
       }

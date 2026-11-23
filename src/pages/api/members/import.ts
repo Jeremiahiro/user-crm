@@ -2,33 +2,18 @@ import type { APIRoute } from 'astro'
 import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase'
 import { writeAuditLog } from '@/lib/audit'
+import { requireAdmin } from '@/lib/http'
+import { ImportMemberRowSchema } from '@/lib/people'
+import { isAdmin } from '@/lib/rbac'
 
-const RowSchema = z.object({
-  first_name: z.string().min(1, 'First name is required').max(100),
-  middle_name: z.string().max(100).optional().nullable(),
-  last_name: z.string().min(1, 'Last name is required').max(100),
-  email: z.string().email('Invalid email'),
-  phone: z.string().optional().nullable(),
-  date_of_birth: z.string().optional().nullable(),
-  gender: z.string().optional().nullable(),
-  address: z.string().optional().nullable(),
-  status: z.enum(['applicant', 'pending_review', 'active', 'suspended', 'inactive']).default('active'),
-  person_types: z.array(z.enum(['member', 'mentor', 'volunteer', 'parent', 'trustee'])).default(['member']),
-  date_joined: z.string().optional().nullable(),
-  source: z.enum(['google_form', 'manual']).optional().nullable(),
-  notes: z.string().optional().nullable(),
-})
+const RowSchema = ImportMemberRowSchema
 
 const ImportSchema = z.object({
   rows: z.array(RowSchema).min(1, 'At least one row is required').max(500, 'Maximum 500 rows per import'),
 })
 
 export const POST: APIRoute = async ({ request, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !isAdmin(locals.user)) return requireAdmin(locals.user)!
 
   let body: unknown
   try { body = await request.json() } catch {

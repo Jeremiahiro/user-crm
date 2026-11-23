@@ -1,30 +1,15 @@
 import type { APIRoute } from 'astro'
-import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase'
 import { writeAuditLog } from '@/lib/audit'
+import { dbErrorMessage } from '@/lib/http'
 import { isAdmin, getTeamMemberIds } from '@/lib/rbac'
+import { UpdateMemberSchema } from '@/lib/people'
 
 // Fields a member may edit on their own profile (no sensitive admin-only fields)
 const SelfUpdateFields = new Set([
-  'first_name', 'middle_name', 'last_name',
+  'first_name', 'middle_name', 'last_name', 'preferred_name',
   'phone', 'email_secondary', 'address', 'gender',
 ])
-
-const UpdateMemberSchema = z.object({
-  first_name: z.string().min(1).max(100).optional(),
-  middle_name: z.string().max(100).optional().nullable(),
-  last_name: z.string().min(1).max(100).optional(),
-  email: z.string().email().optional(),
-  email_secondary: z.string().email().optional().nullable(),
-  phone: z.string().optional().nullable(),
-  date_of_birth: z.string().optional().nullable(),
-  gender: z.string().optional().nullable(),
-  address: z.string().optional().nullable(),
-  person_types: z.array(z.enum(['member', 'mentor', 'volunteer', 'parent', 'trustee'])).optional(),
-  status: z.enum(['applicant', 'pending_review', 'active', 'suspended', 'inactive']).optional(),
-  date_joined: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
-})
 
 export const GET: APIRoute = async ({ params, locals }) => {
   if (!locals.user) {
@@ -135,7 +120,7 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
 
   if (error || !member) {
     console.error('[PUT /api/members/:id] DB error:', error)
-    return new Response(JSON.stringify({ error: 'Failed to update member' }), {
+    return new Response(JSON.stringify({ error: dbErrorMessage('Failed to update member.', error) }), {
       status: 500, headers: { 'Content-Type': 'application/json' },
     })
   }

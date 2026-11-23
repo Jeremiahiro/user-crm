@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro'
 import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase'
 import { writeAuditLog } from '@/lib/audit'
+import { dbErrorMessage, requireCmpStaff } from '@/lib/http'
+import { canManageCmp } from '@/lib/rbac'
 
 const CreateSessionSchema = z.object({
   programme_year_id: z.string().uuid('Programme year is required'),
@@ -17,11 +19,7 @@ const CreateSessionSchema = z.object({
 })
 
 export const GET: APIRoute = async ({ url, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !canManageCmp(locals.user)) return requireCmpStaff(locals.user)!
 
   const yearId = url.searchParams.get('year_id')
 
@@ -36,7 +34,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
   if (error) {
     console.error('[GET /api/cmp/sessions] DB error:', error)
-    return new Response(JSON.stringify({ error: 'Failed to fetch sessions' }), {
+    return new Response(JSON.stringify({ error: dbErrorMessage('Failed to fetch sessions.', error) }), {
       status: 500, headers: { 'Content-Type': 'application/json' },
     })
   }
@@ -47,11 +45,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: 'Unauthorised' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  if (!locals.user || !canManageCmp(locals.user)) return requireCmpStaff(locals.user)!
 
   let body: unknown
   try { body = await request.json() } catch {
@@ -76,7 +70,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   if (error) {
     console.error('[POST /api/cmp/sessions] DB error:', error)
-    return new Response(JSON.stringify({ error: 'Failed to create session' }), {
+    return new Response(JSON.stringify({ error: dbErrorMessage('Failed to create session.', error) }), {
       status: 500, headers: { 'Content-Type': 'application/json' },
     })
   }

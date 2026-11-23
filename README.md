@@ -38,6 +38,8 @@ user_crm/
 │   ├── lib/
 │   │   ├── audit.ts      # writeAuditLog() — called on every mutation
 │   │   ├── auth.ts       # @auth/core config, signIn/session callbacks
+│   │   ├── people.ts     # person status values and member Zod schemas
+│   │   ├── names.ts      # preferred name vs legal full name
 │   │   └── supabase.ts   # supabase (anon) and supabaseAdmin (service role) clients
 │   ├── middleware.ts     # Route protection — redirects unauthenticated requests
 │   ├── pages/
@@ -58,8 +60,17 @@ user_crm/
 │       └── domain.ts     # Shared TypeScript types (Person, Team, Role, SessionUser, …)
 ├── supabase/
 │   └── migrations/
-│       ├── 001_schema.sql  # All tables, indexes, constraints, triggers, RLS policies
-│       └── 002_seed.sql    # 5 pillars, 8 teams, 6 system roles, 5 elected positions
+│       ├── 001_schema.sql
+│       ├── 002_dues_submissions.sql
+│       ├── 003_certifications.sql
+│       ├── 004_onboarding_overhaul.sql
+│       ├── 005_committees.sql
+│       ├── 006_remove_approved_stage.sql
+│       ├── 007_member_notes.sql
+│       ├── 008_cmp_session_end_time.sql
+│       ├── 009_people_preferred_name.sql
+│       ├── 010_rls_documents_and_training.sql
+│       └── 011_seed_admin_and_mentor_roles.sql
 ├── docs/
 │   ├── features/         # Per-feature technical documentation (this directory)
 │   ├── DECISIONS.md      # Architecture and design decisions log
@@ -122,6 +133,9 @@ All secrets live in `.env` locally and in Vercel project settings for deployed e
 | `SUPABASE_ANON_KEY` | Supabase public anon key (safe for client-side reads) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key — server-side only, bypasses RLS |
 | `PUBLIC_APP_URL` | Full app URL including scheme (e.g. `http://localhost:4321` or `https://portal.100bmol.org`) |
+| `DEV_USER_EMAIL` | Local development only. Signs in as this existing person when `login_enabled` is true. Never active in production or Vercel preview. |
+| `CRON_SECRET` | Bearer secret for `/api/cron/birthday-notifications` |
+| `INTAKE_SECRET` | Shared secret for the public membership intake endpoint |
 
 ---
 
@@ -137,9 +151,11 @@ supabase db push
 supabase db reset
 ```
 
-Migration `001_schema.sql` creates all 22 tables with indexes, check constraints, `updated_at` triggers, and RLS policies. Migration `002_seed.sql` inserts the five strategic pillars, eight default teams, six system roles, and five elected positions that every chapter instance requires.
+Migrations in `supabase/migrations/` are applied in filename order with `supabase db push`. Do not edit a migration that has already been applied; add a new file instead. `001_schema.sql` creates the core tables (including the seeded pillars, teams, roles, and elected positions). Later files add dues submissions, documents and training, the onboarding pipeline, committees, member notes, CMP session end times, preferred names, and row level security for the tables recreated in `003`.
 
-See [docs/features/database.md](docs/features/database.md) for the full schema reference.
+`people.full_name` is generated from first, middle, and last name and is the legal name used on exports and DBS records. `people.preferred_name` is what the portal shows day to day.
+
+See [docs/features/database.md](docs/features/database.md) for the schema notes. That document can lag the migrations.
 
 ---
 
@@ -159,24 +175,9 @@ See [docs/features/database.md](docs/features/database.md) for the full schema r
 
 ---
 
-## Build Phases
+## Shipped modules
 
-The portal is being built across eight phases. Phases 1 and 2 are complete.
-
-| Phase | Description | Status |
-|---|---|---|
-| 1 | Foundation — scaffold, Supabase schema, Google OAuth, base layouts | Complete |
-| 2 | Core modules — Members, Teams, Pillars, Elected Positions, Roles & Permissions | Complete |
-| 3 | Operational modules — Dues, DBS Records, Documents (Drive upload), Mentees | Pending |
-| 4 | CMP — Programme years, session scheduling, attendance tracking | Pending |
-| 5 | Recognition — Awards, Praise, Participation Events | Pending |
-| 6 | Dashboards — role-appropriate views for Admin, Team Lead, Member | Pending |
-| 7 | Email integrations — Gmail API, transactional templates, cron alerts | Pending |
-| 8 | Onboarding Pipeline — public application form, 8-stage kanban | Pending |
-
-Phases 3–7 all depend on Phase 2 being complete. Phase 8 can start after Phase 1.
-
-Full acceptance criteria and task breakdowns are in [`docs/TASKS.md`](docs/TASKS.md).
+The original eight-phase plan is out of date. The portal already includes members, teams, pillars, roles, dues, DBS, documents and trainings, mentees, CMP programme years and sessions, awards, praise, participation, dashboards, email, onboarding, committees, and member notes. Dues and the buddy assignment are for people whose membership type includes `member`, which is separate from the system role named Member.
 
 ---
 

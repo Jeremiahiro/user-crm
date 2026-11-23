@@ -108,3 +108,41 @@
   --shadow-md: 0 4px 12px rgba(0,0,0,0.10);
   --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
 }
+
+/* Phone: stack fixed multi-column grids and let wide tables scroll.
+   !important beats Tailwind utilities that are emitted later in the bundle. */
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .month-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .grid-cols-2,
+  .grid-cols-3,
+  .grid-cols-4,
+  .grid-cols-5,
+  .grid-cols-6 {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  main :is(.overflow-hidden, .overflow-x-hidden):has(table) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  main table {
+    min-width: 36rem;
+  }
+
+  dialog,
+  [role="dialog"] {
+    max-width: calc(100vw - 1.5rem);
+  }
+}

@@ -4,6 +4,8 @@ import Pagination from '@/components/ui/Pagination.astro'
 import { supabaseAdmin } from '@/lib/supabase'
 import { isAdmin } from '@/lib/rbac'
 import { createHash } from 'node:crypto'
+import { displayName } from '@/lib/names'
+import { snakeToTitle as titleCase } from '@/lib/utils'
 
 if (!Astro.locals.user) return Astro.redirect('/login')
 if (!isAdmin(Astro.locals.user)) return Astro.redirect('/dashboard')
@@ -31,7 +33,7 @@ if (teamFilter) {
 
 let query = supabaseAdmin
   .from('people')
-  .select('id, full_name, email, status, person_types, profile_photo_url, date_joined, person_teams(is_team_lead, teams(id, name))', { count: 'exact' })
+  .select('id, full_name, preferred_name, first_name, email, status, person_types, profile_photo_url, date_joined, person_teams(is_team_lead, teams(id, name))', { count: 'exact' })
   .contains('person_types', [typeFilter])
   .eq('is_archived', false)
   .order('full_name')
@@ -65,10 +67,6 @@ if (statusFilter) filterParams.set('status', statusFilter)
 if (teamFilter)   filterParams.set('team_id', teamFilter)
 if (typeFilter !== 'volunteer') filterParams.set('type', typeFilter)
 const paginationBase = `/admin/volunteers${filterParams.toString() ? `?${filterParams}` : ''}`
-
-function titleCase(s: string) {
-  return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-}
 
 const statusOptions = [
   { value: '', label: 'All statuses' },
@@ -199,7 +197,7 @@ function gravatarUrl(email: string) {
                     <div>
                       <a href={`/admin/members/${v.id}?from=volunteers`}
                         class="font-body text-sm font-semibold text-brand-navy no-underline block">
-                        {v.full_name}
+                        {displayName(v)}
                       </a>
                       <span class="font-body text-xs text-neutral-500">{v.email}</span>
                     </div>

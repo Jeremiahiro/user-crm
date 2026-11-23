@@ -1,6 +1,7 @@
 ---
 import DashboardLayout from '@/layouts/DashboardLayout.astro'
 import { supabaseAdmin } from '@/lib/supabase'
+import { displayName } from '@/lib/names'
 import { isAdmin } from '@/lib/rbac'
 
 if (!Astro.locals.user) return Astro.redirect('/login')
@@ -87,8 +88,8 @@ if (!admin && personId) {
     ...givenRows.map(r => r.recipient_id),
   ].filter(Boolean) as string[])]
   if (ids.length > 0) {
-    const { data: ppl } = await supabaseAdmin.from('people').select('id, full_name').in('id', ids)
-    for (const p of (ppl ?? []) as { id: string; full_name: string }[]) peopleMap.set(p.id, p.full_name)
+    const { data: ppl } = await supabaseAdmin.from('people').select('id, full_name, preferred_name, first_name').in('id', ids)
+    for (const p of (ppl ?? []) as { id: string; full_name: string; preferred_name: string | null; first_name: string | null }[]) peopleMap.set(p.id, displayName(p))
   }
 
 } else if (admin) {
@@ -113,8 +114,8 @@ if (!admin && personId) {
     ...feedRows.map(r => r.given_by),
   ].filter(Boolean) as string[])]
   if (ids.length > 0) {
-    const { data: ppl } = await supabaseAdmin.from('people').select('id, full_name').in('id', ids)
-    for (const p of (ppl ?? []) as { id: string; full_name: string }[]) peopleMap.set(p.id, p.full_name)
+    const { data: ppl } = await supabaseAdmin.from('people').select('id, full_name, preferred_name, first_name').in('id', ids)
+    for (const p of (ppl ?? []) as { id: string; full_name: string; preferred_name: string | null; first_name: string | null }[]) peopleMap.set(p.id, displayName(p))
   }
 }
 

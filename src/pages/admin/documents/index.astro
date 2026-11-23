@@ -3,6 +3,7 @@ import DashboardLayout from '@/layouts/DashboardLayout.astro'
 import Pagination from '@/components/ui/Pagination.astro'
 import { supabaseAdmin } from '@/lib/supabase'
 import { isAdmin, getTeamMemberIds } from '@/lib/rbac'
+import { snakeToTitle } from '@/lib/utils'
 
 const user = Astro.locals.user
 if (!user) return Astro.redirect('/login')
@@ -178,7 +179,7 @@ const STATUS_CLASSES: Record<string, string> = {
                   <span
                     class={`inline-block py-0.5 px-2.5 rounded-full font-body text-xs font-semibold ${STATUS_CLASSES[doc.status] ?? 'bg-neutral-100 text-neutral-700 border border-neutral-200'}`}
                   >
-                    {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                    {snakeToTitle(String(doc.status ?? ''))}
                   </span>
                 </td>
                 <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600">{fmt(doc.created_at)}</td>
