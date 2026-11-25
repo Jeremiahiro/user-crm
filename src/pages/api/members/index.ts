@@ -4,6 +4,7 @@ import { writeAuditLog } from '@/lib/audit'
 import { dbErrorMessage, requireAdmin } from '@/lib/http'
 import { CreateMemberSchema } from '@/lib/people'
 import { isAdmin } from '@/lib/rbac'
+import { findOfficeEmails, OFFICE_EMAIL_IN_USE } from '@/lib/offices'
 
 export const GET: APIRoute = async ({ url, locals }) => {
   if (!locals.user) {
@@ -69,6 +70,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return new Response(
       JSON.stringify({ error: 'Validation failed', issues: parsed.error.flatten() }),
       { status: 422, headers: { 'Content-Type': 'application/json' } },
+    )
+  }
+
+  if ((await findOfficeEmails([parsed.data.email])).size > 0) {
+    return new Response(
+      JSON.stringify({ error: OFFICE_EMAIL_IN_USE, issues: { fieldErrors: { email: [OFFICE_EMAIL_IN_USE] } } }),
+      { status: 409, headers: { 'Content-Type': 'application/json' } },
     )
   }
 

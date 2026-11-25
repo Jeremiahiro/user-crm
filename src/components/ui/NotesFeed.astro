@@ -103,7 +103,7 @@ const notesJson = JSON.stringify(notes)
         <div x-show="i < events.length - 1" class="absolute left-5.5 top-7.5 -bottom-4 w-0.5 bg-neutral-100"></div>
 
         <!-- Content -->
-        <div class="flex items-start justify-between gap-2">
+        <div class="flex items-start justify-between gap-2 flex-wrap">
           <div class="flex-1 min-w-0">
             <p x-text="ev.note" class="font-body text-[13px] text-neutral-800 m-0 mb-0.5 wrap-break-word"></p>
             <div class="flex items-center gap-1.5 mt-1">

@@ -28,7 +28,7 @@ const { data: templates } = await supabaseAdmin
 ---
 
 <DashboardLayout title="Email Centre">
-  <div class="flex items-center justify-between mb-7">
+  <div class="flex items-center justify-between mb-7 flex-wrap gap-y-2">
     <div>
       <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Email Centre</h1>
       <p class="font-body text-sm text-neutral-500 m-0">Compose and send emails to chapter members.</p>
@@ -43,7 +43,7 @@ const { data: templates } = await supabaseAdmin
   <div id="statusBanner" style="display: none;" class="px-5 py-3.5 rounded-md mb-5 font-body text-sm"></div>
 
   <!-- Dues reminders card -->
-  <div class="grid grid-cols-[1fr_2fr] gap-5 mb-7 items-start">
+  <div class="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-5 mb-7 items-start">
     <div class="bg-white border border-neutral-200 rounded-lg p-6">
       <p class="font-body text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Dues reminders</p>
       <p class={`font-heading text-[40px] font-bold leading-none mt-0 mb-1 ${duesUnpaidCount > 0 ? 'text-warning-600' : 'text-success-600'}`}>{duesUnpaidCount}</p>
@@ -61,7 +61,7 @@ const { data: templates } = await supabaseAdmin
     <!-- Quick actions -->
     <div class="bg-white border border-neutral-200 rounded-lg p-6">
       <h2 class="font-heading text-sm font-bold text-neutral-800 mb-4">Quick actions</h2>
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
         <a href="/admin/email/compose"
           class="flex items-center gap-3 px-4 py-3.5 border border-neutral-200 rounded-md no-underline">
@@ -106,12 +106,12 @@ const { data: templates } = await supabaseAdmin
   <!-- Saved templates list (if any) -->
   {(templates ?? []).length > 0 && (
     <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
-      <div class="px-5 py-3.5 border-b border-neutral-100 flex items-center justify-between">
+      <div class="px-5 py-3.5 border-b border-neutral-100 flex items-center justify-between flex-wrap gap-y-2">
         <h2 class="font-heading text-sm font-bold text-neutral-800 m-0">Saved templates</h2>
         <a href="/admin/email-templates" class="font-body text-xs text-brand-navy no-underline font-medium">View all →</a>
       </div>
       {(templates ?? []).map((t, i) => (
-        <div class={`px-5 py-3 flex items-center justify-between${i > 0 ? ' border-t border-neutral-100' : ''}`}>
+        <div class={`px-5 py-3 flex items-center justify-between${i > 0 ? ' border-t border-neutral-100' : ''} flex-wrap gap-y-2`}>
           <div>
             <p class="font-body text-sm font-medium text-neutral-800 m-0">{t.name}</p>
             <p class="font-body text-xs text-neutral-400 mt-0.5">{snakeToTitle(String(t.category ?? ''))}</p>

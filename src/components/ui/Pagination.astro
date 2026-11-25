@@ -48,7 +48,7 @@ const navLinkMd = `${navLinkBase} px-3 py-1.5 text-[13px] text-neutral-700`
         href={pageUrl(p)}
         class={p === page
           ? 'px-2.5 py-1.5 rounded-md font-body text-[13px] no-underline border border-brand-navy bg-brand-navy text-white font-semibold'
-          : `${navLinkMd}`}
+          : `${navLinkMd} hidden sm:inline-block`}
       >
         {p}
       </a>

@@ -88,7 +88,7 @@ function flag(v: boolean) {
 <DashboardLayout title="Document Types">
   <div class="max-w-215">
     <Breadcrumb crumbs={[{ label: 'Settings', href: '/admin/settings' }, { label: 'Document Types' }]} />
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6 flex-wrap gap-y-2">
       <div>
         <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Document Types</h1>
         <p class="font-body text-sm text-neutral-500 m-0">{types.length} type{types.length !== 1 ? 's' : ''} configured</p>
@@ -107,7 +107,7 @@ function flag(v: boolean) {
     )}
 
     <!-- Existing types table -->
-    <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden mb-8">
+    <div class="bg-white border border-neutral-200 rounded-lg table-scroll mb-8">
       <table class="w-full border-collapse">
         <thead class="bg-neutral-50 border-b border-neutral-200">
           <tr>

@@ -92,11 +92,6 @@ const uploaderName = JSON.stringify(d.uploader?.full_name ?? '')
 ---
 
 <style>
-  @media (max-width: 700px) {
-    .doc-grid {
-      grid-template-columns: 1fr !important;
-    }
-  }
   [x-cloak] { display: none !important; }
   .search-result:hover { background: var(--color-neutral-50); }
 </style>
@@ -115,11 +110,11 @@ const uploaderName = JSON.stringify(d.uploader?.full_name ?? '')
     </div>
 
     <!-- Two-column layout -->
-    <div class="doc-grid grid [grid-template-columns:1fr_340px] gap-6 items-start">
+    <div class="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 items-start">
 
       <!-- Left: document info card -->
       <div class="bg-white border border-neutral-200 rounded-lg p-7 flex flex-col gap-4">
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <p class="font-body text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1">Document Type</p>
             <p class="font-body text-sm text-neutral-800 m-0">{d.document_type?.name ?? '—'}</p>

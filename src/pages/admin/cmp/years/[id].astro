@@ -96,7 +96,7 @@ const TYPE_COLORS: Record<string, string> = {
   <Breadcrumb crumbs={[{ label: 'CMP', href: '/admin/cmp' }, { label: year.name as string }]} />
 
   <!-- Header -->
-  <div class="flex items-start justify-between mb-6">
+  <div class="flex items-start justify-between mb-6 flex-wrap gap-y-2">
     <div>
       <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">{year.name as string}</h1>
       <p class="font-body text-sm text-neutral-500 m-0">
@@ -116,7 +116,7 @@ const TYPE_COLORS: Record<string, string> = {
   </div>
 
   <!-- Enrolment stat cards -->
-  <div class="grid grid-cols-3 gap-4 mb-4">
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
     <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6 flex items-center gap-4">
       <div class="w-11 h-11 rounded-2.5 bg-[#e0e7ff] flex items-center justify-center text-[22px] shrink-0">👨‍🏫</div>
       <div>
@@ -141,7 +141,7 @@ const TYPE_COLORS: Record<string, string> = {
   </div>
 
   <!-- Session/attendance summary -->
-  <div class="grid grid-cols-4 gap-4 mb-7">
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
     {[
       { label: 'Total sessions', value: String(totalSessions), sub: '' },
       { label: 'Upcoming', value: String(upcomingCount), sub: '' },
@@ -158,7 +158,7 @@ const TYPE_COLORS: Record<string, string> = {
 
   <!-- Enrolled mentees -->
   <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden mb-6">
-    <div class="py-3.5 px-5 border-b border-neutral-200 flex items-center justify-between">
+    <div class="py-3.5 px-5 border-b border-neutral-200 flex items-center justify-between flex-wrap gap-y-2">
       <h2 class="font-heading text-[15px] font-bold text-neutral-800 m-0">
         Enrolled Mentees
         <span class="font-body text-[13px] font-normal text-neutral-400 ml-1.5">{menteeRows.length}</span>
@@ -178,54 +178,56 @@ const TYPE_COLORS: Record<string, string> = {
         </a>
       </div>
     ) : (
-      <table class="w-full border-collapse">
-        <thead class="bg-neutral-50 border-b border-neutral-200">
-          <tr>
-            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Name</th>
-            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">School</th>
-            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Year</th>
-            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Mentor</th>
-            <th class="py-2.25 px-4"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {menteeRows.map((m, i) => (
-            <tr class:list={[{ 'border-t border-neutral-100': i > 0 }]}>
-              <td class="py-3 px-4">
-                <a href={`/admin/mentees/${m.id}`}
-                  class="font-body text-sm font-medium text-brand-navy no-underline">
-                  {m.full_name as string}
-                </a>
-                {m.email && <p class="font-body text-xs text-neutral-400 mt-0.5">{m.email as string}</p>}
-              </td>
-              <td class="py-3 px-4 font-body text-[13px] text-neutral-600">{(m.school as string | null) ?? '—'}</td>
-              <td class="py-3 px-4 font-body text-[13px] text-neutral-600">{(m.year_group as string | null) ?? '—'}</td>
-              <td class="py-3 px-4 font-body text-[13px]">
-                {m.mentor_id ? (
-                  <a href={`/admin/members/${m.mentor_id}`}
-                    class="text-brand-navy no-underline font-body text-[13px]">
-                    {mentorMap.get(m.mentor_id as string) ?? '—'}
-                  </a>
-                ) : (
-                  <span class="text-warning-600 text-xs font-medium">Unassigned</span>
-                )}
-              </td>
-              <td class="py-3 px-4 text-right">
-                <a href={`/admin/mentees/${m.id}`}
-                  class="font-body text-xs font-medium text-brand-navy no-underline">
-                  View →
-                </a>
-              </td>
+      <div class="table-scroll">
+        <table class="w-full border-collapse">
+          <thead class="bg-neutral-50 border-b border-neutral-200">
+            <tr>
+              <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Name</th>
+              <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">School</th>
+              <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Year</th>
+              <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Mentor</th>
+              <th class="py-2.25 px-4"></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {menteeRows.map((m, i) => (
+              <tr class:list={[{ 'border-t border-neutral-100': i > 0 }]}>
+                <td class="py-3 px-4">
+                  <a href={`/admin/mentees/${m.id}`}
+                    class="font-body text-sm font-medium text-brand-navy no-underline">
+                    {m.full_name as string}
+                  </a>
+                  {m.email && <p class="font-body text-xs text-neutral-400 mt-0.5">{m.email as string}</p>}
+                </td>
+                <td class="py-3 px-4 font-body text-[13px] text-neutral-600">{(m.school as string | null) ?? '—'}</td>
+                <td class="py-3 px-4 font-body text-[13px] text-neutral-600">{(m.year_group as string | null) ?? '—'}</td>
+                <td class="py-3 px-4 font-body text-[13px]">
+                  {m.mentor_id ? (
+                    <a href={`/admin/members/${m.mentor_id}`}
+                      class="text-brand-navy no-underline font-body text-[13px]">
+                      {mentorMap.get(m.mentor_id as string) ?? '—'}
+                    </a>
+                  ) : (
+                    <span class="text-warning-600 text-xs font-medium">Unassigned</span>
+                  )}
+                </td>
+                <td class="py-3 px-4 text-right">
+                  <a href={`/admin/mentees/${m.id}`}
+                    class="font-body text-xs font-medium text-brand-navy no-underline">
+                    View →
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     )}
   </div>
 
   <!-- Sessions -->
   <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
-    <div class="py-3.5 px-5 border-b border-neutral-200 flex items-center justify-between">
+    <div class="py-3.5 px-5 border-b border-neutral-200 flex items-center justify-between flex-wrap gap-y-2">
       <h2 class="font-heading text-[15px] font-bold text-neutral-800 m-0">Sessions</h2>
       <a href={`/admin/cmp/sessions/new?year_id=${id}`}
         class="font-body text-[13px] font-medium text-brand-navy no-underline">
@@ -242,64 +244,66 @@ const TYPE_COLORS: Record<string, string> = {
         </a>
       </div>
     ) : (
-      <table class="w-full border-collapse">
-        <thead class="bg-neutral-50 border-b border-neutral-200">
-          <tr>
-            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Session</th>
-            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Date</th>
-            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Location</th>
-            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Type</th>
-            <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Attendance</th>
-            <th class="py-2.25 px-4"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {sessions.map((s, i) => {
-            const isPast = new Date(s.session_date) < new Date()
-            return (
-              <tr class:list={[{ 'border-t border-neutral-100': i > 0 }, { 'opacity-55': s.is_cancelled }]}>
-                <td class="py-3.25 px-4">
-                  <div class="flex items-center gap-1.5 flex-wrap">
-                    {s.is_cancelled && (
-                      <span class="py-px px-1.75 rounded-full bg-danger-100 text-danger-700 font-body text-[10px] font-bold tracking-[0.04em]">CANCELLED</span>
-                    )}
-                    {!isPast && !s.is_cancelled && (
-                      <span class="py-px px-1.75 rounded-full bg-success-100 text-success-700 font-body text-[10px] font-semibold">Upcoming</span>
-                    )}
-                    <a href={`/admin/cmp/sessions/${s.id}`}
-                      class:list={['font-body text-sm font-medium text-brand-navy no-underline', { 'line-through': s.is_cancelled }]}>
-                      {s.title}
+      <div class="table-scroll">
+        <table class="w-full border-collapse">
+          <thead class="bg-neutral-50 border-b border-neutral-200">
+            <tr>
+              <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Session</th>
+              <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Date</th>
+              <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Location</th>
+              <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Type</th>
+              <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-wider">Attendance</th>
+              <th class="py-2.25 px-4"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {sessions.map((s, i) => {
+              const isPast = new Date(s.session_date) < new Date()
+              return (
+                <tr class:list={[{ 'border-t border-neutral-100': i > 0 }, { 'opacity-55': s.is_cancelled }]}>
+                  <td class="py-3.25 px-4">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      {s.is_cancelled && (
+                        <span class="py-px px-1.75 rounded-full bg-danger-100 text-danger-700 font-body text-[10px] font-bold tracking-[0.04em]">CANCELLED</span>
+                      )}
+                      {!isPast && !s.is_cancelled && (
+                        <span class="py-px px-1.75 rounded-full bg-success-100 text-success-700 font-body text-[10px] font-semibold">Upcoming</span>
+                      )}
+                      <a href={`/admin/cmp/sessions/${s.id}`}
+                        class:list={['font-body text-sm font-medium text-brand-navy no-underline', { 'line-through': s.is_cancelled }]}>
+                        {s.title}
+                      </a>
+                    </div>
+                  </td>
+                  <td class="py-3.25 px-4 font-body text-[13px] text-neutral-600">
+                    {formatDate(s.session_date)}
+                    {s.session_time && <span class="text-neutral-400 ml-1">{formatTime(s.session_time)}</span>}
+                  </td>
+                  <td class="py-3.25 px-4 font-body text-[13px] text-neutral-600">{s.location ?? '—'}</td>
+                  <td class="py-3.25 px-4">
+                    {s.type ? (
+                      <span class="py-0.5 px-2.5 rounded-full font-body text-xs font-medium text-neutral-700" style={`background: ${TYPE_COLORS[s.type] ?? '#f3f4f6'};`}>
+                        {TYPE_LABELS[s.type] ?? s.type}
+                      </span>
+                    ) : <span class="text-neutral-400">—</span>}
+                  </td>
+                  <td class="py-3.25 px-4 font-body text-[13px] text-neutral-600">{s.cmp_attendance?.length ?? 0}</td>
+                  <td class="py-3.25 px-4 text-right whitespace-nowrap">
+                    <a href={`/admin/cmp/sessions/${s.id}/attendance`}
+                      class="font-body text-xs font-semibold text-brand-navy no-underline mr-2.5">
+                      Attendance
                     </a>
-                  </div>
-                </td>
-                <td class="py-3.25 px-4 font-body text-[13px] text-neutral-600">
-                  {formatDate(s.session_date)}
-                  {s.session_time && <span class="text-neutral-400 ml-1">{formatTime(s.session_time)}</span>}
-                </td>
-                <td class="py-3.25 px-4 font-body text-[13px] text-neutral-600">{s.location ?? '—'}</td>
-                <td class="py-3.25 px-4">
-                  {s.type ? (
-                    <span class="py-0.5 px-2.5 rounded-full font-body text-xs font-medium text-neutral-700" style={`background: ${TYPE_COLORS[s.type] ?? '#f3f4f6'};`}>
-                      {TYPE_LABELS[s.type] ?? s.type}
-                    </span>
-                  ) : <span class="text-neutral-400">—</span>}
-                </td>
-                <td class="py-3.25 px-4 font-body text-[13px] text-neutral-600">{s.cmp_attendance?.length ?? 0}</td>
-                <td class="py-3.25 px-4 text-right whitespace-nowrap">
-                  <a href={`/admin/cmp/sessions/${s.id}/attendance`}
-                    class="font-body text-xs font-semibold text-brand-navy no-underline mr-2.5">
-                    Attendance
-                  </a>
-                  <a href={`/admin/cmp/sessions/${s.id}`}
-                    class="font-body text-xs text-neutral-400 no-underline">
-                    View →
-                  </a>
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+                    <a href={`/admin/cmp/sessions/${s.id}`}
+                      class="font-body text-xs text-neutral-400 no-underline">
+                      View →
+                    </a>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     )}
   </div>
 </DashboardLayout>

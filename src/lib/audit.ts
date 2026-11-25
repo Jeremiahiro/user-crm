@@ -1,4 +1,5 @@
 import { supabaseAdmin } from './supabase'
+import { getRequestContext } from './request-context'
 import type { AuditAction } from '@/types/domain'
 
 interface AuditEntry {
@@ -13,6 +14,7 @@ interface AuditEntry {
 export async function writeAuditLog(entry: AuditEntry): Promise<void> {
   const { error } = await supabaseAdmin.from('audit_log').insert({
     actor_id: entry.actorId ?? null,
+    actor_via: entry.actorId ? (getRequestContext()?.actorVia ?? null) : null,
     action: entry.action,
     target_table: entry.targetTable,
     target_id: entry.targetId ?? null,

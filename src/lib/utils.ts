@@ -134,3 +134,12 @@ export function truncate(s: string, maxLength: number): string {
   if (s.length <= maxLength) return s
   return s.slice(0, maxLength - 1) + '…'
 }
+
+/**
+ * Uses a trailing bracketed code as the short form of a team name.
+ * e.g. "Community Mentoring Programme (CMP)" → "CMP", "Health & Wellness" → "Health & Wellness"
+ */
+export function shortTeamName(name: string): string {
+  const code = name.match(/\(([A-Z0-9&]{2,8})\)\s*$/)
+  return code ? code[1] : name
+}

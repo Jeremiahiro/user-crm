@@ -8,6 +8,7 @@ vi.mock('../supabase', () => ({
 }))
 
 import { writeAuditLog } from '../audit'
+import { runWithRequestContext } from '../request-context'
 import { supabaseAdmin } from '../supabase'
 
 describe('writeAuditLog', () => {
@@ -34,6 +35,7 @@ describe('writeAuditLog', () => {
     expect(supabaseAdmin.from).toHaveBeenCalledWith('audit_log')
     expect(insertMock).toHaveBeenCalledWith({
       actor_id: 'actor-uuid',
+      actor_via: null,
       action: 'create',
       target_table: 'people',
       target_id: 'target-uuid',
@@ -79,6 +81,18 @@ describe('writeAuditLog', () => {
     )
 
     consoleSpy.mockRestore()
+  })
+
+  it('records the office mailbox the actor signed in through', async () => {
+    insertMock.mockResolvedValue({ error: null })
+
+    await runWithRequestContext({ actorVia: 'president@example.org' }, () =>
+      writeAuditLog({ actorId: 'a', action: 'update', targetTable: 'teams', targetId: 't' }),
+    )
+
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({ actor_id: 'a', actor_via: 'president@example.org' }),
+    )
   })
 
   it('passes beforeValue when provided', async () => {

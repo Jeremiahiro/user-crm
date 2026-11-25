@@ -96,7 +96,7 @@ const chartData = yearStats.map(s => ({
 <DashboardLayout title="Onboarding Analytics">
   <div>
     <!-- Header -->
-    <div class="flex items-center justify-between mb-7">
+    <div class="flex items-center justify-between mb-7 flex-wrap gap-y-2">
       <div>
         <h1 class="font-heading text-2xl font-bold text-brand-navy m-0 mb-1">Onboarding Analytics</h1>
         <p class="font-body text-sm text-neutral-500 m-0">
@@ -110,7 +110,7 @@ const chartData = yearStats.map(s => ({
     </div>
 
     <!-- Summary stat cards -->
-    <div class="grid grid-cols-4 gap-4 mb-7">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
       {[
         { label: 'Total Applicants', value: totalApplicants, sub: 'all time', color: 'var(--color-brand-navy)' },
         { label: 'Activated', value: totalActivated, sub: `${overallConversion}% conversion`, color: 'var(--color-success-600)' },
@@ -125,7 +125,7 @@ const chartData = yearStats.map(s => ({
       ))}
     </div>
 
-    <div class="grid grid-cols-[1fr_280px] gap-5 mb-7">
+    <div class="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-5 mb-7">
 
       <!-- Bar chart -->
       <div class="bg-white border border-neutral-200 rounded-lg p-6">
@@ -157,7 +157,7 @@ const chartData = yearStats.map(s => ({
             const pct = totalInPipeline > 0 ? Math.round((stage.count / totalInPipeline) * 100) : 0
             return (
               <div>
-                <div class="flex justify-between mb-1.25">
+                <div class="flex justify-between mb-1.25 flex-wrap gap-y-2">
                   <div class="flex items-center gap-2">
                     <div style={`width: 8px; height: 8px; border-radius: 50%; background: ${stage.color}; flex-shrink: 0;`}></div>
                     <span class="font-body text-[13px] text-neutral-700">{stage.label}</span>
@@ -182,39 +182,41 @@ const chartData = yearStats.map(s => ({
       <div class="pt-5 pb-4 px-6 border-b border-neutral-100">
         <h2 class="font-heading text-[15px] font-bold text-brand-navy m-0">Cohort Breakdown</h2>
       </div>
-      <table class="w-full border-collapse">
-        <thead>
-          <tr class="bg-neutral-50">
-            {['Year', 'Applicants', 'Activated', 'Cancelled', 'In Progress', 'Conversion'].map(h => (
-              <th class="py-2.5 px-5 text-left font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em]">{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {[...yearStats].reverse().map(s => (
-            <tr class="border-t border-neutral-100 hover:bg-neutral-50">
-              <td class="py-3.25 px-5 font-heading text-sm font-bold text-brand-navy">{s.year}</td>
-              <td class="py-3.25 px-5 font-body text-sm text-neutral-700">{s.applicants}</td>
-              <td class="py-3.25 px-5 font-body text-sm text-success-700 font-medium">{s.activated}</td>
-              <td class="py-3.25 px-5 font-body text-sm text-danger-600">{s.cancelled}</td>
-              <td class="py-3.25 px-5 font-body text-sm text-warning-700">{s.inProgress}</td>
-              <td class="py-3.25 px-5">
-                <div class="flex items-center gap-2">
-                  <div class="flex-1 h-1.5 bg-neutral-100 rounded-full overflow-hidden max-w-20">
-                    <div style={`height: 100%; width: ${s.conversionRate}%; background: ${s.conversionRate >= 70 ? 'var(--color-success-500)' : s.conversionRate >= 40 ? 'var(--color-warning-500)' : 'var(--color-danger-400)'}; border-radius: var(--radius-full);`}></div>
+      <div class="table-scroll">
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="bg-neutral-50">
+              {['Year', 'Applicants', 'Activated', 'Cancelled', 'In Progress', 'Conversion'].map(h => (
+                <th class="py-2.5 px-5 text-left font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em]">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {[...yearStats].reverse().map(s => (
+              <tr class="border-t border-neutral-100 hover:bg-neutral-50">
+                <td class="py-3.25 px-5 font-heading text-sm font-bold text-brand-navy">{s.year}</td>
+                <td class="py-3.25 px-5 font-body text-sm text-neutral-700">{s.applicants}</td>
+                <td class="py-3.25 px-5 font-body text-sm text-success-700 font-medium">{s.activated}</td>
+                <td class="py-3.25 px-5 font-body text-sm text-danger-600">{s.cancelled}</td>
+                <td class="py-3.25 px-5 font-body text-sm text-warning-700">{s.inProgress}</td>
+                <td class="py-3.25 px-5">
+                  <div class="flex items-center gap-2">
+                    <div class="flex-1 h-1.5 bg-neutral-100 rounded-full overflow-hidden max-w-20">
+                      <div style={`height: 100%; width: ${s.conversionRate}%; background: ${s.conversionRate >= 70 ? 'var(--color-success-500)' : s.conversionRate >= 40 ? 'var(--color-warning-500)' : 'var(--color-danger-400)'}; border-radius: var(--radius-full);`}></div>
+                    </div>
+                    <span style={`font-family: var(--font-heading); font-size: 13px; font-weight: 700; ${s.conversionRate >= 70 ? 'color: var(--color-success-700)' : s.conversionRate >= 40 ? 'color: var(--color-warning-700)' : 'color: var(--color-danger-600)'}`}>{s.conversionRate}%</span>
                   </div>
-                  <span style={`font-family: var(--font-heading); font-size: 13px; font-weight: 700; ${s.conversionRate >= 70 ? 'color: var(--color-success-700)' : s.conversionRate >= 40 ? 'color: var(--color-warning-700)' : 'color: var(--color-danger-600)'}`}>{s.conversionRate}%</span>
-                </div>
-              </td>
-            </tr>
-          ))}
-          {yearStats.length === 0 && (
-            <tr>
-              <td colspan="6" class="p-8 text-center font-body text-sm text-neutral-400">No applicant data yet.</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+                </td>
+              </tr>
+            ))}
+            {yearStats.length === 0 && (
+              <tr>
+                <td colspan="6" class="p-8 text-center font-body text-sm text-neutral-400">No applicant data yet.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </DashboardLayout>

@@ -29,7 +29,7 @@ const rows = (committees ?? []) as CommitteeRow[]
 
 <DashboardLayout title="Committees">
   <div>
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6 flex-wrap gap-y-2">
       <div>
         <h1 class="font-heading text-2xl font-bold text-brand-navy m-0 mb-1">Committees</h1>
         <p class="font-body text-sm text-neutral-500 m-0">Chapter committees and working groups.</p>
@@ -55,11 +55,11 @@ const rows = (committees ?? []) as CommitteeRow[]
         action={admin ? { label: 'New Committee', href: '/admin/committees/new' } : undefined}
       />
     ) : (
-      <div class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(300px,1fr))]">
+      <div class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))]">
         {rows.map((c) => (
           <a href={`/admin/committees/${c.id}`}
             class="block bg-white border border-neutral-200 rounded-xl p-5 no-underline hover:border-neutral-300 hover:shadow-sm transition-all">
-            <div class="flex items-start justify-between gap-3 mb-2">
+            <div class="flex items-start justify-between gap-3 mb-2 flex-wrap">
               <h2 class="font-heading text-base font-semibold text-brand-navy m-0">{c.name}</h2>
               <span class="shrink-0 font-body text-xs text-neutral-500 bg-neutral-100 rounded-full px-2.5 py-0.5">
                 {c.person_committees.length} {c.person_committees.length === 1 ? 'member' : 'members'}

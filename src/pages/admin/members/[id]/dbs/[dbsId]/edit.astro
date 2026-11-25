@@ -73,7 +73,7 @@ if (Astro.request.method === 'POST') {
         error={errors.certificate_reference}
         placeholder="e.g. 001234567890"
       />
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input label="Clearance date" name="clearance_date" type="date" value={values.clearance_date} error={errors.clearance_date} />
         <Input label="Expiry date" name="expiry_date" type="date" value={values.expiry_date} error={errors.expiry_date} />
       </div>

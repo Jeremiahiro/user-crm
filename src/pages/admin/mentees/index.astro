@@ -49,7 +49,7 @@ const { data: programmeYears } = await supabaseAdmin
 ---
 
 <DashboardLayout title="Mentees">
-  <div class="flex items-center justify-between mb-6">
+  <div class="flex items-center justify-between mb-6 flex-wrap gap-y-2">
     <div>
       <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Mentees</h1>
       <p class="font-body text-sm text-neutral-500 m-0">{rows.length} mentee{rows.length !== 1 ? 's' : ''}</p>
@@ -63,7 +63,7 @@ const { data: programmeYears } = await supabaseAdmin
   <!-- Filters -->
   <form method="GET" class="flex gap-2.5 mb-5 flex-wrap items-end">
     <input type="text" name="q" value={q} placeholder="Search name, email, school…"
-      class="px-3 py-2 border border-neutral-300 rounded-md font-body text-sm min-w-55" />
+      class="px-3 py-2 border border-neutral-300 rounded-md font-body text-sm w-full sm:w-auto sm:min-w-55" />
     <select name="mentor_id" onchange="this.form.submit()"
       class="px-3 py-2 border border-neutral-300 rounded-md font-body text-sm bg-white">
       <option value="" selected={!mentorId}>All mentors</option>
@@ -97,64 +97,66 @@ const { data: programmeYears } = await supabaseAdmin
         <p class="font-body text-sm text-neutral-400 m-0">No mentees found.</p>
       </div>
     ) : (
-      <table class="w-full border-collapse">
-        <thead class="bg-neutral-50 border-b border-neutral-200">
-          <tr>
-            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Name</th>
-            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">School</th>
-            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Year group</th>
-            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Mentor</th>
-            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Programme year</th>
-            <th class="px-4 py-2.5"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((mentee, i) => {
-            const mentor = (mentee as unknown as { people: { id: string; full_name: string } | null }).people
-            const py = (mentee as unknown as { cmp_programme_years: { id: string; name: string } | null }).cmp_programme_years
-            return (
-              <tr class={i > 0 ? 'border-t border-neutral-100' : ''}>
-                <td class="px-4 py-3.5">
-                  <a href={`/admin/mentees/${mentee.id}`}
-                    class="font-body text-sm font-medium text-brand-navy no-underline">
-                    {mentee.full_name as string}
-                  </a>
-                  <p class="font-body text-xs text-neutral-400 mt-0.5 mb-0">{mentee.email as string}</p>
-                </td>
-                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">
-                  {(mentee.school as string | null) ?? '—'}
-                </td>
-                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">
-                  {(mentee.year_group as string | null) ?? '—'}
-                </td>
-                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">
-                  {mentor ? (
-                    <a href={`/admin/members/${mentor.id}`}
-                      class="text-brand-navy no-underline text-[13px] font-body">
-                      {mentor.full_name}
+      <div class="table-scroll">
+        <table class="w-full border-collapse">
+          <thead class="bg-neutral-50 border-b border-neutral-200">
+            <tr>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Name</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">School</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Year group</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Mentor</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Programme year</th>
+              <th class="px-4 py-2.5"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((mentee, i) => {
+              const mentor = (mentee as unknown as { people: { id: string; full_name: string } | null }).people
+              const py = (mentee as unknown as { cmp_programme_years: { id: string; name: string } | null }).cmp_programme_years
+              return (
+                <tr class={i > 0 ? 'border-t border-neutral-100' : ''}>
+                  <td class="px-4 py-3.5">
+                    <a href={`/admin/mentees/${mentee.id}`}
+                      class="font-body text-sm font-medium text-brand-navy no-underline">
+                      {mentee.full_name as string}
                     </a>
-                  ) : (
-                    <span class="text-neutral-400">Unassigned</span>
-                  )}
-                </td>
-                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">
-                  {py?.year_label ?? '—'}
-                </td>
-                <td class="px-4 py-3.5 text-right">
-                  <a href={`/admin/mentees/${mentee.id}/edit`}
-                    class="font-body text-[13px] text-neutral-500 no-underline mr-3">
-                    Edit
-                  </a>
-                  <a href={`/admin/mentees/${mentee.id}`}
-                    class="font-body text-[13px] text-brand-navy no-underline">
-                    View →
-                  </a>
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+                    <p class="font-body text-xs text-neutral-400 mt-0.5 mb-0">{mentee.email as string}</p>
+                  </td>
+                  <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">
+                    {(mentee.school as string | null) ?? '—'}
+                  </td>
+                  <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">
+                    {(mentee.year_group as string | null) ?? '—'}
+                  </td>
+                  <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">
+                    {mentor ? (
+                      <a href={`/admin/members/${mentor.id}`}
+                        class="text-brand-navy no-underline text-[13px] font-body">
+                        {mentor.full_name}
+                      </a>
+                    ) : (
+                      <span class="text-neutral-400">Unassigned</span>
+                    )}
+                  </td>
+                  <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">
+                    {py?.year_label ?? '—'}
+                  </td>
+                  <td class="px-4 py-3.5 text-right">
+                    <a href={`/admin/mentees/${mentee.id}/edit`}
+                      class="font-body text-[13px] text-neutral-500 no-underline mr-3">
+                      Edit
+                    </a>
+                    <a href={`/admin/mentees/${mentee.id}`}
+                      class="font-body text-[13px] text-brand-navy no-underline">
+                      View →
+                    </a>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     )}
     <Pagination page={page} totalPages={totalPages} baseUrl={paginationBase} />
   </div>

@@ -214,7 +214,7 @@ function pct(n: number, total: number) {
 ---
 
 <DashboardLayout title="Analytics">
-  <div class="flex items-center justify-between mb-7">
+  <div class="flex items-center justify-between mb-7 flex-wrap gap-y-2">
     <div>
       <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Analytics</h1>
       <p class="font-body text-sm text-neutral-500 m-0">Organisation-wide metrics for {currentYear}</p>
@@ -222,7 +222,7 @@ function pct(n: number, total: number) {
   </div>
 
   <!-- ── Top row: 4 summary cards ── -->
-  <div class="grid grid-cols-4 gap-4 mb-6">
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
 
     <!-- Total members -->
     <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6">
@@ -256,7 +256,7 @@ function pct(n: number, total: number) {
   </div>
 
   <!-- ── Main grid ── -->
-  <div class="grid grid-cols-2 gap-6 mb-6">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
     <!-- Member status breakdown -->
     <div class="bg-white border border-neutral-200 rounded-lg p-6">
@@ -267,7 +267,7 @@ function pct(n: number, total: number) {
           const barPct = pct(count, totalMembers)
           return (
             <div>
-              <div class="flex items-center justify-between mb-1">
+              <div class="flex items-center justify-between mb-1 flex-wrap gap-y-2">
                 <span class="font-body text-[13px] font-medium text-neutral-700">{label}</span>
                 <span class="font-heading text-[13px] font-semibold text-neutral-800">{count} <span class="font-normal text-neutral-400">({barPct}%)</span></span>
               </div>
@@ -293,7 +293,7 @@ function pct(n: number, total: number) {
           const barPct = pct(row.count, activeMembers.length)
           return (
             <div>
-              <div class="flex items-center justify-between mb-1">
+              <div class="flex items-center justify-between mb-1 flex-wrap gap-y-2">
                 <span class="font-body text-[13px] font-medium text-neutral-700">{row.label}</span>
                 <span class="font-heading text-[13px] font-semibold text-neutral-800">{row.count}</span>
               </div>
@@ -323,7 +323,7 @@ function pct(n: number, total: number) {
   </div>
 
   <!-- ── Second row ── -->
-  <div class="grid grid-cols-2 gap-6 mb-6">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
     <!-- Pillar participation -->
     <div class="bg-white border border-neutral-200 rounded-lg p-6">
@@ -338,7 +338,7 @@ function pct(n: number, total: number) {
             const barPct = maxCount > 0 ? Math.round((row.count / maxCount) * 100) : 0
             return (
               <div>
-                <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center justify-between mb-1 flex-wrap gap-y-2">
                   <span class="font-body text-[13px] text-neutral-700">{row.name}</span>
                   <span class="font-heading text-[13px] font-semibold text-neutral-800">{row.count}</span>
                 </div>
@@ -365,7 +365,7 @@ function pct(n: number, total: number) {
             const barPct = maxCount > 0 ? Math.round((row.count / maxCount) * 100) : 0
             return (
               <div>
-                <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center justify-between mb-1 flex-wrap gap-y-2">
                   <span class="font-body text-[13px] text-neutral-700">{row.name}</span>
                   <span class="font-heading text-[13px] font-semibold text-neutral-800">{row.count}</span>
                 </div>
@@ -409,27 +409,29 @@ function pct(n: number, total: number) {
     <div class="py-5 px-6 border-b border-neutral-200">
       <h2 class="font-heading text-[15px] font-bold text-neutral-800 m-0">Member type breakdown</h2>
     </div>
-    <table class="w-full border-collapse">
-      <thead class="bg-neutral-50 border-b border-neutral-200">
-        <tr>
-          <th class="font-body text-xs font-semibold text-neutral-500 text-left py-2.5 px-6 uppercase tracking-wider">Type</th>
-          <th class="font-body text-xs font-semibold text-neutral-500 text-right py-2.5 px-6 uppercase tracking-wider">Count</th>
-          <th class="font-body text-xs font-semibold text-neutral-500 text-right py-2.5 px-6 uppercase tracking-wider">% of total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {Object.entries(memberTypeCounts)
-          .sort(([, a], [, b]) => b - a)
-          .map(([type, count], i) => (
-            <tr class={i > 0 ? 'border-t border-neutral-100' : ''}>
-              <td class="py-3 px-6 font-body text-sm text-neutral-800">{snakeToTitle(type)}</td>
-              <td class="py-3 px-6 font-heading text-sm font-semibold text-neutral-700 text-right">{count}</td>
-              <td class="py-3 px-6 font-body text-[13px] text-neutral-500 text-right">{pct(count, totalMembers)}%</td>
-            </tr>
-          ))
-        }
-      </tbody>
-    </table>
+    <div class="table-scroll">
+      <table class="w-full border-collapse">
+        <thead class="bg-neutral-50 border-b border-neutral-200">
+          <tr>
+            <th class="font-body text-xs font-semibold text-neutral-500 text-left py-2.5 px-6 uppercase tracking-wider">Type</th>
+            <th class="font-body text-xs font-semibold text-neutral-500 text-right py-2.5 px-6 uppercase tracking-wider">Count</th>
+            <th class="font-body text-xs font-semibold text-neutral-500 text-right py-2.5 px-6 uppercase tracking-wider">% of total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Object.entries(memberTypeCounts)
+            .sort(([, a], [, b]) => b - a)
+            .map(([type, count], i) => (
+              <tr class={i > 0 ? 'border-t border-neutral-100' : ''}>
+                <td class="py-3 px-6 font-body text-sm text-neutral-800">{snakeToTitle(type)}</td>
+                <td class="py-3 px-6 font-heading text-sm font-semibold text-neutral-700 text-right">{count}</td>
+                <td class="py-3 px-6 font-body text-[13px] text-neutral-500 text-right">{pct(count, totalMembers)}%</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
   </div>
 
 </DashboardLayout>

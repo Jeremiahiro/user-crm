@@ -14,6 +14,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmailBulk } from '@/lib/gmail'
 import { dbsExpiryWarningEmail, dbsExpiredEmail } from '@/lib/email-templates'
 import { classifyDbs } from '@/lib/compliance'
+import { DBS_PERSON_TYPES } from '@/lib/people'
 import { writeAuditLog } from '@/lib/audit'
 import { requireAdmin } from '@/lib/http'
 import { isAdmin } from '@/lib/rbac'
@@ -60,6 +61,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     .select('id, full_name, email, dbs_records(expiry_date)')
     .eq('status', 'active')
     .eq('is_archived', false)
+    .overlaps('person_types', [...DBS_PERSON_TYPES])
 
   type PersonRow = {
     id: string

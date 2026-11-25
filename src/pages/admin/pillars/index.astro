@@ -49,7 +49,7 @@ const rows = (pillars ?? []) as PillarRow[]
       }
     }
   }">
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6 flex-wrap gap-y-2">
       <div>
         <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">
           Pillars
@@ -75,7 +75,7 @@ const rows = (pillars ?? []) as PillarRow[]
     )}
 
     {rows.length > 0 ? (
-      <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+      <div class="bg-white border border-neutral-200 rounded-lg table-scroll">
         <table class="w-full border-collapse">
           <thead>
             <tr class="bg-neutral-100">

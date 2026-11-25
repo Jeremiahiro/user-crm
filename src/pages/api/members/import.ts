@@ -5,6 +5,7 @@ import { writeAuditLog } from '@/lib/audit'
 import { requireAdmin } from '@/lib/http'
 import { ImportMemberRowSchema } from '@/lib/people'
 import { isAdmin } from '@/lib/rbac'
+import { findOfficeEmails } from '@/lib/offices'
 
 const RowSchema = ImportMemberRowSchema
 
@@ -42,6 +43,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     .in('email', rows.map(r => r.email.toLowerCase()))
 
   const existingEmails = new Set((existing ?? []).map(p => (p.email as string).toLowerCase()))
+  const officeEmails = await findOfficeEmails(rows.map(r => r.email))
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
@@ -49,6 +51,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     if (existingEmails.has(emailLower)) {
       results.push({ row: i + 1, email: row.email, status: 'skipped', reason: 'Email already exists' })
+      skipped++
+      continue
+    }
+
+    if (officeEmails.has(emailLower)) {
+      results.push({ row: i + 1, email: row.email, status: 'skipped', reason: 'Office mailbox, not a personal email' })
       skipped++
       continue
     }

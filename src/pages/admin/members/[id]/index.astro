@@ -8,6 +8,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { createHash } from 'node:crypto'
 import { isAdmin, getTeamMemberIds } from '@/lib/rbac'
 import { displayName } from '@/lib/names'
+import { isChapterMember, requiresDbs } from '@/lib/people'
 import { statusVariant, snakeToTitle as titleCase } from '@/lib/utils'
 
 if (!Astro.locals.user) return Astro.redirect('/login')
@@ -221,10 +222,13 @@ const AWARD_LABELS: Record<string, string> = {
   special_recognition: 'Special Recognition',
 }
 
+const showDuesTab = canSeeAdminTabs && isChapterMember(personTypes)
+const showDbsTab  = canSeeAdminTabs && (requiresDbs(personTypes) || dbsRecords.length > 0)
+
 const tabs = [
   { id: 'overview',    label: 'Overview' },
-  ...(canSeeAdminTabs && !member.person_types?.includes('volunteer') ? [{ id: 'dues', label: 'Dues' }] : []),
-  ...(canSeeAdminTabs ? [{ id: 'dbs', label: 'DBS' }] : []),
+  ...(showDuesTab ? [{ id: 'dues', label: 'Dues' }] : []),
+  ...(showDbsTab ? [{ id: 'dbs', label: 'DBS' }] : []),
   { id: 'recognition', label: `Recognition${allAwards.length + allPraise.length > 0 ? ` (${allAwards.length + allPraise.length})` : ''}` },
   ...(canSeeDocumentsTab ? [{ id: 'documents', label: `Documents${memberDocs.length > 0 ? ` (${memberDocs.length})` : ''}` }] : []),
   ...(canSeeAdminTabs ? [{ id: 'activity', label: `Activity${auditEntries.length > 0 ? ` (${auditEntries.length})` : ''}` }] : []),
@@ -267,7 +271,7 @@ const hasApplicationData = !!(
   <div id="member-root" data-member-id={id} data-login-enabled={isLoginEnabled ? 'true' : 'false'} x-data="memberPage()">
     <Breadcrumb crumbs={[breadcrumbParent, { label: profileName }]} />
     <!-- Member header -->
-    <div class="flex items-start justify-between mb-8 pb-6 border-b border-neutral-200">
+    <div class="flex items-start justify-between mb-8 pb-6 border-b border-neutral-200 flex-wrap gap-y-2">
       <div class="flex items-center gap-4">
         <div class="w-16 h-16 rounded-full bg-brand-navy text-white flex items-center justify-center font-heading text-xl font-bold shrink-0 overflow-hidden">
           <img src={(member.profile_photo_url as string | null) ?? gravatarUrl} alt={member.full_name as string} width={64} height={64} class="w-full h-full object-cover" />
@@ -356,10 +360,10 @@ const hasApplicationData = !!(
     </div>
 
     <!-- Tab nav -->
-    <nav class="flex gap-0.5 mb-6 border-b border-neutral-200">
+    <nav class="flex gap-0.5 mb-6 overflow-x-auto [scrollbar-width:none] shadow-[inset_0_-1px_0_var(--color-neutral-200)]">
       {tabs.map(t => (
         <a href={`?tab=${t.id}`}
-           class={`py-2 px-4 font-body text-sm font-medium no-underline rounded-t-md -mb-px border-b-2 border-transparent ${tab === t.id ? 'text-brand-navy border-b-brand-gold bg-neutral-50' : 'text-neutral-500'}`}>
+           class={`shrink-0 whitespace-nowrap py-2 px-4 font-body text-sm font-medium no-underline rounded-t-md border-b-2 border-transparent ${tab === t.id ? 'text-brand-navy border-b-brand-gold bg-neutral-50' : 'text-neutral-500'}`}>
           {t.label}
         </a>
       ))}
@@ -373,10 +377,10 @@ const hasApplicationData = !!(
       <div class="flex flex-col gap-5">
 
         <!-- Personal details + Application -->
-        <div class={`grid ${canSeeApplication && hasApplicationData ? 'grid-cols-2' : 'grid-cols-1'} gap-5`}>
+        <div class={`grid ${canSeeApplication && hasApplicationData ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'} gap-5`}>
           <div class="bg-white border border-neutral-200 rounded-lg p-6">
             <h2 class="font-heading text-[13px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mb-4">Personal details</h2>
-            <dl class="grid [grid-template-columns:120px_1fr] gap-x-4 gap-y-2.5">
+            <dl class="grid grid-cols-1 sm:grid-cols-[120px_1fr] gap-x-4 gap-y-0.5 sm:gap-y-2.5">
               {[
                 ['Email', member.email],
                 ['Secondary Email', (member.email_secondary as string | null) ?? '—'],
@@ -395,7 +399,7 @@ const hasApplicationData = !!(
           </div>
           {canSeeApplication && hasApplicationData && (
             <div class="bg-white border border-neutral-200 rounded-lg p-6">
-              <div class="flex items-center justify-between mb-5">
+              <div class="flex items-center justify-between mb-5 flex-wrap gap-y-2">
                 <h2 class="font-heading text-[13px] font-bold text-neutral-700 m-0">Application</h2>
                 {intakeStatusLabel && (
                   <span class={`font-body text-xs font-semibold px-2.5 py-1 rounded-full ${intakeStatusBadge}`}>
@@ -417,7 +421,7 @@ const hasApplicationData = !!(
                   </div>
                 )}
                 {((member.pillar_interest as string | null) || (member.committee_interest as string | null) || (member.referral_source as string | null) || (member.dbs_consent as boolean | null) !== null || (member.dues_consent as boolean | null) !== null) && (
-                  <dl class="grid grid-cols-[160px_1fr] gap-x-6 gap-y-2.5 pt-4 border-t border-neutral-100">
+                  <dl class="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-x-6 gap-y-0.5 sm:gap-y-2.5 pt-4 border-t border-neutral-100">
                     {(member.pillar_interest as string | null) && (
                       <>
                         <dt class="font-body text-[13px] font-bold text-neutral-500">Pillar Interest</dt>
@@ -464,7 +468,7 @@ const hasApplicationData = !!(
         </div>
 
         <!-- Teams + Roles (side by side) -->
-        <div class={`grid gap-5 ${canSeeAdminTabs ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        <div class={`grid gap-5 ${canSeeAdminTabs ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
 
           <!-- Teams -->
           <div class="bg-white border border-neutral-200 rounded-lg p-6">
@@ -494,7 +498,7 @@ const hasApplicationData = !!(
             {admin && teams.filter(t => !teamAssignments.some(ta => ta.teams?.id === t.id)).length > 0 && (
               <div class="pt-4 mt-4 border-t border-neutral-100">
                 <p class="font-body text-xs font-semibold text-neutral-500 uppercase tracking-[0.06em] mb-3">Add to Team</p>
-                <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-end">
+                <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3 items-end">
                   <div class="flex flex-col gap-1">
                     <label class="font-body text-xs font-medium text-neutral-600">Team</label>
                     <select id="overview-team-select" class="w-full py-2 px-3 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-700 bg-white">
@@ -569,36 +573,38 @@ const hasApplicationData = !!(
           <div class="bg-white border border-neutral-200 rounded-lg p-6">
             <h2 class="font-heading text-[13px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mb-4">Elected Positions</h2>
             {tenures.length > 0 ? (
-              <table class="w-full border-collapse text-[13px] font-body mb-4">
-                <thead>
-                  <tr class="bg-neutral-50">
-                    <th class="py-2 px-3 text-left text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em]">Position</th>
-                    <th class="py-2 px-3 text-left text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em]">Term start</th>
-                    <th class="py-2 px-3 text-left text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em]">Term end</th>
-                    <th class="py-2 px-3 text-left text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em]">Elected by</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tenures.sort((a,b) => a.term_end ? 1 : -1).map((t, i) => (
-                    <tr class={`${i > 0 ? 'border-t border-neutral-100' : ''} ${!t.term_end ? 'bg-neutral-50' : ''}`}>
-                      <td class="py-2.5 px-3">
-                        <div class="flex items-center gap-1.5">
-                          <span class="font-semibold text-brand-navy">{t.elected_positions?.title ?? '—'}</span>
-                          {!t.term_end && <Badge variant="success">Current</Badge>}
-                          {canAssignPosition && (
-                            <button @click={`removeTenure('${t.id}', '${t.position_id}', '${t.elected_positions?.title ?? ''}')`}
-                              class="ml-1 text-neutral-300 hover:text-danger-500 bg-transparent border-none cursor-pointer text-sm leading-none p-0"
-                              title="Remove tenure">×</button>
-                          )}
-                        </div>
-                      </td>
-                      <td class="py-2.5 px-3 text-neutral-700">{t.term_start}</td>
-                      <td class="py-2.5 px-3 text-neutral-500">{t.term_end ?? '—'}</td>
-                      <td class="py-2.5 px-3 text-neutral-600">{(t.elected_by ?? '').replace(/_/g, ' ')}</td>
+              <div class="table-scroll">
+                <table class="w-full border-collapse text-[13px] font-body mb-4">
+                  <thead>
+                    <tr class="bg-neutral-50">
+                      <th class="py-2 px-3 text-left text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em]">Position</th>
+                      <th class="py-2 px-3 text-left text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em]">Term start</th>
+                      <th class="py-2 px-3 text-left text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em]">Term end</th>
+                      <th class="py-2 px-3 text-left text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em]">Elected by</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {tenures.sort((a,b) => a.term_end ? 1 : -1).map((t, i) => (
+                      <tr class={`${i > 0 ? 'border-t border-neutral-100' : ''} ${!t.term_end ? 'bg-neutral-50' : ''}`}>
+                        <td class="py-2.5 px-3">
+                          <div class="flex items-center gap-1.5">
+                            <span class="font-semibold text-brand-navy">{t.elected_positions?.title ?? '—'}</span>
+                            {!t.term_end && <Badge variant="success">Current</Badge>}
+                            {canAssignPosition && (
+                              <button @click={`removeTenure('${t.id}', '${t.position_id}', '${t.elected_positions?.title ?? ''}')`}
+                                class="ml-1 text-neutral-300 hover:text-danger-500 bg-transparent border-none cursor-pointer text-sm leading-none p-0"
+                                title="Remove tenure">×</button>
+                            )}
+                          </div>
+                        </td>
+                        <td class="py-2.5 px-3 text-neutral-700">{t.term_start}</td>
+                        <td class="py-2.5 px-3 text-neutral-500">{t.term_end ?? '—'}</td>
+                        <td class="py-2.5 px-3 text-neutral-600">{(t.elected_by ?? '').replace(/_/g, ' ')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <p class="font-body text-sm text-neutral-400 mb-4">No elected positions recorded.</p>
             )}
@@ -614,7 +620,7 @@ const hasApplicationData = !!(
                       {positions.map(p => <option value={p.id}>{p.title}</option>)}
                     </select>
                   </div>
-                  <div class="grid grid-cols-[1fr_1fr_auto] gap-3 items-end">
+                  <div class="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
                     <div class="flex flex-col gap-1">
                       <label class="font-body text-xs font-medium text-neutral-600">Term start</label>
                       <input type="date" id="position-term-start" value={new Date().toISOString().split('T')[0]}
@@ -658,7 +664,7 @@ const hasApplicationData = !!(
     )}
 
     <!-- ─── Tab: Dues ──────────────────────────────────────────────── -->
-    {tab === 'dues' && (
+    {tab === 'dues' && showDuesTab && (
       <div>
         <p class="font-body text-[13px] text-neutral-500 mb-5">
           Click a month to toggle paid/unpaid. Changes are saved immediately.
@@ -669,7 +675,7 @@ const hasApplicationData = !!(
           const unpaidMonths = months.map((_, i) => i + 1).filter(m => !yearDues.some(d => d.month === m))
           return (
             <div class="bg-white border border-neutral-200 rounded-lg p-6 mb-4">
-              <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center justify-between mb-4 flex-wrap gap-y-2">
                 <h3 class="font-heading text-base font-bold text-brand-navy m-0">{year}</h3>
                 {!allPaid && (
                   <button
@@ -684,7 +690,7 @@ const hasApplicationData = !!(
                   <span class="font-body text-xs text-success-700 font-semibold">All paid ✓</span>
                 )}
               </div>
-              <div class="grid grid-cols-6 gap-2">
+              <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
                 {months.map((month, i) => {
                   const monthNum = i + 1
                   const paid = yearDues.find(d => d.month === monthNum)
@@ -708,7 +714,7 @@ const hasApplicationData = !!(
     )}
 
     <!-- ─── Tab: DBS ───────────────────────────────────────────────── -->
-    {tab === 'dbs' && (
+    {tab === 'dbs' && showDbsTab && (
       <div>
         <div class="flex items-center justify-end mb-5">
           <a href={`/admin/members/${id}/dbs/new`}
@@ -717,7 +723,7 @@ const hasApplicationData = !!(
           </a>
         </div>
         {dbsRecords.length > 0 ? (
-          <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+          <div class="bg-white border border-neutral-200 rounded-lg table-scroll">
             <table class="w-full border-collapse">
               <thead>
                 <tr class="bg-neutral-100">
@@ -803,7 +809,7 @@ const hasApplicationData = !!(
         </div>
 
         <!-- Side-by-side grid -->
-        <div class="grid grid-cols-2 gap-5 items-start">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
 
           <!-- ── Awards column ─────────────────────────────────────── -->
           <div>
@@ -833,7 +839,7 @@ const hasApplicationData = !!(
             )}
             {/* Awards pagination */}
             {awardsTotalPages > 1 && (
-              <div class="flex items-center justify-between mt-2.5">
+              <div class="flex items-center justify-between mt-2.5 flex-wrap gap-y-2">
                 <span class="font-body text-xs text-neutral-400">
                   {awardsPageClamped}/{awardsTotalPages}
                 </span>
@@ -877,7 +883,7 @@ const hasApplicationData = !!(
             )}
             {/* Praise pagination */}
             {praiseTotalPages > 1 && (
-              <div class="flex items-center justify-between mt-2.5">
+              <div class="flex items-center justify-between mt-2.5 flex-wrap gap-y-2">
                 <span class="font-body text-xs text-neutral-400">
                   {praisePageClamped}/{praiseTotalPages}
                 </span>
@@ -907,7 +913,7 @@ const hasApplicationData = !!(
             No activity recorded yet.
           </div>
         ) : (
-          <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+          <div class="bg-white border border-neutral-200 rounded-lg table-scroll">
             <table class="w-full border-collapse text-[13px] font-body">
               <thead>
                 <tr class="bg-neutral-50 border-b border-neutral-200">
@@ -941,7 +947,7 @@ const hasApplicationData = !!(
 
     {tab === 'documents' && canSeeDocumentsTab && (
       <div>
-        <div class="flex items-center justify-between mb-5">
+        <div class="flex items-center justify-between mb-5 flex-wrap gap-y-2">
           <h2 class="font-heading text-base font-bold text-brand-navy m-0">Documents</h2>
           <a href={`/admin/documents/upload?person_id=${id}`}
             class="py-2 px-4 bg-brand-navy text-white rounded-md font-body text-[13px] font-semibold no-underline">
@@ -953,7 +959,7 @@ const hasApplicationData = !!(
             <p class="font-body text-sm text-neutral-400 m-0">No documents uploaded yet.</p>
           </div>
         ) : (
-          <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+          <div class="bg-white border border-neutral-200 rounded-lg table-scroll">
             <table class="w-full border-collapse">
               <thead class="bg-neutral-50 border-b border-neutral-200">
                 <tr>

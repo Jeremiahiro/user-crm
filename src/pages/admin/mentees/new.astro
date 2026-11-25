@@ -72,15 +72,15 @@ if (Astro.request.method === 'POST') {
       <div class="bg-white border border-neutral-200 rounded-lg p-7">
         <h2 class="font-heading text-sm font-bold text-neutral-800 mb-5 uppercase tracking-wider">Mentee details</h2>
         <div class="flex flex-col gap-4">
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="Full name *" name="full_name" value={values.full_name} error={errors.full_name} required />
             <Input label="Email *" name="email" type="email" value={values.email} error={errors.email} required />
           </div>
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="Phone" name="phone" type="tel" value={values.phone} error={errors.phone} />
             <Input label="Date of birth" name="date_of_birth" type="date" value={values.date_of_birth} error={errors.date_of_birth} />
           </div>
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="School" name="school" value={values.school} error={errors.school} />
             <Input label="Year group" name="year_group" value={values.year_group} error={errors.year_group} placeholder="e.g. Year 10" />
           </div>
@@ -92,7 +92,7 @@ if (Astro.request.method === 'POST') {
         <h2 class="font-heading text-sm font-bold text-neutral-800 mb-5 uppercase tracking-wider">Parent / Guardian</h2>
         <div class="flex flex-col gap-4">
           <Input label="Name" name="parent_guardian_name" value={values.parent_guardian_name} error={errors.parent_guardian_name} />
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="Email" name="parent_guardian_email" type="email" value={values.parent_guardian_email} error={errors.parent_guardian_email} />
             <Input label="Phone" name="parent_guardian_phone" type="tel" value={values.parent_guardian_phone} error={errors.parent_guardian_phone} />
           </div>
@@ -103,7 +103,7 @@ if (Astro.request.method === 'POST') {
       <div class="bg-white border border-neutral-200 rounded-lg p-7">
         <h2 class="font-heading text-sm font-bold text-neutral-800 mb-5 uppercase tracking-wider">Programme</h2>
         <div class="flex flex-col gap-4">
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="flex flex-col gap-1">
               <label class="font-body text-[13px] font-medium text-neutral-700">Mentor</label>
               <select name="mentor_id"

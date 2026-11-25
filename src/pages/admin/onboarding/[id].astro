@@ -288,7 +288,7 @@ const authorName = Astro.locals.user.name ?? Astro.locals.user.email
     </div>
 
     <!-- Two-column layout -->
-    <div class="grid gap-6 items-start grid-cols-[1fr_360px]">
+    <div class="grid gap-6 items-start grid-cols-1 lg:grid-cols-[1fr_360px]">
 
       <!-- ── LEFT COLUMN ── -->
       <div class="flex flex-col gap-5">
@@ -495,7 +495,7 @@ const authorName = Astro.locals.user.name ?? Astro.locals.user.email
       </div>
 
       <!-- ── RIGHT SIDEBAR — TIMELINE ── -->
-      <div class="sticky top-5 flex flex-col gap-4">
+      <div class="lg:sticky lg:top-5 flex flex-col gap-4">
 
         <!-- Actions (hidden when no actions are available, e.g. active members) -->
         {(nextAction || prevAction || isCancelled || (!isCancelled && currentStatus !== 'active')) && (
@@ -509,7 +509,7 @@ const authorName = Astro.locals.user.name ?? Astro.locals.user.email
                 <button
                   @click="canAdvance && openAdvance()"
                   :disabled="!canAdvance"
-                  class="w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-lg border-none text-left transition-colors duration-150 font-body text-[13px] font-semibold"
+                  class="w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-lg border-none text-left transition-colors duration-150 font-body text-[13px] font-semibold flex-wrap"
                   :class="canAdvance ? 'bg-brand-navy text-white cursor-pointer hover:bg-brand-navy/90' : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'">
                   {nextAction}
                   <svg class="w-3.5 h-3.5 shrink-0 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
@@ -538,7 +538,7 @@ const authorName = Astro.locals.user.name ?? Astro.locals.user.email
             )}
             {isCancelled && (
               <button @click="openReinstate()"
-                class="w-full flex items-center justify-between gap-2 px-4 py-2.5 bg-brand-navy text-white rounded-lg border-none text-left cursor-pointer hover:bg-brand-navy/90 transition-colors duration-150 font-body text-[13px] font-semibold">
+                class="w-full flex items-center justify-between gap-2 px-4 py-2.5 bg-brand-navy text-white rounded-lg border-none text-left cursor-pointer hover:bg-brand-navy/90 transition-colors duration-150 font-body text-[13px] font-semibold flex-wrap">
                 Reinstate applicant
                 <svg class="w-3.5 h-3.5 shrink-0 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
@@ -598,7 +598,7 @@ const authorName = Astro.locals.user.name ?? Astro.locals.user.email
                 </div>
 
                 <!-- Content -->
-                <div class="flex items-start justify-between gap-2">
+                <div class="flex items-start justify-between gap-2 flex-wrap">
                   <div class="flex-1 min-w-0">
                     <template x-if="ev.event_type === 'stage_change'">
                       <p class="font-body text-[13px] text-neutral-800 m-0 mb-0.5">

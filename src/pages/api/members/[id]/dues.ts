@@ -48,6 +48,18 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     })
   }
 
+  await supabaseAdmin
+    .from('dues_submissions')
+    .update({
+      status: 'approved',
+      reviewed_by: locals.user.person_id,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq('person_id', params.id ?? '')
+    .eq('year', parsed.data.year)
+    .eq('month', parsed.data.month)
+    .eq('status', 'pending')
+
   await writeAuditLog({
     actorId: locals.user.person_id,
     action: 'create',

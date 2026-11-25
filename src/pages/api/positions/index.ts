@@ -4,12 +4,14 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { writeAuditLog } from '@/lib/audit'
 import { requireAdmin } from '@/lib/http'
 import { isAdmin } from '@/lib/rbac'
+import { officeEmailConflict } from '@/lib/offices'
 
 const CreatePositionSchema = z.object({
   title: z.string().min(1, 'Title is required').max(100),
   description: z.string().optional(),
   order_of_precedence: z.coerce.number().int().optional(),
   linked_system_role_id: z.string().uuid().optional().nullable(),
+  email: z.string().trim().toLowerCase().email('Invalid email address').optional().nullable(),
 })
 
 export const GET: APIRoute = async ({ locals }) => {
@@ -59,6 +61,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
       JSON.stringify({ error: 'Validation failed', issues: parsed.error.flatten() }),
       { status: 422, headers: { 'Content-Type': 'application/json' } },
     )
+  }
+
+  if (parsed.data.email) {
+    const conflict = await officeEmailConflict(parsed.data.email)
+    if (conflict) {
+      return new Response(
+        JSON.stringify({ error: conflict, issues: { fieldErrors: { email: [conflict] } } }),
+        { status: 409, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
   }
 
   const { data: position, error } = await supabaseAdmin

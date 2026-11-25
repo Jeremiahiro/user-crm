@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro'
 import { supabaseAdmin } from '@/lib/supabase'
 import { classifyDbs } from '@/lib/compliance'
+import { DBS_PERSON_TYPES } from '@/lib/people'
 
 export const GET: APIRoute = async ({ locals, url }) => {
   if (!locals.user) return new Response('Unauthorised', { status: 401 })
@@ -20,6 +21,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
     .from('people')
     .select('id, full_name, email, dbs_records!dbs_records_person_id_fkey(expiry_date, clearance_date, created_at)')
     .eq('is_archived', false)
+    .overlaps('person_types', [...DBS_PERSON_TYPES])
     .order('full_name')
 
   const members = (rawMembers ?? []) as unknown as PersonRow[]

@@ -1,0 +1,36 @@
+---
+import { shortTeamName, snakeToTitle } from '@/lib/utils'
+
+interface Props {
+  personTypes: string[] | null
+  personTeams: { is_team_lead: boolean; teams: { id: string; name: string } | null }[] | null
+  maxTeams?: number
+}
+
+const { personTypes, personTeams, maxTeams = 2 } = Astro.props
+
+const types = (personTypes ?? []).map(snakeToTitle).join(' · ')
+const teams = (personTeams ?? []).flatMap(pt => (pt.teams ? [{ ...pt.teams, lead: pt.is_team_lead }] : []))
+const shown = teams.slice(0, maxTeams)
+const hidden = teams.slice(maxTeams)
+---
+
+<p class="font-body text-xs text-neutral-500 m-0 truncate" title={types || undefined}>{types || '—'}</p>
+{teams.length > 0 && (
+  <div class="flex flex-wrap gap-1 mt-1.5">
+    {shown.map(t => (
+      <span
+        title={`${t.name}${t.lead ? ' (team lead)' : ''}`}
+        class="inline-block max-w-40 truncate whitespace-nowrap font-body text-xs text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full">
+        {t.lead ? '★ ' : ''}{shortTeamName(t.name)}
+      </span>
+    ))}
+    {hidden.length > 0 && (
+      <span
+        title={hidden.map(t => t.name).join(', ')}
+        class="inline-block whitespace-nowrap font-body text-xs text-neutral-500 border border-neutral-200 px-2 py-0.5 rounded-full">
+        +{hidden.length}
+      </span>
+    )}
+  </div>
+)}

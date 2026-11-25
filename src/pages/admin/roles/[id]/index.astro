@@ -41,7 +41,7 @@ function getInitials(name: string) {
 <DashboardLayout title={role.name as string}>
   <div>
     <!-- Header -->
-    <div class="flex items-start justify-between mb-7 pb-5 border-b border-neutral-200">
+    <div class="flex items-start justify-between mb-7 pb-5 border-b border-neutral-200 flex-wrap gap-y-2">
       <div>
         <a href="/admin/roles" class="font-body text-[13px] text-neutral-500 no-underline block mb-2">← Roles</a>
         <div class="flex items-center gap-2.5">
@@ -67,7 +67,7 @@ function getInitials(name: string) {
       </h2>
 
       {members.length > 0 ? (
-        <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+        <div class="bg-white border border-neutral-200 rounded-lg table-scroll">
           <table class="w-full border-collapse">
             <thead>
               <tr class="bg-neutral-100">

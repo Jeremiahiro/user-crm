@@ -3,11 +3,13 @@ import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase'
 import { writeAuditLog } from '@/lib/audit'
 import { isAdmin } from '@/lib/rbac'
+import { officeEmailConflict } from '@/lib/offices'
 
 const UpdatePositionSchema = z.object({
   title: z.string().min(1, 'Title is required').max(100).optional(),
   description: z.string().optional().nullable(),
   order_of_precedence: z.coerce.number().int().optional().nullable(),
+  email: z.string().trim().toLowerCase().email('Invalid email address').optional().nullable(),
 })
 
 // PUT /api/positions/:id — update position details
@@ -45,6 +47,16 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
       JSON.stringify({ error: 'Validation failed', issues: parsed.error.flatten() }),
       { status: 422, headers: { 'Content-Type': 'application/json' } },
     )
+  }
+
+  if (parsed.data.email) {
+    const conflict = await officeEmailConflict(parsed.data.email, id)
+    if (conflict) {
+      return new Response(
+        JSON.stringify({ error: conflict, issues: { fieldErrors: { email: [conflict] } } }),
+        { status: 409, headers: { 'Content-Type': 'application/json' } },
+      )
+    }
   }
 
   const { data: before } = await supabaseAdmin
@@ -113,7 +125,14 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
   }
 
   const { data: position } = await supabaseAdmin
-    .from('elected_positions').select('title').eq('id', id).single()
+    .from('elected_positions').select('title, team_id').eq('id', id).single()
+
+  if (position?.team_id) {
+    return new Response(
+      JSON.stringify({ error: 'This is a team lead office. Archive the team instead.' }),
+      { status: 409, headers: { 'Content-Type': 'application/json' } },
+    )
+  }
 
   const { error } = await supabaseAdmin.from('elected_positions').delete().eq('id', id)
 
