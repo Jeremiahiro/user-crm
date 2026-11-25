@@ -90,7 +90,7 @@ function countInCategory(cat: string) {
       }
     }
   }">
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6 flex-wrap gap-y-2">
       <div>
         <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Email Templates</h1>
         <p class="font-body text-sm text-neutral-500 m-0">
@@ -104,7 +104,7 @@ function countInCategory(cat: string) {
     </div>
 
     <!-- Category tabs -->
-    <div class="flex gap-1 mb-5 border-b border-neutral-200 pb-0">
+    <div class="flex gap-1 mb-5 overflow-x-auto [scrollbar-width:none] shadow-[inset_0_-1px_0_var(--color-neutral-200)]">
       {[['all', 'All', visibleTemplates.length], ...CATEGORIES.map(c => [c, CATEGORY_LABELS[c], countInCategory(c)])].map(([cat, label, count]) => {
         const active = categoryFilter === cat
         const href = cat === 'all'
@@ -112,7 +112,7 @@ function countInCategory(cat: string) {
           : `/admin/email-templates?category=${cat}${showArchived ? '&archived=1' : ''}`
         return (
           <a href={href}
-            class={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-t-md font-body text-[13px] no-underline -mb-px border-b-2 ${active ? 'font-semibold text-brand-navy border-brand-navy' : 'font-normal text-neutral-500 border-transparent'}`}>
+            class={`shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-3.5 py-2 rounded-t-md font-body text-[13px] no-underline border-b-2 ${active ? 'font-semibold text-brand-navy border-brand-navy' : 'font-normal text-neutral-500 border-transparent'}`}>
             {label}
             <span class={`text-[11px] px-1.5 py-0.25 rounded-5 ${active ? 'bg-brand-navy text-white' : 'bg-neutral-200 text-neutral-600'}`}>{count}</span>
           </a>
@@ -135,7 +135,7 @@ function countInCategory(cat: string) {
         </a>
       </div>
     ) : (
-      <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+      <div class="bg-white border border-neutral-200 rounded-lg table-scroll">
         <table class="w-full border-collapse">
           <thead class="bg-neutral-50 border-b border-neutral-200">
             <tr>

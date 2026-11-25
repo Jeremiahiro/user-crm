@@ -49,7 +49,7 @@ function fmtDate(iso: string) {
     <Breadcrumb crumbs={[{ label: 'Committees', href: '/admin/committees' }, { label: committee.name }]} />
 
     <!-- Header -->
-    <div class="flex items-start justify-between mb-6 gap-4">
+    <div class="flex items-start justify-between mb-6 gap-4 flex-wrap">
       <div>
         <h1 class="font-heading text-2xl font-bold text-brand-navy m-0 mb-1">{committee.name}</h1>
         {committee.description && (
@@ -72,7 +72,7 @@ function fmtDate(iso: string) {
 
     <!-- Members card -->
     <div class="bg-white border border-neutral-200 rounded-xl p-6">
-      <div class="flex items-center justify-between mb-5">
+      <div class="flex items-center justify-between mb-5 flex-wrap gap-y-2">
         <h2 class="font-heading text-base font-semibold text-brand-navy m-0">
           Members
           <span class="font-body text-sm font-normal text-neutral-400 ml-1.5">({members.length})</span>
@@ -90,7 +90,7 @@ function fmtDate(iso: string) {
       ) : (
         <div class="divide-y divide-neutral-100">
           {members.map((m) => (
-            <div class="flex items-center justify-between py-3 gap-3">
+            <div class="flex items-center justify-between py-3 gap-3 flex-wrap">
               <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-full bg-brand-navy/10 text-brand-navy flex items-center justify-center text-xs font-semibold font-body shrink-0 overflow-hidden">
                   {m.people.profile_photo_url

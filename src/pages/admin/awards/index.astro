@@ -110,7 +110,7 @@ const AWARD_LABELS: Record<string, string> = {
       }
     }
   }">
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6 flex-wrap gap-y-2">
       <div>
         <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Awards</h1>
         <p class="font-body text-sm text-neutral-500 m-0">{awardCount ?? 0} award{(awardCount ?? 0) !== 1 ? 's' : ''} in {selectedYear}</p>
@@ -148,58 +148,60 @@ const AWARD_LABELS: Record<string, string> = {
           )}
         </div>
       ) : (
-        <table class="w-full border-collapse">
-          <thead class="bg-neutral-50 border-b border-neutral-200">
-            <tr>
-              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Award</th>
-              {admin && <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Recipient</th>}
-              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Year</th>
-              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Awarded by</th>
-              {admin && <th class="px-4 py-2.5"></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((award, i) => {
-              const recipientName = award.person_id ? (recipientMap.get(award.person_id) ?? '—') : '—'
-              const grantorName = award.awarded_by ? (grantorMap.get(award.awarded_by) ?? '—') : '—'
-              return (
-                <tr data-award-id={award.id} class={i > 0 ? 'border-t border-neutral-100' : ''}>
-                  <td class="px-4 py-3.5">
-                    <div class="flex items-center gap-2.5">
-                      <span class="text-xl">🏆</span>
-                      <div>
-                        <p class="font-body text-sm font-semibold text-brand-gold mb-0.5">{AWARD_LABELS[award.type] ?? award.type}</p>
-                        {award.citation && <p class="font-body text-xs text-neutral-500 m-0">{award.citation}</p>}
-                      </div>
-                    </div>
-                  </td>
-                  {admin && (
+        <div class="table-scroll">
+          <table class="w-full border-collapse">
+            <thead class="bg-neutral-50 border-b border-neutral-200">
+              <tr>
+                <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Award</th>
+                {admin && <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Recipient</th>}
+                <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Year</th>
+                <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Awarded by</th>
+                {admin && <th class="px-4 py-2.5"></th>}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((award, i) => {
+                const recipientName = award.person_id ? (recipientMap.get(award.person_id) ?? '—') : '—'
+                const grantorName = award.awarded_by ? (grantorMap.get(award.awarded_by) ?? '—') : '—'
+                return (
+                  <tr data-award-id={award.id} class={i > 0 ? 'border-t border-neutral-100' : ''}>
                     <td class="px-4 py-3.5">
-                      {award.person_id ? (
-                        <a href={`/admin/members/${award.person_id}`}
-                          class="font-body text-sm font-medium text-brand-navy no-underline">
-                          {recipientName}
-                        </a>
-                      ) : <span class="text-neutral-400">—</span>}
+                      <div class="flex items-center gap-2.5">
+                        <span class="text-xl">🏆</span>
+                        <div>
+                          <p class="font-body text-sm font-semibold text-brand-gold mb-0.5">{AWARD_LABELS[award.type] ?? award.type}</p>
+                          {award.citation && <p class="font-body text-xs text-neutral-500 m-0">{award.citation}</p>}
+                        </div>
+                      </div>
                     </td>
-                  )}
-                  <td class="px-4 py-3.5 font-heading text-sm font-semibold text-neutral-700">{award.year}</td>
-                  <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600">
-                    {grantorName}
-                  </td>
-                  {admin && (
-                    <td class="px-4 py-3.5 text-right">
-                      <button @click={`openModal('${award.id}')`}
-                        class="px-2.5 py-1 bg-neutral-100 border border-neutral-200 rounded-md font-body text-xs text-neutral-600 cursor-pointer">
-                        Delete
-                      </button>
+                    {admin && (
+                      <td class="px-4 py-3.5">
+                        {award.person_id ? (
+                          <a href={`/admin/members/${award.person_id}`}
+                            class="font-body text-sm font-medium text-brand-navy no-underline">
+                            {recipientName}
+                          </a>
+                        ) : <span class="text-neutral-400">—</span>}
+                      </td>
+                    )}
+                    <td class="px-4 py-3.5 font-heading text-sm font-semibold text-neutral-700">{award.year}</td>
+                    <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600">
+                      {grantorName}
                     </td>
-                  )}
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+                    {admin && (
+                      <td class="px-4 py-3.5 text-right">
+                        <button @click={`openModal('${award.id}')`}
+                          class="px-2.5 py-1 bg-neutral-100 border border-neutral-200 rounded-md font-body text-xs text-neutral-600 cursor-pointer">
+                          Delete
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
       <Pagination page={page} totalPages={totalPages} baseUrl={paginationBase} />
     </div>

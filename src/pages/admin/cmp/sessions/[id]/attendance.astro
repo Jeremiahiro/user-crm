@@ -78,7 +78,7 @@ function formatDate(d: string | null) {
 <DashboardLayout title={`Attendance — ${session.title as string}`}>
   <Breadcrumb crumbs={[{ label: 'CMP', href: '/admin/cmp' }, { label: session.title as string, href: `/admin/cmp/sessions/${id}` }, { label: 'Attendance' }]} />
 
-  <div class="flex items-start justify-between mb-7">
+  <div class="flex items-start justify-between mb-7 flex-wrap gap-y-2">
     <div>
       <h1 class="font-heading text-[22px] font-bold text-brand-navy mb-1">
         Mark Attendance
@@ -112,12 +112,12 @@ function formatDate(d: string | null) {
 
   <!-- ── Mentors ─────────────────────────────────────────────────────────── -->
   <div class="mb-7">
-    <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center justify-between mb-3 flex-wrap gap-y-2">
       <h2 class="font-heading text-sm font-bold text-neutral-500 m-0 uppercase tracking-[0.05em]">
         Mentors (<span id="mentor-count">{mentorAtt.size}</span>)
       </h2>
-      <div class="flex gap-2 items-center">
-        <select id="mentor-select" class="px-3 py-1.75 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-700 bg-white max-w-60">
+      <div class="flex gap-2 items-center w-full sm:w-auto">
+        <select id="mentor-select" class="px-3 py-1.75 border border-neutral-300 rounded-md font-body text-[13px] text-neutral-700 bg-white flex-1 min-w-0 sm:flex-none sm:max-w-60">
           <option value="">— Select a mentor —</option>
           {peopleRows.filter(p => !mentorIdsOnList.has(p.id as string)).map(p => (
             <option value={p.id as string}>{p.full_name as string}</option>
@@ -139,17 +139,17 @@ function formatDate(d: string | null) {
       {Array.from(mentorAtt.entries()).map(([personId, att], i) => {
         const person = peopleRows.find(p => p.id === personId)
         return (
-          <div class={`att-row mentor-row flex items-center justify-between px-5 py-3.5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}
+          <div class={`att-row mentor-row flex items-center justify-between px-5 py-3.5 ${i > 0 ? 'border-t border-neutral-100' : ''} flex-wrap gap-y-2`}
             id={`mentor-row-${personId}`}
             data-att-id={att.id}
             data-person-id={personId}>
             <p class="font-body text-sm font-medium text-neutral-800 m-0">
               {person?.full_name ?? 'Unknown'}
             </p>
-            <div class="flex gap-1.5 items-center">
+            <div class="flex gap-1.5 items-center w-full sm:w-auto">
               {(['present', 'absent', 'apology'] as const).map(s => (
                 <button
-                  class={`att-btn${att.status === s ? ' active' : ''} px-3.5 py-1.5 border-[1.5px] rounded-md font-body text-[13px] font-medium cursor-pointer ${s === 'present' ? 'border-success-300' : s === 'apology' ? 'border-warning-300' : 'border-neutral-300'} ${att.status === s ? (s === 'present' ? 'bg-success-100 text-success-700' : s === 'apology' ? 'bg-warning-100 text-warning-700' : 'bg-neutral-200 text-neutral-700') : 'bg-white text-neutral-600'}`}
+                  class={`att-btn${att.status === s ? ' active' : ''} flex-1 sm:flex-none px-3.5 py-2.5 sm:py-1.5 border-[1.5px] rounded-md font-body text-[13px] font-medium cursor-pointer ${s === 'present' ? 'border-success-300' : s === 'apology' ? 'border-warning-300' : 'border-neutral-300'} ${att.status === s ? (s === 'present' ? 'bg-success-100 text-success-700' : s === 'apology' ? 'bg-warning-100 text-warning-700' : 'bg-neutral-200 text-neutral-700') : 'bg-white text-neutral-600'}`}
                   data-status={s}
                   data-session-id={id}
                   data-person-id={personId}
@@ -178,7 +178,7 @@ function formatDate(d: string | null) {
         {menteeRows.map((mentee, i) => {
           const att = menteeAtt.get(mentee.id as string)
           return (
-            <div class={`flex items-center justify-between px-5 py-3.5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}
+            <div class={`flex items-center justify-between px-5 py-3.5 ${i > 0 ? 'border-t border-neutral-100' : ''} flex-wrap gap-y-2`}
               data-mentee-id={mentee.id as string}
               data-att-id={att?.id ?? ''}>
               <div>
@@ -189,10 +189,10 @@ function formatDate(d: string | null) {
                   </p>
                 )}
               </div>
-              <div class="status-buttons flex gap-1.5">
+              <div class="status-buttons flex gap-1.5 w-full sm:w-auto">
                 {(['present', 'absent', 'apology'] as const).map(s => (
                   <button
-                    class={`att-btn${att?.status === s ? ' active' : ''} px-3.5 py-1.5 border-[1.5px] rounded-md font-body text-[13px] font-medium cursor-pointer ${s === 'present' ? 'border-success-300' : s === 'apology' ? 'border-warning-300' : 'border-neutral-300'} ${att?.status === s ? (s === 'present' ? 'bg-success-100 text-success-700' : s === 'apology' ? 'bg-warning-100 text-warning-700' : 'bg-neutral-200 text-neutral-700') : 'bg-white text-neutral-600'}`}
+                    class={`att-btn${att?.status === s ? ' active' : ''} flex-1 sm:flex-none px-3.5 py-2.5 sm:py-1.5 border-[1.5px] rounded-md font-body text-[13px] font-medium cursor-pointer ${s === 'present' ? 'border-success-300' : s === 'apology' ? 'border-warning-300' : 'border-neutral-300'} ${att?.status === s ? (s === 'present' ? 'bg-success-100 text-success-700' : s === 'apology' ? 'bg-warning-100 text-warning-700' : 'bg-neutral-200 text-neutral-700') : 'bg-white text-neutral-600'}`}
                     data-status={s}
                     data-session-id={id}
                     data-mentee-id={mentee.id as string}
@@ -210,13 +210,13 @@ function formatDate(d: string | null) {
 
   <!-- ── Parents ────────────────────────────────────────────────────────── -->
   <div class="mb-7">
-    <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center justify-between mb-3 flex-wrap gap-y-2">
       <h2 class="font-heading text-sm font-bold text-neutral-500 m-0 uppercase tracking-[0.05em]">
         Parents (<span id="parent-count">{parentRows.length}</span>)
       </h2>
-      <div class="flex gap-2 items-center">
+      <div class="flex gap-2 items-center w-full sm:w-auto">
         <input id="parent-name-input" type="text" placeholder="Parent name"
-          class="px-3 py-1.75 border border-neutral-300 rounded-md font-body text-[13px] w-50" />
+          class="px-3 py-1.75 border border-neutral-300 rounded-md font-body text-[13px] flex-1 min-w-0 sm:flex-none sm:w-50" />
         <button id="add-parent-btn"
           class="px-4 py-1.75 bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
           Add
@@ -230,7 +230,7 @@ function formatDate(d: string | null) {
         </div>
       )}
       {parentRows.map((a, i) => (
-        <div class={`visitor-row flex items-center justify-between px-5 py-3.5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}
+        <div class={`visitor-row flex items-center justify-between px-5 py-3.5 ${i > 0 ? 'border-t border-neutral-100' : ''} flex-wrap gap-y-2`}
           id={`parent-row-${a.id}`}>
           <p class="font-body text-sm font-medium text-neutral-800 m-0">{a.visitor_name ?? '—'}</p>
           <div class="flex gap-2 items-center">
@@ -247,13 +247,13 @@ function formatDate(d: string | null) {
 
   <!-- ── Visitors ───────────────────────────────────────────────────────── -->
   <div class="mb-7">
-    <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center justify-between mb-3 flex-wrap gap-y-2">
       <h2 class="font-heading text-sm font-bold text-neutral-500 m-0 uppercase tracking-[0.05em]">
         Visitors (<span id="visitor-count">{visitorRows.length}</span>)
       </h2>
-      <div class="flex gap-2 items-center">
+      <div class="flex gap-2 items-center w-full sm:w-auto">
         <input id="visitor-name-input" type="text" placeholder="Visitor name"
-          class="px-3 py-1.75 border border-neutral-300 rounded-md font-body text-[13px] w-50" />
+          class="px-3 py-1.75 border border-neutral-300 rounded-md font-body text-[13px] flex-1 min-w-0 sm:flex-none sm:w-50" />
         <button id="add-visitor-btn"
           class="px-4 py-1.75 bg-brand-navy text-white border-0 rounded-md font-body text-[13px] font-semibold cursor-pointer">
           Add
@@ -267,7 +267,7 @@ function formatDate(d: string | null) {
         </div>
       )}
       {visitorRows.map((a, i) => (
-        <div class={`visitor-row flex items-center justify-between px-5 py-3.5 ${i > 0 ? 'border-t border-neutral-100' : ''}`}
+        <div class={`visitor-row flex items-center justify-between px-5 py-3.5 ${i > 0 ? 'border-t border-neutral-100' : ''} flex-wrap gap-y-2`}
           id={`visitor-row-${a.id}`}>
           <p class="font-body text-sm font-medium text-neutral-800 m-0">{a.visitor_name ?? '—'}</p>
           <div class="flex gap-2 items-center">
@@ -404,12 +404,12 @@ function formatDate(d: string | null) {
     row.id = `mentor-row-${personId}`
     row.dataset.attId = data.id
     row.dataset.personId = personId
-    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid var(--color-neutral-100);'
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;row-gap:8px;padding:14px 20px;border-top:1px solid var(--color-neutral-100);'
     row.innerHTML = `
       <p style="font-family:var(--font-body);font-size:14px;font-weight:500;color:var(--color-neutral-800);margin:0;">${personName}</p>
-      <div style="display:flex;gap:6px;align-items:center;">
+      <div class="flex gap-1.5 items-center w-full sm:w-auto">
         ${['present','absent','apology'].map(s => `
-          <button class="att-btn${s === 'present' ? ' active' : ''}" data-status="${s}" data-session-id="${sessionId}" data-person-id="${personId}" data-role="mentor"
+          <button class="att-btn${s === 'present' ? ' active' : ''} flex-1 sm:flex-none" data-status="${s}" data-session-id="${sessionId}" data-person-id="${personId}" data-role="mentor"
             style="padding:6px 14px;border:1.5px solid ${s==='present'?'var(--color-success-300)':s==='apology'?'var(--color-warning-300)':'var(--color-neutral-300)'};border-radius:var(--radius-md);font-family:var(--font-body);font-size:13px;font-weight:500;cursor:pointer;background:${s==='present'?'var(--color-success-100)':'white'};color:${s==='present'?'var(--color-success-700)':'var(--color-neutral-600)'};">
             ${s.charAt(0).toUpperCase()+s.slice(1)}
           </button>`).join('')}
@@ -463,7 +463,7 @@ function formatDate(d: string | null) {
       const row = document.createElement('div')
       row.className = 'visitor-row'
       row.id = `${role}-row-${data.id}`
-      row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid var(--color-neutral-100);'
+      row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;row-gap:8px;padding:14px 20px;border-top:1px solid var(--color-neutral-100);'
       row.innerHTML = `
         <p style="font-family:var(--font-body);font-size:14px;font-weight:500;color:var(--color-neutral-800);margin:0;">${name}</p>
         <div style="display:flex;gap:8px;align-items:center;">

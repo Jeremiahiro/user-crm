@@ -10,6 +10,7 @@ import {
   clamp,
   getInitials,
   truncate,
+  shortTeamName,
 } from '../utils'
 
 // ─── timeAgo ─────────────────────────────────────────────────────────────────
@@ -243,5 +244,22 @@ describe('truncate', () => {
 
   it('returns string unchanged if exactly at limit', () => {
     expect(truncate('hello', 5)).toBe('hello')
+  })
+})
+
+// ─── shortTeamName ────────────────────────────────────────────────────────────
+
+describe('shortTeamName', () => {
+  it('uses a trailing bracketed code', () => {
+    expect(shortTeamName('Community Mentoring Programme (CMP)')).toBe('CMP')
+  })
+
+  it('returns names without a code unchanged', () => {
+    expect(shortTeamName('Health & Wellness')).toBe('Health & Wellness')
+  })
+
+  it('ignores brackets that are not a short uppercase code', () => {
+    expect(shortTeamName('Events (Summer)')).toBe('Events (Summer)')
+    expect(shortTeamName('Youth (U18) Outreach')).toBe('Youth (U18) Outreach')
   })
 })

@@ -76,7 +76,7 @@ const STATUS_CLASSES: Record<string, string> = {
 ---
 
 <DashboardLayout title="Documents">
-  <div class="flex items-center justify-between mb-6">
+  <div class="flex items-center justify-between mb-6 flex-wrap gap-y-2">
     <div>
       <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Documents</h1>
       <p class="font-body text-sm text-neutral-500 m-0">{totalCount ?? 0} document{(totalCount ?? 0) !== 1 ? 's' : ''}</p>
@@ -95,24 +95,26 @@ const STATUS_CLASSES: Record<string, string> = {
           {pendingDocs.length} document{pendingDocs.length !== 1 ? 's' : ''} awaiting review
         </h2>
       </div>
-      <table class="w-full border-collapse">
-        <tbody>
-          {pendingDocs.map((d: any) => (
-            <tr>
-              <td class="font-body text-[13px] font-medium text-warning-800 px-2 py-1.5">{d.title}</td>
-              <td class="font-body text-xs text-warning-700 px-2 py-1.5">{personMap.get(d.person_id) ?? '—'}</td>
-              <td class="font-body text-xs text-warning-700 px-2 py-1.5">{(d.document_type as any)?.name ?? '—'}</td>
-              <td class="font-body text-xs text-warning-700 px-2 py-1.5">{fmt(d.created_at)}</td>
-              <td class="px-2 py-1.5 text-right">
-                <a href={`/admin/documents/${d.id}`}
-                  class="font-body text-xs font-semibold text-warning-800 underline">
-                  Review &#8594;
-                </a>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div class="table-scroll">
+        <table class="w-full border-collapse">
+          <tbody>
+            {pendingDocs.map((d: any) => (
+              <tr>
+                <td class="font-body text-[13px] font-medium text-warning-800 px-2 py-1.5">{d.title}</td>
+                <td class="font-body text-xs text-warning-700 px-2 py-1.5">{personMap.get(d.person_id) ?? '—'}</td>
+                <td class="font-body text-xs text-warning-700 px-2 py-1.5">{(d.document_type as any)?.name ?? '—'}</td>
+                <td class="font-body text-xs text-warning-700 px-2 py-1.5">{fmt(d.created_at)}</td>
+                <td class="px-2 py-1.5 text-right">
+                  <a href={`/admin/documents/${d.id}`}
+                    class="font-body text-xs font-semibold text-warning-800 underline">
+                    Review &#8594;
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )}
 
@@ -147,53 +149,55 @@ const STATUS_CLASSES: Record<string, string> = {
         </a>
       </div>
     ) : (
-      <table class="w-full border-collapse">
-        <thead class="bg-neutral-50 border-b border-neutral-200">
-          <tr>
-            {(admin || isLead) && (
-              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Member</th>
-            )}
-            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Document</th>
-            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Type</th>
-            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Status</th>
-            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Uploaded</th>
-            <th class="px-4 py-2.5"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {docs.map((doc: any, i: number) => {
-            return (
-              <tr class={i > 0 ? 'border-t border-neutral-100' : ''}>
-                {(admin || isLead) && (
-                  <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">
-                    {personMap.get(doc.person_id) ?? '—'}
+      <div class="table-scroll">
+        <table class="w-full border-collapse">
+          <thead class="bg-neutral-50 border-b border-neutral-200">
+            <tr>
+              {(admin || isLead) && (
+                <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Member</th>
+              )}
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Document</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Type</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Status</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-wider">Uploaded</th>
+              <th class="px-4 py-2.5"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {docs.map((doc: any, i: number) => {
+              return (
+                <tr class={i > 0 ? 'border-t border-neutral-100' : ''}>
+                  {(admin || isLead) && (
+                    <td class="px-4 py-3.5 font-body text-[13px] text-neutral-700">
+                      {personMap.get(doc.person_id) ?? '—'}
+                    </td>
+                  )}
+                  <td class="px-4 py-3.5">
+                    <span class="font-body text-sm font-medium text-neutral-800">{doc.title}</span>
                   </td>
-                )}
-                <td class="px-4 py-3.5">
-                  <span class="font-body text-sm font-medium text-neutral-800">{doc.title}</span>
-                </td>
-                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600">
-                  {(doc.document_type as any)?.name ?? '—'}
-                </td>
-                <td class="px-4 py-3.5">
-                  <span
-                    class={`inline-block py-0.5 px-2.5 rounded-full font-body text-xs font-semibold ${STATUS_CLASSES[doc.status] ?? 'bg-neutral-100 text-neutral-700 border border-neutral-200'}`}
-                  >
-                    {snakeToTitle(String(doc.status ?? ''))}
-                  </span>
-                </td>
-                <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600">{fmt(doc.created_at)}</td>
-                <td class="px-4 py-3.5 text-right">
-                  <a href={`/admin/documents/${doc.id}`}
-                    class="font-body text-[13px] font-medium text-brand-navy no-underline">
-                    {(admin || isLead) ? 'Review' : 'View'} &#8594;
-                  </a>
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+                  <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600">
+                    {(doc.document_type as any)?.name ?? '—'}
+                  </td>
+                  <td class="px-4 py-3.5">
+                    <span
+                      class={`inline-block py-0.5 px-2.5 rounded-full font-body text-xs font-semibold ${STATUS_CLASSES[doc.status] ?? 'bg-neutral-100 text-neutral-700 border border-neutral-200'}`}
+                    >
+                      {snakeToTitle(String(doc.status ?? ''))}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3.5 font-body text-[13px] text-neutral-600">{fmt(doc.created_at)}</td>
+                  <td class="px-4 py-3.5 text-right">
+                    <a href={`/admin/documents/${doc.id}`}
+                      class="font-body text-[13px] font-medium text-brand-navy no-underline">
+                      {(admin || isLead) ? 'Review' : 'View'} &#8594;
+                    </a>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     )}
     <Pagination page={page} totalPages={totalPages} baseUrl={paginationBase} />
   </div>

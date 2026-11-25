@@ -110,7 +110,7 @@ const tabs = [
   <Breadcrumb crumbs={[{ label: 'Mentees', href: '/admin/mentees' }, { label: mentee.full_name as string }]} />
 
   <!-- Header -->
-  <div class="flex items-start justify-between mb-5">
+  <div class="flex items-start justify-between mb-5 flex-wrap gap-y-2">
     <div>
       <h1 class="font-heading text-2xl font-bold text-brand-navy m-0 mb-1">{mentee.full_name as string}</h1>
       <p class="font-body text-sm text-neutral-500 m-0">
@@ -127,10 +127,10 @@ const tabs = [
   <div id="statusBanner" class="hidden py-3 px-4 rounded-md mb-4 font-body text-sm"></div>
 
   <!-- Tabs -->
-  <div class="flex gap-0.5 border-b-2 border-neutral-200 mb-6">
+  <div class="flex gap-0.5 mb-6 overflow-x-auto [scrollbar-width:none] shadow-[inset_0_-2px_0_var(--color-neutral-200)]">
     {tabs.map(t => (
       <a href={`/admin/mentees/${id}?tab=${t.key}`}
-        class={`py-2.5 px-4 font-body text-sm font-medium no-underline border-b-2 -mb-0.5 ${activeTab === t.key ? 'text-brand-navy border-brand-navy' : 'text-neutral-500 border-transparent'}`}>
+        class={`shrink-0 whitespace-nowrap py-2.5 px-4 font-body text-sm font-medium no-underline border-b-2 ${activeTab === t.key ? 'text-brand-navy border-brand-navy' : 'text-neutral-500 border-transparent'}`}>
         {t.label}
       </a>
     ))}
@@ -138,7 +138,7 @@ const tabs = [
 
   <!-- ── Overview tab ──────────────────────────────────────────────────────── -->
   {activeTab === 'overview' && (
-    <div class="grid grid-cols-2 gap-5">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
       <!-- Personal details -->
       <div class="bg-white border border-neutral-200 rounded-lg p-6">
         <h2 class="font-heading text-xs font-bold text-neutral-500 uppercase tracking-[0.08em] m-0 mb-4">Personal details</h2>
@@ -193,7 +193,7 @@ const tabs = [
       </div>
 
       <!-- Guardian -->
-      <div class="bg-white border border-neutral-200 rounded-lg p-6 col-span-2">
+      <div class="bg-white border border-neutral-200 rounded-lg p-6 lg:col-span-2">
         <h2 class="font-heading text-xs font-bold text-neutral-500 uppercase tracking-[0.08em] m-0 mb-4">Guardian / Parent</h2>
         <table class="border-collapse w-full">
           {[
@@ -214,7 +214,7 @@ const tabs = [
   {activeTab === 'attendance' && (
     <div>
       <!-- Summary bar -->
-      <div class="grid grid-cols-3 gap-3 mb-5">
+      <div class="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
         {[
           { label: 'Present', count: attendRows.filter(a => a.status === 'present').length, bgClass: 'bg-success-50', borderClass: 'border-success-200', textClass: 'text-success-700' },
           { label: 'Absent', count: attendRows.filter(a => a.status === 'absent').length, bgClass: 'bg-danger-50', borderClass: 'border-danger-200', textClass: 'text-danger-700' },
@@ -233,39 +233,41 @@ const tabs = [
             <p class="font-body text-sm text-neutral-400 m-0">No attendance records yet.</p>
           </div>
         ) : (
-          <table class="w-full border-collapse">
-            <thead class="bg-neutral-50 border-b border-neutral-200">
-              <tr>
-                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Session</th>
-                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Date</th>
-                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {attendRows.map((a, i) => (
-                <tr class={i > 0 ? 'border-t border-neutral-100' : ''}>
-                  <td class="py-3 px-4">
-                    {a.cmp_sessions ? (
-                      <a href={`/admin/cmp/sessions/${a.cmp_sessions.id}`}
-                        class="font-body text-sm font-medium text-brand-navy no-underline">
-                        {a.cmp_sessions.title}
-                      </a>
-                    ) : <span class="font-body text-sm text-neutral-400">—</span>}
-                  </td>
-                  <td class="py-3 px-4 font-body text-[13px] text-neutral-600">
-                    {a.cmp_sessions ? formatDate(a.cmp_sessions.session_date) : '—'}
-                    {a.cmp_sessions?.session_time && <span class="ml-1 text-neutral-400">{formatTime(a.cmp_sessions.session_time)}</span>}
-                  </td>
-                  <td class="py-3 px-4">
-                    <span class="py-0.5 px-2.5 rounded-full font-body text-xs font-semibold"
-                      style={`background: ${STATUS_COLORS[a.status] ?? 'var(--color-neutral-100)'}; color: ${STATUS_TEXT[a.status] ?? 'var(--color-neutral-600)'};`}>
-                      {snakeToTitle(a.status)}
-                    </span>
-                  </td>
+          <div class="table-scroll">
+            <table class="w-full border-collapse">
+              <thead class="bg-neutral-50 border-b border-neutral-200">
+                <tr>
+                  <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Session</th>
+                  <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Date</th>
+                  <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {attendRows.map((a, i) => (
+                  <tr class={i > 0 ? 'border-t border-neutral-100' : ''}>
+                    <td class="py-3 px-4">
+                      {a.cmp_sessions ? (
+                        <a href={`/admin/cmp/sessions/${a.cmp_sessions.id}`}
+                          class="font-body text-sm font-medium text-brand-navy no-underline">
+                          {a.cmp_sessions.title}
+                        </a>
+                      ) : <span class="font-body text-sm text-neutral-400">—</span>}
+                    </td>
+                    <td class="py-3 px-4 font-body text-[13px] text-neutral-600">
+                      {a.cmp_sessions ? formatDate(a.cmp_sessions.session_date) : '—'}
+                      {a.cmp_sessions?.session_time && <span class="ml-1 text-neutral-400">{formatTime(a.cmp_sessions.session_time)}</span>}
+                    </td>
+                    <td class="py-3 px-4">
+                      <span class="py-0.5 px-2.5 rounded-full font-body text-xs font-semibold"
+                        style={`background: ${STATUS_COLORS[a.status] ?? 'var(--color-neutral-100)'}; color: ${STATUS_TEXT[a.status] ?? 'var(--color-neutral-600)'};`}>
+                        {snakeToTitle(a.status)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
@@ -295,7 +297,7 @@ const tabs = [
           </div>
         ) : noteRows.map(n => (
           <div data-note-id={n.id} class="bg-white border border-neutral-200 rounded-lg py-4 px-5">
-            <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center justify-between mb-2 flex-wrap gap-y-2">
               <div>
                 <span class="font-body text-[13px] font-semibold text-neutral-700">
                   {n.people?.full_name ?? 'Unknown'}
@@ -321,7 +323,7 @@ const tabs = [
       <!-- Log call form -->
       <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6 mb-5">
         <h2 class="font-heading text-sm font-bold text-neutral-800 m-0 mb-3.5">Log a call</h2>
-        <div class="grid grid-cols-3 gap-3 mb-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <div class="flex flex-col gap-1">
             <label class="font-body text-xs font-medium text-neutral-700">Date *</label>
             <input type="date" id="callDate" value={new Date().toISOString().slice(0, 10)}
@@ -361,45 +363,47 @@ const tabs = [
             <p class="font-body text-sm text-neutral-400 m-0">No call logs yet.</p>
           </div>
         ) : (
-          <table class="w-full border-collapse">
-            <thead class="bg-neutral-50 border-b border-neutral-200">
-              <tr>
-                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Date</th>
-                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Caller</th>
-                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Outcome</th>
-                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Duration</th>
-                <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Notes</th>
-                <th class="py-2.25 px-4"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {callRows.map((c, i) => (
-                <tr data-call-id={c.id} class={i > 0 ? 'border-t border-neutral-100' : ''}>
-                  <td class="py-3 px-4 font-body text-[13px] text-neutral-700 font-medium">{formatDate(c.called_at)}</td>
-                  <td class="py-3 px-4 font-body text-[13px] text-neutral-600">{c.people?.full_name ?? '—'}</td>
-                  <td class="py-3 px-4">
-                    <span class="py-0.5 px-2.5 rounded-full font-body text-xs font-semibold"
-                      style={`background: ${OUTCOME_COLORS[c.outcome] ?? 'var(--color-neutral-100)'}; color: ${OUTCOME_TEXT_COLORS[c.outcome] ?? 'var(--color-neutral-600)'};`}>
-                      {OUTCOME_LABELS[c.outcome] ?? c.outcome}
-                    </span>
-                  </td>
-                  <td class="py-3 px-4 font-body text-[13px] text-neutral-600">
-                    {c.duration_minutes != null ? `${c.duration_minutes} min` : '—'}
-                  </td>
-                  <td class="py-3 px-4 font-body text-[13px] text-neutral-600 max-w-70">
-                    {c.summary ? (
-                      <span class="line-clamp-2">{c.summary}</span>
-                    ) : <span class="text-neutral-300">—</span>}
-                  </td>
-                  <td class="py-3 px-4 text-right">
-                    <button class="btn-delete-call py-0.75 px-2.5 bg-neutral-100 border-none rounded-md font-body text-xs text-neutral-500 cursor-pointer" data-id={c.id}>
-                      Delete
-                    </button>
-                  </td>
+          <div class="table-scroll">
+            <table class="w-full border-collapse">
+              <thead class="bg-neutral-50 border-b border-neutral-200">
+                <tr>
+                  <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Date</th>
+                  <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Caller</th>
+                  <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Outcome</th>
+                  <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Duration</th>
+                  <th class="font-body text-[11px] font-semibold text-neutral-500 text-left py-2.25 px-4 uppercase tracking-[0.05em]">Notes</th>
+                  <th class="py-2.25 px-4"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {callRows.map((c, i) => (
+                  <tr data-call-id={c.id} class={i > 0 ? 'border-t border-neutral-100' : ''}>
+                    <td class="py-3 px-4 font-body text-[13px] text-neutral-700 font-medium">{formatDate(c.called_at)}</td>
+                    <td class="py-3 px-4 font-body text-[13px] text-neutral-600">{c.people?.full_name ?? '—'}</td>
+                    <td class="py-3 px-4">
+                      <span class="py-0.5 px-2.5 rounded-full font-body text-xs font-semibold"
+                        style={`background: ${OUTCOME_COLORS[c.outcome] ?? 'var(--color-neutral-100)'}; color: ${OUTCOME_TEXT_COLORS[c.outcome] ?? 'var(--color-neutral-600)'};`}>
+                        {OUTCOME_LABELS[c.outcome] ?? c.outcome}
+                      </span>
+                    </td>
+                    <td class="py-3 px-4 font-body text-[13px] text-neutral-600">
+                      {c.duration_minutes != null ? `${c.duration_minutes} min` : '—'}
+                    </td>
+                    <td class="py-3 px-4 font-body text-[13px] text-neutral-600 max-w-70">
+                      {c.summary ? (
+                        <span class="line-clamp-2">{c.summary}</span>
+                      ) : <span class="text-neutral-300">—</span>}
+                    </td>
+                    <td class="py-3 px-4 text-right">
+                      <button class="btn-delete-call py-0.75 px-2.5 bg-neutral-100 border-none rounded-md font-body text-xs text-neutral-500 cursor-pointer" data-id={c.id}>
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

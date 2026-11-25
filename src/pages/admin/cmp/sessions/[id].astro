@@ -69,7 +69,7 @@ const STATUS_CLASSES: Record<string, string> = {
   <Breadcrumb crumbs={[{ label: 'CMP', href: '/admin/cmp' }, { label: session.title as string ?? 'Session' }]} />
 
   <!-- Header -->
-  <div class="flex items-start justify-between mb-7">
+  <div class="flex items-start justify-between mb-7 flex-wrap gap-y-2">
     <div>
       <div class="flex items-center gap-2.5 mb-1">
         {(session.is_cancelled as boolean) && (
@@ -113,7 +113,7 @@ const STATUS_CLASSES: Record<string, string> = {
   )}
 
   <!-- Attendance summary stats -->
-  <div class="grid grid-cols-3 gap-4 mb-6">
+  <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
     {[
       { label: 'Present', value: presentCount, colorClass: 'text-success-700' },
       { label: 'Absent', value: absentCount, colorClass: 'text-neutral-500' },
@@ -128,7 +128,7 @@ const STATUS_CLASSES: Record<string, string> = {
 
   <!-- Attendance table -->
   <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
-    <div class="px-6 py-4 border-b border-neutral-200 flex items-center justify-between">
+    <div class="px-6 py-4 border-b border-neutral-200 flex items-center justify-between flex-wrap gap-y-2">
       <h2 class="font-heading text-[15px] font-bold text-neutral-800 m-0">Attendance ({attendanceRows.length})</h2>
       {attendanceRows.length === 0 && (
         <a href={`/admin/cmp/sessions/${id}/attendance`}
@@ -143,39 +143,41 @@ const STATUS_CLASSES: Record<string, string> = {
         <p class="font-body text-sm text-neutral-400 m-0">No attendance recorded yet.</p>
       </div>
     ) : (
-      <table class="w-full border-collapse">
-        <thead class="bg-neutral-50 border-b border-neutral-200">
-          <tr>
-            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-[0.05em]">Name</th>
-            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-[0.05em]">Role</th>
-            <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-[0.05em]">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {attendanceRows.map((a, i) => {
-            const name = a.visitor_name ?? a.mentees?.full_name ?? a.people?.full_name ?? 'Unknown'
-            const role = (a.role ?? (a.mentee_id ? 'mentee' : 'mentor')).charAt(0).toUpperCase() + (a.role ?? (a.mentee_id ? 'mentee' : 'mentor')).slice(1)
-            const profileUrl = a.mentee_id
-              ? `/admin/mentees/${a.mentee_id}`
-              : a.person_id ? `/admin/members/${a.person_id}` : null
-            return (
-              <tr class={i > 0 ? 'border-t border-neutral-100' : ''}>
-                <td class="px-4 py-3">
-                  {profileUrl
-                    ? <a href={profileUrl} class="font-body text-sm font-medium text-brand-navy no-underline">{name}</a>
-                    : <span class="font-body text-sm font-medium text-neutral-800">{name}</span>}
-                </td>
-                <td class="px-4 py-3 font-body text-[13px] text-neutral-500">{role}</td>
-                <td class="px-4 py-3">
-                  <span class={`inline-block px-2.5 py-0.5 rounded-full font-body text-xs font-semibold ${STATUS_CLASSES[a.status] ?? 'bg-neutral-100 text-neutral-700'}`}>
-                    {snakeToTitle(a.status)}
-                  </span>
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+      <div class="table-scroll">
+        <table class="w-full border-collapse">
+          <thead class="bg-neutral-50 border-b border-neutral-200">
+            <tr>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-[0.05em]">Name</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-[0.05em]">Role</th>
+              <th class="font-body text-xs font-semibold text-neutral-500 text-left px-4 py-2.5 uppercase tracking-[0.05em]">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {attendanceRows.map((a, i) => {
+              const name = a.visitor_name ?? a.mentees?.full_name ?? a.people?.full_name ?? 'Unknown'
+              const role = (a.role ?? (a.mentee_id ? 'mentee' : 'mentor')).charAt(0).toUpperCase() + (a.role ?? (a.mentee_id ? 'mentee' : 'mentor')).slice(1)
+              const profileUrl = a.mentee_id
+                ? `/admin/mentees/${a.mentee_id}`
+                : a.person_id ? `/admin/members/${a.person_id}` : null
+              return (
+                <tr class={i > 0 ? 'border-t border-neutral-100' : ''}>
+                  <td class="px-4 py-3">
+                    {profileUrl
+                      ? <a href={profileUrl} class="font-body text-sm font-medium text-brand-navy no-underline">{name}</a>
+                      : <span class="font-body text-sm font-medium text-neutral-800">{name}</span>}
+                  </td>
+                  <td class="px-4 py-3 font-body text-[13px] text-neutral-500">{role}</td>
+                  <td class="px-4 py-3">
+                    <span class={`inline-block px-2.5 py-0.5 rounded-full font-body text-xs font-semibold ${STATUS_CLASSES[a.status] ?? 'bg-neutral-100 text-neutral-700'}`}>
+                      {snakeToTitle(a.status)}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     )}
   </div>
 </DashboardLayout>

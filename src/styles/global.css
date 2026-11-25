@@ -109,8 +109,29 @@
   --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
 }
 
-/* Phone: stack fixed multi-column grids and let wide tables scroll.
-   !important beats Tailwind utilities that are emitted later in the bundle. */
+/* Native select arrows ignore padding and sit against the border. Unlayered, so the
+   padding beats Tailwind px-* utilities on individual selects. */
+select:not([multiple]):not([size]) {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%236B6B80' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  padding-right: 2.5rem;
+  text-overflow: ellipsis;
+}
+
+select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .month-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -124,21 +145,9 @@
 }
 
 @media (max-width: 767px) {
-  .grid-cols-2,
-  .grid-cols-3,
-  .grid-cols-4,
-  .grid-cols-5,
-  .grid-cols-6 {
-    grid-template-columns: minmax(0, 1fr) !important;
-  }
-
-  main :is(.overflow-hidden, .overflow-x-hidden):has(table) {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  main table {
-    min-width: 36rem;
+  /* Keeps columns readable; the .table-scroll wrapper scrolls instead of squashing them. */
+  .table-scroll > table {
+    min-width: 30rem;
   }
 
   dialog,

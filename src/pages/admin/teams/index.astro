@@ -68,7 +68,7 @@ if (admin) {
 
 <DashboardLayout title="Teams">
   <div>
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6 flex-wrap gap-y-2">
       <div>
         <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">
           Teams
@@ -87,7 +87,7 @@ if (admin) {
 
     <!-- Pending requests banner for admins -->
     {admin && totalPending > 0 && (
-      <div class="bg-warning-50 border border-warning-200 rounded-lg px-5 py-3.5 mb-5 flex items-center justify-between gap-4">
+      <div class="bg-warning-50 border border-warning-200 rounded-lg px-5 py-3.5 mb-5 flex items-center justify-between gap-4 flex-wrap">
         <div class="flex items-center gap-2.5">
           <span class="text-lg">🔔</span>
           <p class="font-body text-sm font-semibold text-warning-800 m-0">
@@ -107,7 +107,7 @@ if (admin) {
     )}
 
     {rows.length > 0 ? (
-      <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+      <div class="bg-white border border-neutral-200 rounded-lg table-scroll">
         <table class="w-full border-collapse">
           <thead>
             <tr class="bg-neutral-100">

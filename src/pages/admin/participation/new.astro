@@ -80,12 +80,12 @@ if (Astro.request.method === 'POST') {
         error={errors.person_id}
       />
 
-      <div class="grid grid-cols-[2fr_1fr] gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-4">
         <Input label="Event name *" name="event_name" value={values.event_name} error={errors.event_name} required placeholder="e.g. Black History Month Panel" />
         <Input label="Date" name="event_date" type="date" value={values.event_date} error={errors.event_date} />
       </div>
 
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div class="flex flex-col gap-1">
           <label class="font-body text-[13px] font-medium text-neutral-700">Team (optional)</label>
           <select name="team_id"

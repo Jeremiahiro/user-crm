@@ -34,7 +34,7 @@ const rows = (tenures ?? []) as TenureRow[]
 <DashboardLayout title={`${position.title} — History`}>
   <Breadcrumb crumbs={[{ label: 'Positions', href: '/admin/positions' }, { label: position.title as string, href: '/admin/positions' }, { label: 'History' }]} />
   <div>
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6 flex-wrap gap-y-2">
       <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0">
         {position.title} — Tenure History
       </h1>
@@ -45,7 +45,7 @@ const rows = (tenures ?? []) as TenureRow[]
     </div>
 
     {rows.length > 0 ? (
-      <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+      <div class="bg-white border border-neutral-200 rounded-lg table-scroll">
         <table class="w-full border-collapse">
           <thead>
             <tr class="bg-neutral-100">

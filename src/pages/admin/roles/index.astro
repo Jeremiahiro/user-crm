@@ -57,7 +57,7 @@ const archived = rows.filter(r => r.is_archived)
       }
     }
   }">
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6 flex-wrap gap-y-2">
       <div>
         <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Roles</h1>
         <p class="font-body text-sm text-neutral-500 m-0">
@@ -71,7 +71,7 @@ const archived = rows.filter(r => r.is_archived)
     </div>
 
     {active.length > 0 ? (
-      <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden mb-8">
+      <div class="bg-white border border-neutral-200 rounded-lg table-scroll mb-8">
         <table class="w-full border-collapse">
           <thead>
             <tr class="bg-neutral-100">
@@ -130,7 +130,7 @@ const archived = rows.filter(r => r.is_archived)
         <summary class="font-body text-[13px] text-neutral-500 cursor-pointer mb-3">
           Archived roles ({archived.length})
         </summary>
-        <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+        <div class="bg-white border border-neutral-200 rounded-lg table-scroll">
           <table class="w-full border-collapse">
             <tbody>
               {archived.map((role) => (

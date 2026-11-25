@@ -72,7 +72,7 @@ if (Astro.request.method === 'POST') {
   }`}>
     <Breadcrumb crumbs={[{ label: 'Pillars', href: '/admin/pillars' }, { label: pillar.name as string, href: '/admin/pillars' }, { label: 'Edit' }]} />
 
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6 flex-wrap gap-y-2">
       <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0">
         Edit Pillar
       </h1>
