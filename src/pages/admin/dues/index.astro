@@ -2,6 +2,7 @@
 import DashboardLayout from '@/layouts/DashboardLayout.astro'
 import Badge from '@/components/ui/Badge.astro'
 import { supabaseAdmin } from '@/lib/supabase'
+import { isChapterMember } from '@/lib/people'
 
 if (!Astro.locals.user) return Astro.redirect('/login')
 
@@ -53,12 +54,10 @@ let members = (rawMembers ?? []) as RawMember[]
 if (teamFilter) {
   members = members.filter(m => m.person_teams?.some(pt => pt.team_id === teamFilter))
 }
-// Volunteers exempt from dues
-members = members.filter(m => !m.person_types.every(t => t === 'volunteer'))
+members = members.filter(m => isChapterMember(m.person_types))
+const memberIds = new Set(members.map(m => m.id))
 
 const dues = (duesData ?? []) as DueRecord[]
-const submissions = (submissionsData ?? []) as SubmissionRow[]
-const totalPending = submissions.length
 
 // Build lookups
 const duesMap = new Map<string, Set<number>>()
@@ -66,6 +65,11 @@ for (const d of dues) {
   if (!duesMap.has(d.person_id)) duesMap.set(d.person_id, new Set())
   duesMap.get(d.person_id)!.add(d.month)
 }
+
+// Only count submissions that render as an amber dot in the grid below
+const submissions = ((submissionsData ?? []) as SubmissionRow[])
+  .filter(s => memberIds.has(s.person_id) && !duesMap.get(s.person_id)?.has(s.month))
+const totalPending = submissions.length
 
 const submissionMap = new Map<string, SubmissionRow>()
 for (const s of submissions) {
@@ -219,7 +223,7 @@ const initialStateJSON = JSON.stringify(initialStateObj)
 
   <div>
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6 flex-wrap gap-y-2">
       <div>
         <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Dues</h1>
         <p class="font-body text-sm text-neutral-500 m-0">

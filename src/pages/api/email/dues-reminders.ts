@@ -41,12 +41,13 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   const targetYear = parsed.data.year ?? new Date().getFullYear()
   const { dry_run } = parsed.data
 
-  // Fetch active members
+  // Fetch active chapter members (only they owe dues)
   const { data: members } = await supabaseAdmin
     .from('people')
     .select('id, full_name, email')
     .eq('status', 'active')
     .eq('is_archived', false)
+    .contains('person_types', ['member'])
 
   // Fetch dues records for the target year (members who have paid at least one month)
   const { data: duesRows } = await supabaseAdmin

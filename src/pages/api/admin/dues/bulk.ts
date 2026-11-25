@@ -9,7 +9,7 @@ const ChangeSchema = z.object({
   person_id: z.string().uuid(),
   month: z.number().int().min(1).max(12),
   paid: z.boolean(),
-  submission_id: z.string().uuid().optional(),
+  submission_id: z.string().uuid().nullish(),
 })
 
 const BodySchema = z.object({
@@ -51,7 +51,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   let applied = 0
 
   for (const change of changes) {
-    const { person_id, month, paid, submission_id } = change
+    const { person_id, month, paid } = change
     const monthName = MONTH_NAMES[month - 1]
 
     if (paid) {
@@ -73,18 +73,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
         continue
       }
 
-      // If there was a pending submission, approve it
-      if (submission_id) {
-        await supabaseAdmin
-          .from('dues_submissions')
-          .update({
-            status: 'approved',
-            reviewed_by: user.person_id,
-            reviewed_at: new Date().toISOString(),
-          })
-          .eq('id', submission_id)
-          .eq('status', 'pending')
-      }
+      // Approve any pending submission for this month
+      await supabaseAdmin
+        .from('dues_submissions')
+        .update({
+          status: 'approved',
+          reviewed_by: user.person_id,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('person_id', person_id)
+        .eq('year', year)
+        .eq('month', month)
+        .eq('status', 'pending')
 
       // Notify member
       await createNotification({

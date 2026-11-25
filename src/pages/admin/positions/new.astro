@@ -24,6 +24,7 @@ if (Astro.request.method === 'POST') {
       description: values.description || undefined,
       order_of_precedence: values.order_of_precedence ? Number(values.order_of_precedence) : undefined,
       linked_system_role_id: values.linked_system_role_id || null,
+      email: values.email || null,
     }),
   })
 
@@ -52,6 +53,12 @@ if (Astro.request.method === 'POST') {
       <Input label="Title *" name="title" value={values.title} error={errors.title} required placeholder="e.g. Secretary" />
       <Input label="Description" name="description" value={values.description} />
       <Input label="Order of precedence" name="order_of_precedence" type="number" value={values.order_of_precedence} placeholder="6" />
+      <div class="flex flex-col gap-1">
+        <Input label="Office email" name="email" type="email" value={values.email} error={errors.email} placeholder="e.g. president@yourchapter.org" />
+        <p class="font-body text-xs text-neutral-400 m-0">
+          Optional shared mailbox. Signing in with it logs in as whoever currently holds this office.
+        </p>
+      </div>
 
       <div class="flex flex-col gap-1">
         <label class="font-body text-[13px] font-medium text-neutral-700">Linked system role (auto-granted on election)</label>

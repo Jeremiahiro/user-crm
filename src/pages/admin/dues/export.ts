@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro'
 import { supabaseAdmin } from '@/lib/supabase'
+import { isChapterMember } from '@/lib/people'
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -20,9 +21,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
     .eq('status', 'active')
     .order('full_name')
 
-  let members = (rawMembers ?? []) as RawMember[]
-  // Exclude volunteers
-  members = members.filter(m => !m.person_types.every(t => t === 'volunteer'))
+  const members = ((rawMembers ?? []) as RawMember[]).filter(m => isChapterMember(m.person_types))
 
   const [{ data: duesData }, { data: subData }] = await Promise.all([
     supabaseAdmin.from('dues').select('person_id, month').eq('year', year),

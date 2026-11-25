@@ -3,6 +3,7 @@ import Google from '@auth/core/providers/google'
 import type { AuthConfig } from '@auth/core/types'
 import { supabaseAdmin } from './supabase'
 import { splitDisplayName } from './names'
+import { resolveLoginIdentity } from './offices'
 import type { PersonType, SessionUser } from '../types/domain'
 
 export const authConfig: AuthConfig = {
@@ -19,14 +20,10 @@ export const authConfig: AuthConfig = {
     async signIn({ user }) {
       if (!user.email) return false
 
-      // Look up or create person record
-      const { data: existing } = await supabaseAdmin
-        .from('people')
-        .select('id, status, login_enabled')
-        .eq('email', user.email)
-        .single()
+      // Look up the person (or the current holder of an office mailbox), or create a stub
+      const identity = await resolveLoginIdentity(user.email)
 
-      if (!existing) {
+      if (!identity) {
         // No record — create a stub applicant profile, but deny login until an admin enables it.
         // full_name is generated from first_name / last_name and cannot be written.
         const { first_name, last_name } = splitDisplayName(user.name, user.email)
@@ -46,21 +43,21 @@ export const authConfig: AuthConfig = {
         return false
       }
 
-      // Existing record — only allow if admin has enabled login
-      if (!existing.login_enabled) {
-        return false
-      }
-
-      return true
+      // Existing record or occupied office — only allow if admin has enabled login
+      return identity.personId !== null && identity.loginEnabled
     },
 
     async session({ session, token }) {
       if (!session.user?.email) return session
 
+      // Re-resolved on every request so an office handover takes effect immediately
+      const identity = await resolveLoginIdentity(session.user.email)
+      if (!identity?.personId || !identity.loginEnabled) return session
+
       const { data: person } = await supabaseAdmin
         .from('people')
         .select('id, status, person_types, preferred_name, first_name, full_name')
-        .eq('email', session.user.email)
+        .eq('id', identity.personId)
         .single()
 
       if (!person) return session
@@ -89,6 +86,7 @@ export const authConfig: AuthConfig = {
         preferred_name: (person.preferred_name as string | null) ?? null,
         first_name: (person.first_name as string | null) ?? null,
         full_name: (person.full_name as string | null) ?? null,
+        signed_in_via: identity.via,
       }
 
       // Attach CRM session data — cast through unknown to satisfy strict typing

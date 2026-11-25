@@ -3,6 +3,9 @@ import { z } from 'zod'
 /** Membership type stored on people.person_types. Not the system role named Member. */
 export const PERSON_TYPES = ['member', 'mentor', 'volunteer', 'parent', 'trustee'] as const
 
+/** Person types that must hold a current DBS check. */
+export const DBS_PERSON_TYPES = ['member', 'volunteer'] as const
+
 /**
  * Values allowed by people_status_check after 004_onboarding_overhaul.sql.
  * `approved` remains in the constraint (006 moved existing rows to active
@@ -99,7 +102,12 @@ export const ImportMemberRowSchema = z.object({
   notes: z.string().optional().nullable(),
 })
 
-/** True when the person's membership types include chapter member. */
+/** True when the person's membership types include chapter member. Only chapter members owe dues. */
 export function isChapterMember(personTypes: readonly string[] | null | undefined): boolean {
   return personTypes?.includes('member') ?? false
+}
+
+/** True when the person is a member or volunteer and so is tracked for DBS. */
+export function requiresDbs(personTypes: readonly string[] | null | undefined): boolean {
+  return personTypes?.some(t => (DBS_PERSON_TYPES as readonly string[]).includes(t)) ?? false
 }

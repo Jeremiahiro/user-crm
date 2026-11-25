@@ -54,6 +54,7 @@ export type AuditAction =
   | 'role_revoke'
   | 'tenure_create'
   | 'tenure_end'
+  | 'tenure_delete'
 
 export interface Person {
   id: string
@@ -140,4 +141,6 @@ export interface SessionUser {
   preferred_name?: string | null
   first_name?: string | null
   full_name?: string | null
+  /** Set when the user signed in with an office mailbox rather than their own email. */
+  signed_in_via?: { position_id: string; title: string; email: string } | null
 }

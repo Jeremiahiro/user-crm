@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { displayName, greetingName, splitDisplayName } from '../names'
-import { isChapterMember } from '../people'
+import { isChapterMember, requiresDbs } from '../people'
 import { isDevAuthBypassEnabled } from '../dev-auth'
 import { dbErrorMessage, requireAdmin, requireCmpStaff } from '../http'
 import type { SessionUser } from '@/types/domain'
@@ -61,6 +61,21 @@ describe('isChapterMember', () => {
     expect(isChapterMember(['volunteer'])).toBe(false)
     expect(isChapterMember([])).toBe(false)
     expect(isChapterMember(null)).toBe(false)
+  })
+
+  it('excludes trustees and parents from dues', () => {
+    expect(isChapterMember(['trustee', 'parent'])).toBe(false)
+  })
+})
+
+describe('requiresDbs', () => {
+  it('applies to members and volunteers only', () => {
+    expect(requiresDbs(['member'])).toBe(true)
+    expect(requiresDbs(['volunteer'])).toBe(true)
+    expect(requiresDbs(['mentor', 'volunteer'])).toBe(true)
+    expect(requiresDbs(['trustee', 'parent'])).toBe(false)
+    expect(requiresDbs([])).toBe(false)
+    expect(requiresDbs(null)).toBe(false)
   })
 })
 

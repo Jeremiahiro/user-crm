@@ -16,12 +16,13 @@ type AuditRow = {
   target_table: string
   target_id: string | null
   created_at: string
+  actor_via: string | null
   actor: { full_name: string; email: string } | null
 }
 
 const { data: rows, count } = await supabaseAdmin
   .from('audit_log')
-  .select('id, action, target_table, target_id, created_at, actor:people!actor_id(full_name, email)', { count: 'exact' })
+  .select('id, action, target_table, target_id, created_at, actor_via, actor:people!actor_id(full_name, email)', { count: 'exact' })
   .order('created_at', { ascending: false })
   .range(offset, offset + limit - 1)
 
@@ -62,37 +63,40 @@ function actionBadge(action: string): { bg: string; color: string } {
           No audit entries yet.
         </div>
       ) : (
-        <table class="w-full border-collapse text-[13px] font-body">
-          <thead>
-            <tr class="bg-neutral-50 border-b border-neutral-200">
-              <th class="text-left py-2.75 px-4 text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.04em] whitespace-nowrap">When</th>
-              <th class="text-left py-2.75 px-4 text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.04em]">Actor</th>
-              <th class="text-left py-2.75 px-4 text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.04em]">Action</th>
-              <th class="text-left py-2.75 px-4 text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.04em]">Table</th>
-              <th class="text-left py-2.75 px-4 text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.04em]">Record ID</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((row, i) => {
-              const badge = actionBadge(row.action)
-              return (
-                <tr class={i < entries.length - 1 ? 'border-b border-neutral-100' : ''}>
-                  <td class="px-4 py-2.5 text-neutral-500 whitespace-nowrap">{fmtDate(row.created_at)}</td>
-                  <td class="px-4 py-2.5 text-neutral-800">
-                    {row.actor ? row.actor.full_name : <span class="text-neutral-400">System</span>}
-                  </td>
-                  <td class="px-4 py-2.5">
-                    <span class="inline-block px-2 py-0.5 rounded-2.5 text-[11px] font-semibold uppercase tracking-[0.04em]" style={`background-color: ${badge.bg}; color: ${badge.color};`}>
-                      {snakeToTitle(row.action)}
-                    </span>
-                  </td>
-                  <td class="px-4 py-2.5 text-neutral-600 font-mono">{row.target_table}</td>
-                  <td class="px-4 py-2.5 text-neutral-400 font-mono text-[11px] max-w-45 truncate">{row.target_id ?? '—'}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+        <div class="table-scroll">
+          <table class="w-full border-collapse text-[13px] font-body">
+            <thead>
+              <tr class="bg-neutral-50 border-b border-neutral-200">
+                <th class="text-left py-2.75 px-4 text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.04em] whitespace-nowrap">When</th>
+                <th class="text-left py-2.75 px-4 text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.04em]">Actor</th>
+                <th class="text-left py-2.75 px-4 text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.04em]">Action</th>
+                <th class="text-left py-2.75 px-4 text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.04em]">Table</th>
+                <th class="text-left py-2.75 px-4 text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.04em]">Record ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((row, i) => {
+                const badge = actionBadge(row.action)
+                return (
+                  <tr class={i < entries.length - 1 ? 'border-b border-neutral-100' : ''}>
+                    <td class="px-4 py-2.5 text-neutral-500 whitespace-nowrap">{fmtDate(row.created_at)}</td>
+                    <td class="px-4 py-2.5 text-neutral-800">
+                      {row.actor ? row.actor.full_name : <span class="text-neutral-400">System</span>}
+                      {row.actor_via && <span class="block text-xs text-neutral-500">as {row.actor_via}</span>}
+                    </td>
+                    <td class="px-4 py-2.5">
+                      <span class="inline-block px-2 py-0.5 rounded-2.5 text-[11px] font-semibold uppercase tracking-[0.04em]" style={`background-color: ${badge.bg}; color: ${badge.color};`}>
+                        {snakeToTitle(row.action)}
+                      </span>
+                    </td>
+                    <td class="px-4 py-2.5 text-neutral-600 font-mono">{row.target_table}</td>
+                    <td class="px-4 py-2.5 text-neutral-400 font-mono text-[11px] max-w-45 truncate">{row.target_id ?? '—'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
 

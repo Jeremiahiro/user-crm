@@ -1,7 +1,8 @@
 import type { APIRoute } from 'astro'
 import { supabaseAdmin } from '@/lib/supabase'
+import { PERSON_TYPES } from '@/lib/people'
 
-const VALID_TYPES = ['member', 'mentor', 'volunteer', 'parent', 'trustee']
+const VALID_TYPES: readonly string[] = PERSON_TYPES
 
 export const GET: APIRoute = async ({ locals, url }) => {
   if (!locals.user) return new Response('Unauthorised', { status: 401 })

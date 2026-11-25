@@ -12,7 +12,7 @@ const admin = isAdmin(Astro.locals.user)
 const [{ data: rawPositions }, { data: rawActiveTenures }] = await Promise.all([
   supabaseAdmin
     .from('elected_positions')
-    .select('id, title, description, order_of_precedence, is_active')
+    .select('id, title, description, order_of_precedence, is_active, email, team_id')
     .eq('is_active', true)
     .order('order_of_precedence', { ascending: true, nullsFirst: false }),
   // Active tenures only (no term_end)
@@ -28,6 +28,8 @@ type Position = {
   description: string | null
   order_of_precedence: number | null
   is_active: boolean
+  email: string | null
+  team_id: string | null
 }
 
 type ActiveTenure = {
@@ -74,11 +76,11 @@ function getInitials(name: string): string {
 
 <DashboardLayout title="Elected Positions">
   <div id="positions-root">
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6 flex-wrap gap-y-2">
       <div>
         <h1 class="font-heading text-2xl font-bold text-brand-navy mb-1">Elected Positions</h1>
         <p class="font-body text-sm text-neutral-500 m-0">
-          Chapter leadership positions and current holders.
+          Chapter offices and team leads, with their current holders.
         </p>
       </div>
       <a href="/admin/positions/new"
@@ -100,7 +102,7 @@ function getInitials(name: string): string {
           const canDelete = admin && totalTenures === 0
 
           return (
-            <div class="bg-white border border-neutral-200 rounded-lg px-6 py-5 flex items-center justify-between gap-6">
+            <div class="bg-white border border-neutral-200 rounded-lg px-6 py-5 flex items-center justify-between gap-6 flex-wrap">
               <div class="flex items-center gap-5 flex-1 min-w-0">
                 <div class="w-10 h-10 rounded-full bg-brand-navy text-white flex items-center justify-center font-heading text-base font-bold shrink-0">
                   {position.order_of_precedence ?? '—'}
@@ -111,6 +113,12 @@ function getInitials(name: string): string {
                   </a>
                   {position.description && (
                     <p class="font-body text-[13px] text-neutral-500 m-0">{position.description}</p>
+                  )}
+                  {(position.team_id || position.email) && (
+                    <div class="flex items-center gap-2 mt-1 flex-wrap">
+                      {position.team_id && <Badge variant="neutral">Team lead</Badge>}
+                      {position.email && <span class="font-body text-xs text-neutral-500">✉ {position.email}</span>}
+                    </div>
                   )}
                 </div>
               </div>

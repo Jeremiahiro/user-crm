@@ -17,7 +17,7 @@ const { id } = Astro.params
 const [{ data: position }, { data: rawTenures }, { count: totalTenures }] = await Promise.all([
   supabaseAdmin
     .from('elected_positions')
-    .select('id, title, description, order_of_precedence, is_active')
+    .select('id, title, description, order_of_precedence, is_active, email, team_id, teams(id, name)')
     .eq('id', id ?? '')
     .single(),
   supabaseAdmin
@@ -58,7 +58,8 @@ const peopleMap = new Map(((rawPeople ?? []) as Person[]).map(p => [p.id, p]))
 
 const activeTenure = tenures.find(t => !t.term_end)
 const currentHolder = activeTenure ? peopleMap.get(activeTenure.person_id) : undefined
-const canDelete = admin && (totalTenures ?? 0) === 0
+const team = position.teams as unknown as { id: string; name: string } | null
+const canDelete = admin && !team && (totalTenures ?? 0) === 0
 
 function fmtDate(iso: string | null) {
   if (!iso) return '—'
@@ -85,6 +86,7 @@ if (Astro.request.method === 'POST') {
       title: values.title,
       description: values.description || null,
       order_of_precedence: values.order_of_precedence ? parseInt(values.order_of_precedence) : null,
+      email: values.email || null,
     }),
   })
 
@@ -132,7 +134,7 @@ const saved = Astro.url.searchParams.get('saved') === '1'
     <Breadcrumb crumbs={[{ label: 'Positions', href: '/admin/positions' }, { label: position.title as string }]} />
 
     <!-- Header -->
-    <div class="flex items-start justify-between mb-7 gap-4">
+    <div class="flex items-start justify-between mb-7 gap-4 flex-wrap">
       <div>
         <div class="flex items-center gap-2.5 mb-1">
           {(position.order_of_precedence as number | null) && (
@@ -147,6 +149,16 @@ const saved = Astro.url.searchParams.get('saved') === '1'
         {(position.description as string | null) && (
           <p class="font-body text-sm text-neutral-500 m-0">{position.description}</p>
         )}
+        <div class="flex items-center gap-3 mt-1.5 flex-wrap">
+          {team && (
+            <a href={`/admin/teams/${team.id}`} class="font-body text-[13px] text-brand-navy no-underline">
+              Lead office for {team.name} →
+            </a>
+          )}
+          {(position.email as string | null) && (
+            <span class="font-body text-[13px] text-neutral-500">✉ {position.email}</span>
+          )}
+        </div>
       </div>
       <a href={`/admin/positions/${id}/assign`}
          class="shrink-0 px-4 py-2 bg-brand-gold text-brand-navy rounded-md font-body text-[13px] font-semibold no-underline whitespace-nowrap">
@@ -165,7 +177,7 @@ const saved = Astro.url.searchParams.get('saved') === '1'
     <div class="bg-white border border-neutral-200 rounded-lg px-6 py-5 mb-5">
       <h2 class="font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mt-0 mb-3.5">Current holder</h2>
       {currentHolder ? (
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center justify-between gap-4 flex-wrap">
           <div class="flex items-center gap-3">
             <div class="w-11 h-11 rounded-full bg-brand-gold text-brand-navy flex items-center justify-center font-body text-sm font-bold shrink-0 overflow-hidden">
               {currentHolder.profile_photo_url
@@ -203,7 +215,7 @@ const saved = Astro.url.searchParams.get('saved') === '1'
         )}
 
         <form method="POST" class="flex flex-col gap-4">
-          <div class="grid grid-cols-[1fr_auto] gap-4 items-end">
+          <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-4 items-end">
             <Input
               label="Title *"
               name="title"
@@ -222,6 +234,19 @@ const saved = Astro.url.searchParams.get('saved') === '1'
                 class="px-3 py-2.5 border border-neutral-300 rounded-md font-body text-sm text-neutral-800 w-full box-border"
               />
             </div>
+          </div>
+          <div class="flex flex-col gap-1">
+            <Input
+              label="Office email"
+              name="email"
+              type="email"
+              value={(position.email as string | null) ?? ''}
+              error={editErrors.email}
+              placeholder="Optional shared mailbox"
+            />
+            <p class="font-body text-xs text-neutral-400 m-0">
+              Signing in with Google as this address logs in as the current holder. At every handover, remove the previous holder's access to this Google account.
+            </p>
           </div>
           <div class="flex flex-col gap-1">
             <label class="font-body text-[13px] font-medium text-neutral-700">Description</label>
@@ -243,7 +268,7 @@ const saved = Astro.url.searchParams.get('saved') === '1'
       <h2 class="font-body text-[11px] font-semibold text-neutral-500 uppercase tracking-[0.08em] mt-0 mb-3">Tenure history</h2>
 
       {tenures.length > 0 ? (
-        <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+        <div class="bg-white border border-neutral-200 rounded-lg table-scroll">
           <table class="w-full border-collapse">
             <thead>
               <tr class="bg-neutral-50">
@@ -294,13 +319,15 @@ const saved = Astro.url.searchParams.get('saved') === '1'
         <div class="bg-danger-50 px-5 py-3 border-b border-danger-200">
           <h2 class="font-heading text-xs font-semibold text-danger-700 m-0 uppercase tracking-[0.06em]">Danger zone</h2>
         </div>
-        <div class="bg-white px-6 py-4.5 flex items-center justify-between gap-6">
+        <div class="bg-white px-6 py-4.5 flex items-center justify-between gap-6 flex-wrap">
           <div>
             <p class="font-body text-sm font-semibold text-neutral-800 m-0 mb-0.5">Delete this position</p>
             <p class="font-body text-[13px] text-neutral-500 m-0">
               {canDelete
                 ? 'Permanently removes this position. Cannot be undone.'
-                : `Has ${totalTenures} tenure record${(totalTenures ?? 0) !== 1 ? 's' : ''} — cannot delete.`}
+                : team
+                  ? 'Team lead offices belong to their team — archive the team instead.'
+                  : `Has ${totalTenures} tenure record${(totalTenures ?? 0) !== 1 ? 's' : ''} — cannot delete.`}
             </p>
           </div>
           <button

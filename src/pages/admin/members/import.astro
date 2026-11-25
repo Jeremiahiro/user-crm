@@ -8,7 +8,7 @@ if (!Astro.locals.user) return Astro.redirect('/login')
 <DashboardLayout title="Import Members">
   <div class="max-w-225">
     <Breadcrumb crumbs={[{ label: 'Members', href: '/admin/members' }, { label: 'Import CSV' }]} />
-    <div class="flex items-center justify-between mb-2">
+    <div class="flex items-center justify-between mb-2 flex-wrap gap-y-2">
       <h1 class="font-heading text-[22px] font-bold text-brand-navy m-0">Import Members</h1>
     </div>
     <p class="font-body text-sm text-neutral-500 m-0 mb-7">
@@ -246,7 +246,7 @@ if (!Astro.locals.user) return Astro.redirect('/login')
         <label style="display:block;font-family:var(--font-body);font-size:12px;font-weight:500;color:var(--color-neutral-600);margin-bottom:4px;">
           ${field.label}${field.required ? ' <span style="color:var(--color-danger-600)">*</span>' : ''}
         </label>
-        <select data-field="${field.key}" style="width:100%;padding:6px 8px;border:1px solid var(--color-neutral-300);border-radius:var(--radius-md);font-family:var(--font-body);font-size:13px;color:var(--color-neutral-700);background:white;">
+        <select data-field="${field.key}" style="width:100%;padding:6px 32px 6px 8px;border:1px solid var(--color-neutral-300);border-radius:var(--radius-md);font-family:var(--font-body);font-size:13px;color:var(--color-neutral-700);background-color:white;">
           ${field.required ? '' : '<option value="__default__">Use default</option>'}
           <option value="__ignore__">— Ignore —</option>
           ${csvHeaders.map(h => `<option value="${h}" ${colMap[field.key] === h ? 'selected' : ''}>${h}</option>`).join('')}

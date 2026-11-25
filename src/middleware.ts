@@ -2,6 +2,8 @@ import { defineMiddleware } from 'astro:middleware'
 import { Auth } from '@auth/core'
 import { authConfig } from './lib/auth'
 import { isDevAuthBypassEnabled } from './lib/dev-auth'
+import { resolveLoginIdentity } from './lib/offices'
+import { runWithRequestContext } from './lib/request-context'
 import { canManageCmp, isAdmin } from './lib/rbac'
 import { supabaseAdmin } from './lib/supabase'
 import type { PersonType, SessionUser } from './types/domain'
@@ -21,12 +23,15 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     devUserEmail: import.meta.env.DEV_USER_EMAIL,
   })) {
     const email = import.meta.env.DEV_USER_EMAIL as string
-    const { data: person } = await supabaseAdmin
-      .from('people')
-      .select('id, status, login_enabled, person_types, preferred_name, first_name, full_name')
-      .eq('email', email)
-      .single()
-    if (person?.login_enabled) {
+    const identity = await resolveLoginIdentity(email)
+    const { data: person } = identity?.personId && identity.loginEnabled
+      ? await supabaseAdmin
+        .from('people')
+        .select('id, status, person_types, preferred_name, first_name, full_name')
+        .eq('id', identity.personId)
+        .single()
+      : { data: null }
+    if (person) {
       const { data: userRoles } = await supabaseAdmin
         .from('user_roles')
         .select('roles(name)')
@@ -44,6 +49,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
         preferred_name: (person.preferred_name as string | null) ?? null,
         first_name: (person.first_name as string | null) ?? null,
         full_name: (person.full_name as string | null) ?? null,
+        signed_in_via: identity?.via ?? null,
       } satisfies SessionUser
     }
   }
@@ -114,5 +120,8 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     }
   }
 
-  return next()
+  return runWithRequestContext(
+    { actorVia: ctx.locals.user?.signed_in_via?.email ?? null },
+    () => next(),
+  )
 })

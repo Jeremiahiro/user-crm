@@ -2,7 +2,7 @@
 import DashboardLayout from '@/layouts/DashboardLayout.astro'
 import { supabaseAdmin } from '@/lib/supabase'
 import { isAdmin as checkIsAdmin, isMentor as checkIsMentor } from '@/lib/rbac'
-import { isChapterMember } from '@/lib/people'
+import { DBS_PERSON_TYPES, isChapterMember } from '@/lib/people'
 import { displayName, greetingName } from '@/lib/names'
 import { summariseDbs } from '@/lib/compliance'
 
@@ -100,7 +100,7 @@ if (userIsAdmin) {
     supabaseAdmin.from('people').select('*', { count: 'exact', head: true }).contains('person_types', ['volunteer']).in('status', ['suspended', 'inactive']).eq('is_archived', false),
     supabaseAdmin.from('people').select('*', { count: 'exact', head: true }).contains('person_types', ['trustee']).eq('is_archived', false),
     // DBS — fetch people + records to compute per-person latest, matching DBS page logic
-    supabaseAdmin.from('people').select('id').eq('is_archived', false),
+    supabaseAdmin.from('people').select('id').eq('is_archived', false).overlaps('person_types', [...DBS_PERSON_TYPES]),
     supabaseAdmin.from('dbs_records').select('person_id, expiry_date'),
     supabaseAdmin.from('cmp_sessions')
       .select('id, title, session_date, session_time, location, cmp_programme_years(name)')
@@ -147,7 +147,7 @@ if (userIsAdmin) {
     .or('gender.is.null,gender.neq.female')
   const dueEligibleIds = new Set(
     ((dueEligiblePeople ?? []) as { id: string; person_types: string[] }[])
-      .filter(p => !(p.person_types ?? []).every(t => t === 'volunteer'))
+      .filter(p => isChapterMember(p.person_types))
       .map(p => p.id)
   )
   eligibleCount = dueEligibleIds.size
@@ -341,7 +341,7 @@ const AWARD_LABELS: Record<string, string> = {
           { label: 'Suspended / Inactive', value: inactiveMembersCount, href: '/admin/members?status=inactive', colour: 'var(--color-warning-600)' },
         ].map(stat => (
           <a href={stat.href} class="flex flex-col justify-between bg-white border border-neutral-200 rounded-lg py-5 px-6 no-underline min-h-24">
-            <div class="flex justify-between items-start">
+            <div class="flex justify-between items-start flex-wrap gap-y-2">
               <p class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.08em] m-0">{stat.label}</p>
               <span class="text-sm text-neutral-400">→</span>
             </div>
@@ -350,7 +350,7 @@ const AWARD_LABELS: Record<string, string> = {
         ))}
         <!-- Dues compliance card -->
         <a href="/admin/dues" class="flex flex-col justify-between bg-white border border-neutral-200 rounded-lg py-5 px-6 no-underline min-h-24">
-          <div class="flex justify-between items-start">
+          <div class="flex justify-between items-start flex-wrap gap-y-2">
             <p class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.08em] m-0">Dues compliance {currentYear}</p>
             <span class="text-sm text-neutral-400">→</span>
           </div>
@@ -375,7 +375,7 @@ const AWARD_LABELS: Record<string, string> = {
           { label: 'Board / Trustees', value: trusteesCount, href: '/admin/members?person_type=trustee', colour: 'var(--color-brand-navy)' },
         ].map(stat => (
           <a href={stat.href} class="flex flex-col justify-between bg-white border border-neutral-200 rounded-lg py-5 px-6 no-underline min-h-24">
-            <div class="flex justify-between items-start">
+            <div class="flex justify-between items-start flex-wrap gap-y-2">
               <p class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.08em] m-0">{stat.label}</p>
               <span class="text-sm text-neutral-400">→</span>
             </div>
@@ -393,7 +393,7 @@ const AWARD_LABELS: Record<string, string> = {
           { label: 'No DBS record', value: dbsMissing, href: '/admin/dbs?status=missing', colour: dbsMissing > 0 ? 'var(--color-warning-600)' : 'var(--color-success-600)' },
         ].map(stat => (
           <a href={stat.href} class="flex flex-col justify-between bg-white border border-neutral-200 rounded-lg py-5 px-6 no-underline min-h-24">
-            <div class="flex justify-between items-start">
+            <div class="flex justify-between items-start flex-wrap gap-y-2">
               <p class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.08em] m-0">{stat.label}</p>
               <span class="text-sm text-neutral-400">→</span>
             </div>
@@ -403,7 +403,7 @@ const AWARD_LABELS: Record<string, string> = {
       </div>
 
       <!-- Admin: Main content — 3-col layout -->
-      <div class="grid [grid-template-columns:1fr_1fr_360px] gap-5">
+      <div class="grid grid-cols-1 xl:grid-cols-[1fr_1fr_360px] gap-5">
 
         <!-- Activity feed -->
         <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
@@ -441,7 +441,7 @@ const AWARD_LABELS: Record<string, string> = {
         <!-- Upcoming CMP sessions + Praise -->
         <div class="flex flex-col gap-5">
           <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
-            <div class="py-4 px-5 border-b border-neutral-200 flex items-center justify-between">
+            <div class="py-4 px-5 border-b border-neutral-200 flex items-center justify-between flex-wrap gap-y-2">
               <h2 class="font-heading text-sm font-bold text-neutral-800 m-0">Upcoming CMP sessions</h2>
               <a href="/admin/cmp/years" class="font-body text-xs text-brand-navy no-underline">View all →</a>
             </div>
@@ -452,7 +452,7 @@ const AWARD_LABELS: Record<string, string> = {
                 {sessions.map((s, i) => (
                   <a href={`/admin/cmp/sessions/${s.id}`}
                     class={`block py-3 px-5 no-underline ${i > 0 ? 'border-t border-neutral-100' : ''}`}>
-                    <div class="flex items-start justify-between gap-2">
+                    <div class="flex items-start justify-between gap-2 flex-wrap">
                       <div>
                         <p class="font-body text-[13px] font-medium text-brand-navy m-0 mb-0.5">{s.title}</p>
                         <p class="font-body text-xs text-neutral-400 m-0">
@@ -473,7 +473,7 @@ const AWARD_LABELS: Record<string, string> = {
 
           <!-- Recent praise -->
           <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
-            <div class="py-4 px-5 border-b border-neutral-200 flex items-center justify-between">
+            <div class="py-4 px-5 border-b border-neutral-200 flex items-center justify-between flex-wrap gap-y-2">
               <h2 class="font-heading text-sm font-bold text-neutral-800 m-0">Recent praise ⭐</h2>
               <a href="/admin/praise" class="font-body text-xs text-brand-navy no-underline">View all →</a>
             </div>
@@ -583,7 +583,7 @@ const AWARD_LABELS: Record<string, string> = {
 
       <!-- Dues summary widget -->
       {!userIsAdmin && userIsMember && (
-        <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6 mb-6 flex items-center justify-between gap-4">
+        <div class="bg-white border border-neutral-200 rounded-lg py-5 px-6 mb-6 flex items-center justify-between gap-4 flex-wrap">
           <div class="flex items-center gap-5">
             <span class="text-2xl">💰</span>
             <div>
@@ -607,7 +607,7 @@ const AWARD_LABELS: Record<string, string> = {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <!-- My Buddy -->
         <div class="buddy-card bg-white border border-neutral-200 rounded-lg py-5 px-6">
-          <div class="flex items-center justify-between mb-2.5">
+          <div class="flex items-center justify-between mb-2.5 flex-wrap gap-y-2">
             <p class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.08em] m-0">🤝 My Buddy</p>
             {myBuddy?.buddyPerson && <button onclick="revealSection(this)" class="font-body text-[11px] font-medium text-brand-navy bg-transparent border border-neutral-300 rounded-sm py-0.5 px-2.5 cursor-pointer">Reveal details</button>}
           </div>
@@ -630,12 +630,12 @@ const AWARD_LABELS: Record<string, string> = {
 
         <!-- I am buddy to -->
         <div class="buddy-card bg-white border border-neutral-200 rounded-lg py-5 px-6">
-          <div class="flex items-center justify-between mb-2.5">
+          <div class="flex items-center justify-between mb-2.5 flex-wrap gap-y-2">
             <p class="font-body text-xs font-medium text-neutral-500 uppercase tracking-[0.08em] m-0">🤝 I am buddy to</p>
             {iAmBuddyTo.length > 0 && <button onclick="revealSection(this)" class="font-body text-[11px] font-medium text-brand-navy bg-transparent border border-neutral-300 rounded-sm py-0.5 px-2.5 cursor-pointer">Reveal details</button>}
           </div>
           {iAmBuddyTo.length > 0 ? (
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {iAmBuddyTo.map(entry => entry.primaryPerson && (
                 <div>
                   <p class="font-heading text-sm font-bold text-brand-navy m-0 mb-1">{displayName(entry.primaryPerson)}</p>
@@ -662,7 +662,7 @@ const AWARD_LABELS: Record<string, string> = {
 
         <!-- My Teams -->
         <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
-          <div class="py-4 px-5 border-b border-neutral-200 flex items-center justify-between">
+          <div class="py-4 px-5 border-b border-neutral-200 flex items-center justify-between flex-wrap gap-y-2">
             <h2 class="font-heading text-sm font-bold text-neutral-800 m-0">My Teams</h2>
             <a href="/admin/teams" class="font-body text-xs text-brand-navy no-underline">Browse all →</a>
           </div>
@@ -676,7 +676,7 @@ const AWARD_LABELS: Record<string, string> = {
               {myTeams.map((t, i) => (
                 <a href={`/admin/teams/${t.teams?.id}`}
                    class={`block py-3 px-5 no-underline ${i > 0 ? 'border-t border-neutral-100' : ''}`}>
-                  <div class="flex items-center justify-between">
+                  <div class="flex items-center justify-between flex-wrap gap-y-2">
                     <div>
                       <p class="font-body text-[13px] font-medium text-brand-navy m-0">{t.teams?.name}</p>
                       {t.teams?.description && (
@@ -696,7 +696,7 @@ const AWARD_LABELS: Record<string, string> = {
         <!-- Upcoming CMP sessions -->
         <div class="flex flex-col gap-5">
           <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
-            <div class="py-4 px-5 border-b border-neutral-200 flex items-center justify-between">
+            <div class="py-4 px-5 border-b border-neutral-200 flex items-center justify-between flex-wrap gap-y-2">
               <h2 class="font-heading text-sm font-bold text-neutral-800 m-0">Upcoming CMP sessions</h2>
             </div>
             {myUpcomingSessions.length === 0 ? (

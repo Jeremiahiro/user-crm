@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabase'
 import { writeAuditLog } from '@/lib/audit'
 import { isAdmin } from '@/lib/rbac'
+import { assignOfficeHolder, getTeamLeadOfficeId } from '@/lib/offices'
 
 const AssignSchema = z.object({
   team_id: z.string().uuid(),
@@ -55,14 +56,13 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     })
   }
 
-  const { data, error } = await supabaseAdmin
+  // is_team_lead is derived from the team's lead office, so never written here
+  const { error } = await supabaseAdmin
     .from('person_teams')
     .upsert(
-      { person_id: personId, team_id, is_team_lead, joined_at: new Date().toISOString() },
-      { onConflict: 'person_id,team_id' },
+      { person_id: personId, team_id, joined_at: new Date().toISOString() },
+      { onConflict: 'person_id,team_id', ignoreDuplicates: true },
     )
-    .select()
-    .single()
 
   if (error) {
     console.error('[POST /api/members/:id/teams] DB error:', error)
@@ -70,6 +70,31 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       status: 500, headers: { 'Content-Type': 'application/json' },
     })
   }
+
+  if (is_team_lead) {
+    const officeId = await getTeamLeadOfficeId(team_id)
+    const result = officeId
+      ? await assignOfficeHolder({
+        positionId: officeId,
+        personId,
+        termStart: new Date().toISOString().slice(0, 10),
+        electedBy: 'board_appointment',
+        actorId: locals.user.person_id,
+      })
+      : { ok: false as const, status: 404, error: 'Team not found' }
+    if (!result.ok && result.status !== 409) {
+      return new Response(JSON.stringify({ error: result.error }), {
+        status: result.status, headers: { 'Content-Type': 'application/json' },
+      })
+    }
+  }
+
+  const { data } = await supabaseAdmin
+    .from('person_teams')
+    .select()
+    .eq('person_id', personId)
+    .eq('team_id', team_id)
+    .single()
 
   await writeAuditLog({
     actorId: locals.user.person_id,
@@ -101,6 +126,19 @@ export const DELETE: APIRoute = async ({ params, url, locals }) => {
   if (!teamId) {
     return new Response(JSON.stringify({ error: 'team_id query parameter is required' }), {
       status: 400, headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  const { data: membership } = await supabaseAdmin
+    .from('person_teams')
+    .select('is_team_lead')
+    .eq('person_id', personId)
+    .eq('team_id', teamId)
+    .maybeSingle()
+
+  if (membership?.is_team_lead) {
+    return new Response(JSON.stringify({ error: 'This person leads the team. Hand the lead over before removing them.' }), {
+      status: 409, headers: { 'Content-Type': 'application/json' },
     })
   }
 

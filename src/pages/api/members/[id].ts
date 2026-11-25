@@ -4,6 +4,7 @@ import { writeAuditLog } from '@/lib/audit'
 import { dbErrorMessage } from '@/lib/http'
 import { isAdmin, getTeamMemberIds } from '@/lib/rbac'
 import { UpdateMemberSchema } from '@/lib/people'
+import { findOfficeEmails, OFFICE_EMAIL_IN_USE } from '@/lib/offices'
 
 // Fields a member may edit on their own profile (no sensitive admin-only fields)
 const SelfUpdateFields = new Set([
@@ -107,6 +108,13 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
     updateData = Object.fromEntries(
       Object.entries(parsed.data).filter(([key]) => SelfUpdateFields.has(key))
     ) as typeof parsed.data
+  }
+
+  if (updateData.email && (await findOfficeEmails([updateData.email])).size > 0) {
+    return new Response(
+      JSON.stringify({ error: OFFICE_EMAIL_IN_USE, issues: { fieldErrors: { email: [OFFICE_EMAIL_IN_USE] } } }),
+      { status: 409, headers: { 'Content-Type': 'application/json' } },
+    )
   }
 
   const { data: before } = await supabaseAdmin.from('people').select('*').eq('id', targetId).single()
